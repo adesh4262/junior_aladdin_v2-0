@@ -1,0 +1,874 @@
+================================================================================
+          JUNIOR ALADDIN - MASTER ASSEMBLY PLAN V1.1 FINAL
+ (Original plan.txt preserved | This file = updated consolidated master reference)
+================================================================================
+
+हे document कसे वापरायचे:
+- original `plan.txt` preserved आहे; हा file त्याचा updated final master reference आहे.
+- base content preserve करून पुढचे sections ADD केले आहेत.
+- targeted clarification जिथे गरजेची होती तिथेच केली आहे; पूर्ण rewrite नाही.
+- Planning दिशा: TOP -> DOWN (Captain पासून खाली).
+- Building/Implementation दिशा (नंतरचा roadmap): BOTTOM -> UP.
+- detail साठी floor/side final files authoritative राहतील; हा file master summary आहे.
+
+--------------------------------------------------------------------------------
+SECTION 0 : DOCUMENT INDEX (V1.1 FINAL STATUS)
+--------------------------------------------------------------------------------
+[DONE]  SECTION 1  - System working overview
+[DONE]  SECTION 2  - Early master architecture sketch (preserved base)
+[DONE]  SECTION 3  - Data flow (Market -> Trade)
+[DONE]  SECTION 4  - Core locked rules
+[DONE]  SECTION 5  - 8 strengthening ideas (all wired, no hook)
+[DONE]  SECTION 6  - Final master clarifications before component breakdown
+[DONE]  SECTION 7  - FLOOR 5 : CAPTAIN (final master summary)
+[DONE]  SECTION 8  - FLOOR 4 : DEPARTMENT HEADS
+[DONE]  SECTION 9  - FLOOR 3 : STRUCTURED INTELLIGENCE FACTORY
+[DONE]  SECTION 10 - FLOOR 2 : DATA CENTER / TRUTH LAYER
+[DONE]  SECTION 11 - FLOOR 1 : MARKET CONNECTION / CONNECTION LAYER
+[DONE]  SECTION 12 - SIDE A : EXECUTION / ACTION LAYER
+[DONE]  SECTION 13 - SIDE B : DASHBOARD / OPERATOR TERMINAL
+[DONE]  SECTION 14 - SIDE C : MEMORY / OBSERVABILITY / JOURNAL LAYER
+[DONE]  SECTION 15 - FULL SYSTEM INTEGRATION / OWNERSHIP / FLOWS
+[DONE]  SECTION 16 - CANONICAL FINAL FILE SET + WORKING RULES
+[DONE]  SECTION 17 - MASTER PLAN FINAL STATUS
+
+================================================================================
+SECTION 1 : SYSTEM WORKING OVERVIEW (सिस्टीम कशी काम करेल)
+================================================================================
+
+Junior Aladdin ही फक्त NIFTY 50 साठीची एक auto market-observation + trading
+system आहे. ती एका professional trader च्या मेंदूसारखी काम करते - पण ती एक
+technical brain आहे, म्हणून ती एका माणसापेक्षा जास्त data एकाच वेळी बघू शकते.
+
+मूळ कल्पना (एका वाक्यात):
+  Market मधून सगळा data घ्यायचा -> तो स्वच्छ करायचा -> त्यावर professional
+  trader जसे analysis करतात तसे सगळे calculations करायचे -> ते वेगवेगळ्या
+  तज्ज्ञांनी (Department Heads) वाचून प्रत्येकाने आपले मत बनवायचे -> ती सगळी
+  मते एका राजाने (Captain) ऐकायची, एकत्र करायची, आणि एकच निर्णय घ्यायचा:
+  trade करायचा की नाही. निर्णय झाला तर तो Execution कडे जातो (alert/paper/real).
+  आणि सगळे काही Dashboard वर दिसते.
+
+System चे स्वभाव (philosophy):
+  - Survival First : प्रथम पैसे न गमावणे, मग नफा. flat दिवस = यशस्वी दिवस.
+  - Confluence or Silence : अनेक गोष्टी एकाच दिशेला जुळल्या तरच trade.
+  - Context First : trade आधी market ची आजची स्थिती (regime, session, story).
+  - Trap Awareness : प्रत्येक signal वर "हा सापळा तर नाही?" हा प्रश्न.
+  - Discipline : loss नंतर लहान/थांब, कधीही revenge/greed नाही.
+  - तिन्ही mode (ALERT/PAPER/REAL) मध्ये सारख्याच seriousness ने काम.
+
+Captain चा विचार करण्याचा rhythm (दोन-टप्पा / Two-Speed):
+  - HEAVY (candle close वर): पूर्ण इतिहास वाचून जड analysis. Heads आपापले
+    reports बनवतात, Captain एक "तयार योजना" (armed plan) बनवतो - म्हणजे
+    "किंमत X ला आली + अट पूर्ण झाली तर हा trade."
+  - LIGHT (प्रत्येक tick वर): फक्त बघायचे की armed plan ची अट पूर्ण झाली का.
+    झाली -> instant trade trigger. नाही -> वाट बघ.
+  कारण: प्रत्येक tick ला जड analysis केले तर laptop hang होईल आणि अर्ध्या
+  candle चा खोटा signal येईल. म्हणून निर्णय candle वर, पहारा tick वर.
+  फायदा: वेळ निघून जात नाही (tick trigger instant) + system hang होत नाही
+  + मानसिकता प्रत्येक tick ला बदलत नाही (discipline टिकते).
+
+================================================================================
+SECTION 2 : THE 5 FLOORS + EARLY SIDE BLOCK SKETCH (preserved base)
+================================================================================
+
+Planning वरून-खाली, Building खालून-वर. प्रत्येक floor त्याच्या वरच्या floor ला
+नेमके काय द्यायचे हे ठरवून बनतो (output contract).
+
+  +----------------------------------------------------------------+
+  |  FLOOR 5 - CAPTAIN  (राजा / decision engine)                  |
+  |  6 Heads चे reports + context घेऊन एकच निर्णय: trade की नाही  |
+  |  6-layer thinking brain, two-speed, personality, conviction   |
+  +----------------------------------------------------------------+
+                         ^ reports (bias+confidence+reasons+triggers+zones)
+  +----------------------------------------------------------------+
+  |  FLOOR 4 - DEPARTMENT HEADS  (6 तज्ज्ञ)                        |
+  |  Technical | SMC | ICT | Options | Macro | Psychology          |
+  |  प्रत्येक calculations वाचून स्वतःचे मत बनवतो                  |
+  +----------------------------------------------------------------+
+                         ^ calculated values (indicators, zones, structure)
+  +----------------------------------------------------------------+
+  |  FLOOR 3 - CALCULATION ENGINES                                |
+  |  Market Structure | SMC | ICT | Price Action | Technical |     |
+  |  Options | Macro - कच्ची आकडेमोड, zones शोधणे                 |
+  +----------------------------------------------------------------+
+                         ^ clean data
+  +----------------------------------------------------------------+
+  |  FLOOR 2 - DATA CENTER  (clean + store)                       |
+  |  raw store -> validate -> clean -> structured                  |
+  |  (major/minor/computed) | quality check | replay | monitoring  |
+  +----------------------------------------------------------------+
+                         ^ raw data
+  +----------------------------------------------------------------+
+  |  FLOOR 1 - MARKET CONNECTION  (data fetch)                    |
+  |  Angel One (ticks, option chain, OI, VIX) + FII/DII +          |
+  |  Global cues + Calendar (holiday/expiry/event)                 |
+  +----------------------------------------------------------------+
+                         ^
+                   MARKET (NIFTY 50)
+
+  SIDE BLOCKS (इमारतीच्या बाजूला, सर्व floors शी जोडलेले):
+  +----------------------------------------------------------------+
+  |  SIDE A - EXECUTION                                            |
+  |  ALERT (नेहमी चालू) | PAPER | REAL | sizing | order | log     |
+  +----------------------------------------------------------------+
+  |  SIDE B - DASHBOARD                                            |
+  |  फक्त दाखवतो | mode/capital सेटिंग | kill switch | panels      |
+  +----------------------------------------------------------------+
+
+Floor सारांश टेबल:
+  Floor 5  Captain            - अंतिम निर्णय (राजा)
+  Floor 4  Department Heads   - 6 तज्ज्ञांची मते -> Captain ला
+  Floor 3  Calculations       - indicators, SMC/ICT zones, structure मोजणे
+  Floor 2  Data Center        - clean + store (major/minor/computed)
+  Floor 1  Market Connection  - सगळा data आणणे
+  Side A   Execution          - ALERT/PAPER/REAL + order + log
+  Side B   Dashboard          - दाखवणे + control (mode/capital/kill)
+
+================================================================================
+SECTION 3 : DATA FLOW - MARKET TO TRADE (पूर्ण cycle)
+================================================================================
+
+एका सामान्य trading दिवशी data कसा वाहतो:
+
+  STEP 1  MARKET
+          NIFTY 50 spot + त्याचे ATM/ITM/OTM premiums + option chain.
+
+  STEP 2  FLOOR 1 - MARKET CONNECTION (fetch)
+          Angel One WebSocket -> live ticks (LTP, OHLC, volume, depth)
+          Angel One REST -> option chain, OI, historical, VIX
+          बाहेरून -> FII/DII, Global cues, Calendar (holiday/expiry/event)
+          OUTPUT -> raw data Floor 2 कडे.
+
+  STEP 3  FLOOR 2 - DATA CENTER (clean + store)
+          raw store (जसाच्या तसा) -> validate (duplicate, timestamp,
+          missing, corrupt candle) -> clean -> structured store
+          (major / minor / computed) + quality score.
+          OUTPUT -> clean, verified data Floor 3 कडे.
+
+  STEP 4  FLOOR 3 - CALCULATION ENGINES
+          clean data वर सगळी आकडेमोड:
+          structure (swing, BOS, CHoCH, trend), SMC (OB, FVG, liquidity,
+          sweep), ICT (premium/discount, displacement), price action
+          (candle patterns), technical (EMA, RSI, VWAP, ATR, ADX,
+          supertrend), options (PCR, OI, max pain, GEX, IV, greeks),
+          macro (VIX, FII/DII, global).
+          OUTPUT -> calculated values Floor 4 कडे.
+
+  STEP 5  FLOOR 4 - DEPARTMENT HEADS (6 तज्ज्ञ)
+          प्रत्येक Head आपापली calculations वाचतो + संपूर्ण इतिहास बघतो
+          (फक्त चालू candle नाही) + स्वतःची memory ठेवतो (कोणता
+          FVG/OB/sweep अजून जिवंत आहे) आणि एक report बनवतो:
+             bias, confidence, reasons, timeframe_view,
+             active_zones, armed_triggers, invalidation, timestamp.
+          (Psychology Head वेगळा: bias देत नाही, फक्त allow/block + brake.)
+          OUTPUT -> 6 reports Floor 5 (Captain) कडे.
+
+  STEP 6  FLOOR 5 - CAPTAIN (राजा)
+          HEAVY (candle close): 6 reports + context घेऊन 6-layer विचार
+          करतो (खाली SECTION 6 मध्ये detail येईल) आणि armed plan बनवतो.
+          LIGHT (प्रत्येक tick): trigger अट पूर्ण झाली का बघतो.
+          निर्णय: TRADE / WAIT / BLOCKED. trade असेल तर entry, SL,
+          target, size ठरवतो (तुझ्या manual capital च्या आत).
+          OUTPUT -> निर्णय Side A (Execution) कडे.
+
+  STEP 7  SIDE A - EXECUTION
+          ALERT  -> Telegram notification (तिन्ही mode मध्ये नेहमी).
+          PAPER  -> simulated trade (तू सेट केलेल्या खोट्या capital ने,
+                    खरी slippage + cost वजा करून).
+          REAL   -> Angel One ला limit/SL-limit order (तू सेट केलेल्या
+                    खऱ्या capital ने).
+          सगळे log book मध्ये नोंद (वेळ, entry, SL, target, P&L).
+
+  STEP 8  SIDE B - DASHBOARD
+          वरचे सगळे live दाखवतो. तू इथे mode (PAPER/REAL), capital,
+          kill-switch नियंत्रित करतोस. ती सेटिंग पूर्ण system मध्ये sync होते.
+
+  STEP 9  POSITION MANAGEMENT (trade उघडल्यावर)
+          प्रत्येक tick ला उघड्या position चा SL/target/trailing/time-exit
+          बघितला जातो. thesis invalidate झाला तर बाहेर. EOD ला बंद.
+
+  परत STEP 2 पासून cycle चालू राहते (दर tick / दर candle).
+
+================================================================================
+SECTION 4 : CORE LOCKED RULES (हे आता बदलणार नाहीत - पाया)
+================================================================================
+
+  R1  फक्त NIFTY 50 (spot + ATM/ITM/OTM options). दुसरे काही नाही.
+  R2  ML पूर्ण रद्द. कोणत्याही floor वर ML नाही. त्याची जागा Confluence
+      (rule-based) घेते. (कारण: market predict होत नाही.)
+  R3  Two-Speed: candle close वर heavy analysis, tick वर light trigger.
+  R4  ALERT mode नेहमी चालू (तिन्ही mode मध्ये). फक्त PAPER <-> REAL switch.
+  R5  Capital manual: तू dashboard वर ठरवतोस; system त्या मर्यादेतच काम करते.
+      PAPER मध्ये पण तू सेट केलेले (खोटे) capital वापरले जाते.
+  R6  Heads फक्त चालू candle बघत नाहीत - संपूर्ण इतिहास + स्वतःची memory.
+  R7  Captain स्वतः chart काढत नाही - फक्त Heads चे reports वापरतो.
+  R8  Planning living आहे: खालचा floor करताना वरच्या floor मध्ये बदल लागला
+      तर त्याच section मध्ये परत जाऊन update करायचे.
+  R9  Roadmap मध्ये वेळेचे गृहीतक नाही (week/2-day testing नाही).
+      Roadmap = task/dependency क्रमाने. Testing सगळे coding नंतर एकत्र.
+  R10 Holiday/expiry awareness: holiday असेल तर system चालणार नाही -
+      ती स्पष्ट सांगेल "आज सुट्टी, trade नाही."
+
+================================================================================
+SECTION 5 : 8 STRENGTHENING IDEAS (सगळ्या आत्ताच wire करायच्या - HOOK नाही)
+================================================================================
+
+प्रत्येक idea ची नेमकी जागा (कोणत्या floor मध्ये) पुढे त्या floor च्या plan मध्ये
+पूर्ण detail ने wire होईल. इथे फक्त यादी + ती कुठे बसते याची नोंद.
+
+  I1  PRE-MORTEM ("हा trade कसा फसेल?")
+      जागा: FLOOR 5 Captain (निर्णयाच्या आत). प्रत्येक trade आधी failure
+      scenario तपासतो; failure खूप जवळ/सोपा असेल तर trade सोडतो.
+
+  I2  CONFIDENCE CALIBRATION (Captain चा अंदाज खरंच किती बरोबर येतो)
+      जागा: FLOOR 5 Captain + journal कडून data. wiring आत्ताच; logic
+      data जमल्यावर चालू होते (पण जागा/जोडणी आता पक्की).
+
+  I3  REGIME FIRST (आधी market regime, मग कोणते Heads ऐकायचे ते बदलणे)
+      जागा: FLOOR 5 Captain (सर्वात पहिली layer) + FLOOR 3 regime calc.
+
+  I4  TIME-EXIT + DEAD-MARKET DETECTION
+      जागा: FLOOR 5 Captain (observe निर्णय) + Position Mgmt (time exit).
+
+  I5  SHADOW LOGGING (नाकारलेले trades पण काल्पनिक log करणे)
+      जागा: FLOOR 5 Captain -> Side A/journal. wiring आत्ताच; नंतर review.
+
+  I6  NO SAME MISTAKE TWICE (आज एका level वर trap लागला तर तिथे पुन्हा नको)
+      जागा: FLOOR 5 Captain (session memory वापर) + FLOOR 4 Psych Head.
+
+  I7  CORRELATION GUARD (Bank Nifty + global उलट असेल तर signal कमजोर)
+      जागा: FLOOR 1 (Bank Nifty data) + FLOOR 4 Macro Head + Captain.
+
+  I8  SLIPPAGE REALITY (paper मध्ये perfect fill नाही - खरी slippage+cost)
+      जागा: SIDE A Execution (paper broker).
+
+  टीप: I2 आणि I5 ला जुना data लागतो म्हणून ते "data जमल्यावर चालू" होतात,
+       पण त्यांची wiring, data flow, reporting आत्ताच पूर्ण plan होईल
+       (नंतर file शोधत बसायचे नाही - R8 प्रमाणे).
+
+================================================================================
+  पुढची पायरी: SECTION 6 - FLOOR 5 (CAPTAIN) चा सविस्तर plan (येईल).
+  (हे document इथून पुढे फक्त ADD होत जाईल.)
+================================================================================
+
+================================================================================
+SECTION 6 : FINAL MASTER CLARIFICATIONS BEFORE COMPONENT BREAKDOWN
+================================================================================
+
+हा section early master plan rewrite करत नाही.
+हा section early sections preserve ठेवून final locked architecture clarify करतो.
+जर Section 1-5 मधल्या early-stage wording आणि खालील final clarified wording मध्ये
+कुठे mismatch दिसला, तर या section पासून पुढचे clarified sections authoritative
+समजायचे.
+
+FINAL LOCKED ARCHITECTURE MAP:
+- FLOOR 1 = Connection Layer
+- FLOOR 2 = Truth Layer / Data Governance / Replay Foundation
+- FLOOR 3 = Structured Intelligence Factory
+- FLOOR 4 = Interpretation / Confidence Layer
+- FLOOR 5 = Decision / Conviction / Captain Layer
+- SIDE A = Action / Execution Layer
+- SIDE B = View / Operator Terminal
+- SIDE C = Memory / Observability / Journal Layer
+
+Most important final laws:
+- Quality = Floor 3
+- Confidence = Floor 4
+- Conviction = Floor 5
+- Captain = Supreme Judge
+- one active trade at a time
+- ALERT always active, PAPER / REAL execution switch
+- dashboard never becomes decision layer
+- Side C never becomes truth owner, intelligence layer, scorer, recommender, or judge
+
+Final Floor 3 clarification:
+- final domain split = Market Structure, SMC, ICT, Technical, Options, Macro
+- Price Action is NOT a separate final domain
+- basic candle pattern logic = Technical domain
+- contextual candle behaviour = SMC / ICT interpretation path
+- Psychology is NOT a full Floor 3 domain; only support metrics exist there
+
+Final Floor 4 clarification:
+- final heads = Technical, SMC, ICT, Options, Macro, Psychology
+- Floor 4 owns confidence
+- Floor 4 does not own conviction or execution
+
+Final Side clarification:
+- Side A executes
+- Side B reveals and routes allowed controls
+- Side C stores facts, links, memory, and references
+
+Planning law remains unchanged:
+- planning = top to bottom
+- implementation = bottom to top
+
+
+================================================================================
+SECTION 7 : FLOOR 5 - CAPTAIN (FINAL MASTER SUMMARY)
+================================================================================
+
+One-line identity:
+Captain = final judge, final conviction owner, final trade approval authority.
+
+Captain receives mainly from Floor 4:
+- Floor Summary
+- Individual Head Reports
+- confidence-bearing expert interpretation
+- freshness / state context
+- invalidation-bearing context
+- no-setup intelligence
+- core-head health snapshot
+
+Captain does NOT receive:
+- raw market data as routine decision input
+- direct execution ownership
+- memory ownership
+
+Captain does:
+- summary-first judgment
+- drill-down when needed
+- weighted confluence
+- opposite-case check
+- no-trade reasoning
+- strategic supervision of active trade
+- rare strategic override only
+
+Captain key locked points:
+- one active trade only
+- heavy thinking mainly on 1m candle close
+- light observation on tick
+- Armed Plans System locked
+- Market Narrative Timeline locked
+- NO_SETUP intelligence locked
+- stale core-head handling locked
+- explainability ownership at Captain locked
+- Psychology block non-overridable locked
+- real mode 3-losing-trades lock respected
+
+Captain output to Side A includes:
+- approved trade intent
+- entry/invalidation/SL/target intent
+- capital context
+- mode context
+- override permissions where applicable
+
+Boundary:
+- Heads interpret
+- Captain judges
+- Side A executes
+
+Detailed reference file:
+- FLOOR_05_CAPTAIN_V2_2_FINAL.txt
+
+
+================================================================================
+SECTION 8 : FLOOR 4 - DEPARTMENT HEADS
+================================================================================
+
+One-line identity:
+Floor 4 = expert witness layer that converts Floor 3 intelligence into Captain-
+readable expert confidence.
+
+Final head set:
+- Technical Head
+- SMC Head
+- ICT Head
+- Options Head
+- Macro Head
+- Psychology Head
+
+Floor 4 owns:
+- domain interpretation
+- local confidence
+- invalidation
+- setup prioritization
+- Floor Summary generation
+
+Floor 4 does NOT own:
+- conviction
+- final trade approval
+- execution
+- memory ownership
+
+Final locked operating model:
+- hybrid refresh rhythm = 1m base + 5m/15m deep refresh + tick watch
+- head-specific memory
+- max 2 setups per actionable head
+- READY / UNCERTAIN / STALE states
+- freshness_score + freshness_tag + last_deep_update
+- invalidation mandatory
+- SMC / ICT context_quality_score mandatory
+- Floor Summary + Individual Reports both mandatory
+- NO_SETUP propagation locked
+
+Macro final role:
+- light gate / context head
+- not dominant directional setup engine
+
+Psychology final role:
+- balanced brake head
+- not directional setup head
+
+Captain consumption model:
+- Captain summary-first वाचतो
+- conflict / stale core head / high opportunity / intervention अशा cases मध्ये
+  drill-down करतो
+
+Detailed reference file:
+- FLOOR_04_DEPARTMENT_HEADS_V1_2_FINAL.txt
+
+
+================================================================================
+SECTION 9 : FLOOR 3 - STRUCTURED INTELLIGENCE FACTORY
+================================================================================
+
+One-line identity:
+Floor 3 = clean truth वरून structured intelligence बनवणारा factory layer.
+
+Final domain split:
+- Market Structure
+- SMC
+- ICT
+- Technical
+- Options
+- Macro
+
+Important final clarifications:
+- Price Action separate final domain नाही
+- Technical मध्ये basic candle patterns
+- SMC / ICT मध्ये contextual candle behaviour
+- Psychology only support metrics, full domain नाही
+
+Floor 3 owns:
+- raw outputs
+- structured states
+- maps
+- quality scores
+- candidate outputs
+- Common Market State Projection (CMSP)
+
+Floor 3 does NOT own:
+- confidence
+- conviction
+- trade approval
+- expert opinion
+
+Architecture law:
+- Quality = Floor 3
+- Confidence = Floor 4
+- Conviction = Floor 5
+
+Tier priority:
+- Tier 1 = Market Structure, SMC, ICT
+- Tier 2 = Options, Technical
+- Tier 3 = Macro + support metrics
+
+CMSP final role:
+- owner = Floor 3
+- fields = price_state, volatility_state, session_state, regime_state, key_levels
+- consumer support = heads / summary builder / dashboard context surfaces
+
+Floor 3 normal output path:
+Floor 3 -> Floor 4 -> Captain
+Captain should not become routine direct consumer of Floor 3 packets.
+
+Detailed reference file:
+- FLOOR_03_CALCULATION_ENGINES_V1_1_FINAL.txt
+
+
+================================================================================
+SECTION 10 : FLOOR 2 - DATA CENTER / TRUTH LAYER
+================================================================================
+
+One-line identity:
+Floor 2 = Truth Layer, validation layer, traceability layer, replay foundation.
+
+Floor 2 core responsibilities:
+- original raw truth preserve
+- normalized raw envelope preserve
+- validation
+- cleaning
+- structured truth generation
+- metadata side-channel
+- replay readiness
+- review / governance light signals
+- contract registry
+
+Floor 2 final mandatory structured outputs:
+- validated_tick_stream
+- validated_candle_streams
+- options_snapshots
+- session_packets
+- macro_support_packets
+
+Metadata side-channel examples:
+- raw_trust_level
+- validation_confidence
+- packet_completeness
+- continuity_status
+- source_health_state
+- fetched_at / validated_at
+- review_status
+- transform_stage
+- replay_metadata
+
+Review light signal path:
+- GOOD
+- CAUTION
+- DEGRADED
+- CRITICAL
+
+Floor 2 does NOT do:
+- intelligence
+- setup detection
+- confidence
+- conviction
+- trade decision
+
+Final identity reminder:
+Floor 2 = trustworthy, not smart.
+
+Detailed reference file:
+- FLOOR_02_DATA_CENTER_V1_1_FINAL.txt
+
+
+================================================================================
+SECTION 11 : FLOOR 1 - MARKET CONNECTION / CONNECTION LAYER
+================================================================================
+
+One-line identity:
+Floor 1 = external source gateway and connection lifecycle owner.
+
+Current live primary:
+- Angel One
+
+Future-ready hooks:
+- backup source slots architecture-ready
+- not active by default now
+
+Floor 1 final responsibilities:
+- connect
+- authenticate / session manage operationally
+- subscribe / receive
+- route packets
+- emit source health facts
+- reconnect / recover
+- preserve ingress traceability
+- handle manual ingress lane
+
+Final lifecycle states:
+- HEALTHY
+- DEGRADED
+- STALE
+- AUTH_FAILED
+- DISCONNECTED
+
+Packet envelope essentials:
+- source
+- feed_type
+- connection_id
+- packet_id
+- routing_id
+- received_at
+- source_timestamp (if available)
+
+Manual ingress lanes:
+- MANUAL_CALENDAR
+- MANUAL_EVENT
+- MANUAL_OVERRIDE
+
+Floor 1 does NOT do:
+- validation
+- cleaning
+- intelligence
+- opinion
+- trade safety judgment
+
+Detailed reference file:
+- FLOOR_01_MARKET_CONNECTION_V1_1_FINAL.txt
+
+
+================================================================================
+SECTION 12 : SIDE A - EXECUTION / ACTION LAYER
+================================================================================
+
+One-line identity:
+Side A = tactical execution layer.
+
+Execution philosophy:
+PROTECT FIRST, THEN OPTIMIZE
+
+Side A final responsibilities:
+- mode routing
+- risk gate
+- execution core
+- order lifecycle management
+- position management
+- broker interaction
+- reconciliation
+- blocked action handling
+- execution truth logging / reference emission
+
+Final mode model:
+- ALERT always active
+- PAPER / REAL switch
+
+Final locked rules:
+- one active live trade only
+- execution is mechanical / tactical
+- rare Captain override only
+- no entry-side override after execution start
+- broker truth = final live authority
+- UNKNOWN / PENDING_RECONCILE explicit
+- reduce-only safety adjustments allowed
+- strong duplicate-intent protection
+
+Side A emits to memory/review chain:
+- trade journal facts
+- execution events
+- blocked actions
+- override refs
+- order-chain refs
+- reconcile events
+- slippage/fill/latency facts
+
+Detailed reference file:
+- SIDE_A_EXECUTION_V1_1_FINAL.txt
+
+
+================================================================================
+SECTION 13 : SIDE B - DASHBOARD / OPERATOR TERMINAL
+================================================================================
+
+One-line identity:
+Side B = Operator Terminal.
+
+Dashboard core philosophy:
+- Monitor
+- Analyse
+- Control (within authority)
+- Review
+
+Dashboard does NOT become:
+- decision engine
+- execution owner
+- truth owner
+- memory owner
+
+First-glance cockpit priority:
+1. Critical Alerts
+2. System Health
+3. Mode
+4. Active Trade State
+5. Captain State
+6. Risk State
+
+HOT / WARM / COLD model:
+- HOT = execution, risk, active trade, mode, health
+- WARM = Captain, heads, context, charts
+- COLD = replay, journal, diagnostics, history
+
+Final important boundaries:
+- dashboard can request, not decide
+- control authority remains with owners
+- replay workspace read-only
+- Side C consumption through read models / projections only
+- no-trade reason first-class
+- failure visibility explicit
+- Side A UNKNOWN / reconcile states visibly surfaced
+
+Detailed reference file:
+- SIDE_B_DASHBOARD_V1_2_FINAL.txt
+
+
+================================================================================
+SECTION 14 : SIDE C - MEMORY / OBSERVABILITY / JOURNAL LAYER
+================================================================================
+
+One-line identity:
+Side C = system memory layer.
+
+Side C exists to:
+- store facts
+- remember
+- link
+- expose queryable history
+- support replay references
+- support review / audit / journal history
+
+Side C does NOT:
+- create truth
+- interpret
+- score
+- rank
+- recommend
+- decide
+- approve trades
+
+Final internal split:
+- ingest layer
+- event router
+- event store
+- journal store
+- reference store
+- query layer
+
+Final record families:
+- Trade Journal
+- Execution Events
+- Decision Journal
+- Health Events
+- Override History
+- Replay References
+- Review References
+- Blocked Actions
+
+Replay authority chain:
+- Floor 2 = replay-capable truth owner
+- Side C = replay/reference memory owner
+- Side B = replay workspace visibility owner only
+
+Side C final philosophy reminder:
+- correction = new event
+- no silent mutation
+- append-first core, mutable views/indexes allowed
+
+Detailed reference file:
+- SIDE_C_MEMORY_JOURNAL_V1_1_FINAL.txt
+
+
+================================================================================
+SECTION 15 : FULL SYSTEM INTEGRATION / OWNERSHIP / FLOWS
+================================================================================
+
+A. DATA FLOW
+Market
+-> Floor 1 connection
+-> Floor 2 truth and structure
+-> Floor 3 intelligence
+-> Floor 4 interpretation
+-> Floor 5 decision
+-> Side A action
+-> Side B visibility
+-> Side C memory references/history
+
+B. CONTROL FLOW
+Operator
+-> Side B request surface
+-> command router
+-> correct owner
+-> owner response
+-> dashboard acknowledgement
+
+C. MEMORY FLOW
+Source owner
+-> Side C ingest
+-> event router
+-> stores
+-> query/read models
+-> dashboard/review/audit consumers
+
+D. REPLAY FLOW
+Floor 2 replay-capable truth
+-> Side C replay refs
+-> Side B replay workspace (read-only)
+
+E. FINAL OWNERSHIP CHAIN
+- Floor 1 = connection truth
+- Floor 2 = truth governance / replay foundation
+- Floor 3 = quality / structured intelligence
+- Floor 4 = confidence / interpretation
+- Floor 5 = conviction / decision
+- Side A = execution truth
+- Side B = visibility / control surface only
+- Side C = memory storage / references only
+
+F. FINAL BOUNDARY CONFIRMATIONS
+- no major ownership conflict
+- no duplicate truth ownership crisis
+- no hard circular dependency
+- dashboard does not steal decision authority
+- Side C does not drift into intelligence or decision ownership
+
+Detailed reference file:
+- FULL_SYSTEM_INTEGRATION_PLAN_V1_1_FINAL.txt
+
+
+================================================================================
+SECTION 16 : CANONICAL FINAL FILE SET + WORKING RULES
+================================================================================
+
+Canonical planning directory:
+- repo/Plan,Roadmaps,etc/
+
+Use these files as current canonical detailed references:
+- FLOOR_01_MARKET_CONNECTION_V1_1_FINAL.txt
+- FLOOR_02_DATA_CENTER_V1_1_FINAL.txt
+- FLOOR_03_CALCULATION_ENGINES_V1_1_FINAL.txt
+- FLOOR_04_DEPARTMENT_HEADS_V1_2_FINAL.txt
+- FLOOR_05_CAPTAIN_V2_2_FINAL.txt
+- SIDE_A_EXECUTION_V1_1_FINAL.txt
+- SIDE_B_DASHBOARD_V1_2_FINAL.txt
+- SIDE_C_MEMORY_JOURNAL_V1_1_FINAL.txt
+- FULL_SYSTEM_INTEGRATION_PLAN_V1_1_FINAL.txt
+
+This master plan file role:
+- full-system understanding
+- navigation
+- consolidated architecture summary
+- high-level final planning reference
+
+Detailed floor/side files role:
+- deeper contract authority
+- module-level planning
+- boundary clarity
+- implementation-facing detail
+
+Working rules going forward:
+- old files overwrite करायचे नाहीत
+- new versioned file create करायची if major final update needed
+- strong approved content delete करायचे नाही
+- targeted clarification only where needed
+- planning top-down, implementation bottom-up
+- implementation सुरू करताना canonical final files only use करायच्या
+
+
+================================================================================
+SECTION 17 : MASTER PLAN FINAL STATUS
+================================================================================
+
+This V1.1 Final Master Assembly Plan now covers:
+- original base master plan preserve केलेला आहे
+- early architecture preserved आहे
+- final architecture clarifications add केलेल्या आहेत
+- all 5 floors represented आहेत
+- all 3 sides represented आहेत
+- Side C explicit add केलेला आहे
+- full-system ownership chain explicit आहे
+- canonical final file set explicit आहे
+- planning direction and implementation direction explicit आहेत
+
+This file is therefore:
+- not a rewrite of original plan.txt
+- not a deletion of old thought history
+- not a redesign
+- not an ownership change
+- not a floor/side expansion beyond the already locked architecture
+
+This file is:
+- updated
+- consolidated
+- detail-aware
+- strong enough for full-system understanding
+- safe as a master final planning reference
+
+Next practical use:
+- implementation sequencing
+- module breakdown
+- coding roadmap
+- testing roadmap
+only if explicitly requested.
+
+================================================================================
+END OF MASTER ASSEMBLY PLAN V1.1 FINAL
+================================================================================

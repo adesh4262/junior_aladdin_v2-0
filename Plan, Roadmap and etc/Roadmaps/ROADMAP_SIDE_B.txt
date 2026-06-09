@@ -1,0 +1,1469 @@
+================================================================================
+ROADMAP SIDE B: DASHBOARD / OPERATOR TERMINAL
+================================================================================
+File: ROADMAP_SIDE_B.txt
+Version: 1.0
+Status: Implementation Execution Document
+Depends On: ROADMAP_PHASE_0_FOUNDATION, ROADMAP_FLOOR_01, ROADMAP_FLOOR_02,
+            ROADMAP_SIDE_C, ROADMAP_FLOOR_03, ROADMAP_FLOOR_04,
+            ROADMAP_FLOOR_05, ROADMAP_SIDE_A
+            (Consumes data from ALL floors/sides — built LAST)
+Next In Chain: ROADMAP_FULL_SYSTEM_INTEGRATION
+================================================================================
+
+This is NOT an architecture document.
+This is an IMPLEMENTATION EXECUTION DOCUMENT.
+
+DO NOT:
+- Redefine architecture
+- Change ownership
+- Change contracts
+- Change dataflow
+- Change wiring
+- Change sequencing
+
+DO:
+- Define step-by-step build order
+- Define per-module contracts
+- Define per-module validation
+- Define wiring between modules
+- Define integration points
+- Make this coding-ready
+
+================================================================================
+SECTION 1: PURPOSE
+================================================================================
+
+Side B is the operator terminal of the Junior Aladdin system. Dashboard reveals
+system truth, allows controlled actions, supports review, and provides
+explainability. It is the LAST component built because it consumes data from
+ALL floors and sides — building it earlier means building against nonexistent
+or stub backends.
+
+Side B is NOT:
+- A decision layer (it can request, NOT decide)
+- A reinterpretation layer (it can reveal, NOT reinterpret)
+- An execution layer (it never places orders directly)
+- An intelligence layer (no scoring/ranking/analysis)
+
+Side B IS:
+- The operator's window into every floor and side
+- The explainability layer (trade reason, no-trade reason, captain summary)
+- The controlled action interface (mode, capital, kill-switch controls)
+- The review and replay workspace (read-only analysis)
+- The alert and health surface (system state at a glance)
+- The failure visibility layer (per-floor/side state drill-down)
+
+CRITICAL ARCHITECTURE RULES:
+
+Rule 1: Dashboard = Operator Terminal, NOT decision layer.
+         Side B can request, NOT decide.
+Rule 2: Side B can reveal, NOT reinterpret.
+         Display Floor 4 confidence as reported — do NOT recalculate.
+Rule 3: Side B routes commands, NOT owns them.
+         Commands go to correct floor/side owner, NOT executed by dashboard.
+Rule 4: Side C consumption through READ MODELS only.
+         Dashboard NEVER queries raw Side C stores directly.
+Rule 5: Replay workspace = read-only.
+         Replay cannot trigger execution, cannot place orders.
+Rule 6: No-trade reason = first-class visibility.
+         "No trade" has equal visibility weight to "trade."
+Rule 7: Desktop-first, NOT mobile-first.
+         This is a trading terminal, not a phone app.
+Rule 8: HOT/WARM/COLD refresh model.
+         HOT: critical data (positions, prices) — sub-second refresh.
+         WARM: important data (head reports, captain state) — 1-5 second refresh.
+         COLD: reference data (logs, history) — on-demand refresh.
+Rule 9: State-Based Adaptive UI.
+         Controls shrink/expand based on system state.
+         During active trade: execution controls prominent.
+         During no-trade: explainability panels prominent.
+Rule 10: Dashboard must work on localhost.
+         Single operator, single laptop, zero cloud infrastructure.
+
+================================================================================
+SECTION 2: COMPONENT ARCHITECTURE
+================================================================================
+
+SIDE B DIRECTORY STRUCTURE:
+
+Side B has two sub-projects:
+1. side_b_api/ — backend API server (data aggregation, command routing)
+2. side_b_dashboard/ — frontend UI (operator terminal)
+
+side_b_api/
+├── __init__.py
+├── api_server.py                    # FastAPI / Flask server entry point
+├── api_config.py                    # API configuration (port, CORS, auth)
+├── data_aggregator.py               # Polls all floors/sides, caches state
+├── command_router.py                # Receive command → validate → route → ack
+├── session_cache.py                 # In-memory cache with HOT/WARM/COLD tiers
+├── data_contracts.py                # API response schemas
+├── routes/
+│   ├── __init__.py
+│   ├── health_routes.py             # System health endpoints
+│   ├── captain_routes.py            # Captain state endpoints
+│   ├── execution_routes.py          # Execution state endpoints│   ├── head_routes.py               # Head report endpoints
+│   ├── market_routes.py             # Market data endpoints
+│   ├── memory_routes.py             # Side C query endpoints (read models only)
+│   ├── replay_routes.py             # Replay workspace endpoints
+│   ├── control_routes.py            # Operator control endpoints
+│   └── alert_routes.py              # Alert/notification endpoints
+├── command_handlers/
+│   ├── __init__.py
+│   ├── mode_handler.py              # Execution mode change
+│   ├── capital_handler.py           # Capital config update
+│   ├── kill_switch_handler.py       # Kill switch activation
+│   ├── override_handler.py          # Override confirmation
+│   ├── reconnect_handler.py         # Broker reconnect request
+│   └── account_handler.py           # Paper account reset
+└── data_sources/
+    ├── __init__.py
+    ├── floor_1_source.py            # Floor 1 data adapter
+    ├── floor_2_source.py            # Floor 2 data adapter
+    ├── floor_3_source.py            # Floor 3 data adapter
+    ├── floor_4_source.py            # Floor 4 data adapter
+    ├── floor_5_source.py            # Floor 5 data adapter
+    ├── side_a_source.py             # Side A data adapter
+    └── side_c_source.py             # Side C query adapter (read models only)
+
+side_b_dashboard/
+├── index.html                       # SPA entry point
+├── assets/                          # Static assets
+│   ├── css/
+│   │   ├── main.css                 # Main stylesheet
+│   │   ├── cockpit.css              # Primary cockpit styles
+│   │   ├── workspaces.css           # Workspace styles
+│   │   ├── controls.css             # Control surface styles
+│   │   ├── health.css               # Health surface styles
+│   │   └── alerts.css               # Alert styles
+│   ├── js/
+│   │   ├── app.js                   # App bootstrap + router
+│   │   ├── api_client.js            # Backend API client
+│   │   ├── state_manager.js         # Client-side state management
+│   │   ├── websocket_client.js      # Real-time data subscription
+│   │   ├── components/
+│   │   │   ├── cockpit.js           # Primary cockpit renderer
+│   │   │   ├── chart_surface.js     # Chart rendering
+│   │   │   ├── captain_panel.js     # Captain state display
+│   │   │   ├── execution_panel.js   # Execution state display
+│   │   │   ├── head_panels.js       # Head report display
+│   │   │   ├── health_panel.js      # System health display
+│   │   │   ├── control_panel.js     # Operator controls
+│   │   │   ├── alert_panel.js       # Alert feed
+│   │   │   ├── explainability_panel.js # Trade/no-trade reasons
+│   │   │   ├── workspace_replay.js  # Replay workspace
+│   │   │   ├── workspace_review.js  # Review workspace
+│   │   │   ├── workspace_diagnostics.js # Diagnostics workspace
+│   │   │   ├── floor_drilldown.js   # Per-floor state drill-down
+│   │   │   └── session_cache_display.js # Session cache viewer
+│   │   └── utils/
+│   │       ├── formatters.js        # Data formatting utilities
+│   │       ├── colors.js            # Color scheme
+│   │       └── refresh_scheduler.js # HOT/WARM/COLD refresh scheduler
+│   └── img/
+│       └── logo.svg                 # System logo
+└── tests/
+    ├── __init__.py
+    ├── test_api_server.py
+    ├── test_data_aggregator.py
+    ├── test_command_router.py
+    ├── test_session_cache.py
+    ├── test_routes_health.py
+    ├── test_routes_captain.py
+    ├── test_routes_execution.py
+    ├── test_routes_control.py
+    ├── test_command_handlers.py
+    ├── test_data_sources.py
+    ├── test_contract_validation.py
+    └── test_integration.py
+
+================================================================================
+SECTION 3: STEP-BY-STEP BUILD ORDER
+================================================================================
+
+BUILD SEQUENCE:
+
+PHASE A — API FOUNDATION + DATA LAYER (Steps 8.1-8.4)
+PHASE B — ROUTES + COMMAND HANDLERS (Steps 8.5-8.9)
+PHASE C — UI FOUNDATION + COCKPIT (Steps 8.10-8.14)
+PHASE D — WORKSPACES + CONTROLS (Steps 8.15-8.19)
+PHASE E — ADVANCED PANELS (Steps 8.20-8.24)
+PHASE F — INTEGRATION + POLISH (Steps 8.25-8.26)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.1 — api_config.py + data_contracts.py (Zero external Side B imports)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: Phase 0 types (shared/types.py)
+Imports from: types.py
+
+Define Side B API configuration and response data contracts.
+
+api_config.py:
+- PORT: default 8080 (configurable)
+- CORS origins: localhost (development)
+- HOT_REFRESH_INTERVAL: 500ms (sub-second critical data)
+- WARM_REFRESH_INTERVAL: 3000ms (important data)
+- COLD_REFRESH_INTERVAL: 30000ms (reference data, or on-demand)
+- MAX_CACHE_ENTRIES: configurable per data source
+- AUTH_ENABLED: False (single operator on localhost — can add later)
+
+data_contracts.py (API response schemas):
+- DashboardState: system state, execution state, captain state, health
+- SystemHealthSnapshot: per-floor/side status, data health, connection health
+- CaptainDisplayState: mood, decision, conviction_band, market_story, reason
+- ExecutionDisplayState: mode, state, position, orders, blocked actions
+- HeadReportDisplay: per-head bias, confidence, setup, invalidation, state
+- FloorSummaryDisplay: bias, confidence, setup counts, head health
+- MarketDataSnapshot: LTP, change, OHLC, VWAP, session context
+- AlertEntry: severity, category, message, timestamp, source
+- ControlCommand: command_type, target, params, timestamp
+- ReplaySessionConfig: start_time, end_time, speed, data_sources
+- WorkspaceState: current workspace, sub-views, expanded panels
+
+Output: All schemas and config exported from these modules.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.2 — data_sources/ (Depends on Step 8.1)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: data_contracts.py
+Imports from: data_contracts
+
+One adapter per data source. Each polls its source and returns normalized data.
+
+floor_1_source.py:
+- get_source_health() → dict (lifecycle_state, latency, reconnect_count)
+- get_connection_status() → connected/disconnected
+
+floor_2_source.py:
+- get_data_health() → DataHealth enum
+- get_validation_stats() → total, passed, failed, warned counts
+- get_replay_status() → replay session active, mode
+
+floor_3_source.py:
+- get_domain_summaries() → per-domain: raw, states, maps, scores, candidates
+- get_cmsp() → Common Market State Projection
+- get_chart_data(timeframe, series) → OHLCV + indicator data for chart surface
+
+floor_4_source.py:
+- get_floor_summary() → FloorSummary dataclass (from shared/types)
+- get_head_reports() → list of HeadReport per head
+- get_head_states() → per-head: state, freshness, context_quality
+
+floor_5_source.py:
+- get_captain_state() → CaptainDisplayState
+- get_decision_snapshots(count) → recent decision snapshots
+- get_armed_plans() → active armed plans
+
+side_a_source.py:
+- get_execution_state() → ExecutionDisplayState
+- get_blocked_actions(count) → recent blocked actions
+- get_execution_logs(filter) → filtered log entries
+
+side_c_source.py:
+- query_read_model(model_name, params) → read model data
+- READ MODELS ONLY — never raw store queries
+- Available read models: trade_history, decision_history, health_events,
+  blocked_action_history, override_history
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.3 — data_aggregator.py + session_cache.py (Depends on Steps 8.1-8.2)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: data_sources, data_contracts
+Imports from: data_sources, data_contracts
+
+data_aggregator.py:
+Polls all data sources on configurable intervals, aggregates into single
+DashboardState object.
+
+Methods:
+- poll_all() → DashboardState (collects from ALL sources)
+- poll_hot() → partial state (critical data only: positions, prices, alerts)
+- poll_warm() → partial state (important data: head reports, captain)
+- get_aggregated_state() → last cached DashboardState
+- get_state_snapshot(components) → requested subset of state
+
+Session_cache.py:
+In-memory cache with three refresh tiers.
+
+Tier architecture:
+- HOT: positions, prices, alerts, execution state (500ms)
+- WARM: head reports, captain state, floor summary (3s)
+- COLD: reference data, logs, history (30s or on-demand)
+
+Methods:
+- get(key, tier) → cached value
+- set(key, value, tier) → store with tier-specific expiry
+- invalidate(key) → force refresh on next read
+- get_cache_stats() → hit/miss rates per tier
+- clear_session() → reset cache
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.4 — api_server.py (Depends on Steps 8.1-8.3)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: data_aggregator, session_cache, api_config
+Imports from: above modules + FastAPI / Flask
+
+Main API server entry point.
+
+- Initialize FastAPI/Flask app
+- Register all route modules
+- Start background refresh scheduler (HOT/WARM/COLD)
+- WebSocket endpoint for real-time updates
+- CORS configuration for localhost dashboard
+- Health check endpoint
+
+Startup sequence:
+1. Load config
+2. Initialize session cache
+3. Initialize data sources
+4. Start background pollers
+5. Register routes
+6. Start server
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.5 — health_routes.py (Depends on Step 8.4)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: api_server, data_aggregator
+Imports from: data_aggregator
+
+System health endpoints.
+
+GET /api/health → overall system health summary
+GET /api/health/{floor/side} → per-component health detail
+GET /api/health/data → data health signal from Floor 2
+GET /api/health/connections → connection status per source
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.6 — captain_routes.py + head_routes.py (Depends on Step 8.4)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: api_server, data_aggregator
+Imports from: data_aggregator
+
+captain_routes.py:
+GET /api/captain/state → CaptainDisplayState (mood, decision, conviction)
+GET /api/captain/story → current market story summary
+GET /api/captain/snapshots → recent decision snapshots
+GET /api/captain/reason → trade/no-trade reason
+GET /api/captain/plans → active armed plans
+
+head_routes.py:
+GET /api/heads → all head reports summary
+GET /api/heads/{head_name} → specific head report detail
+GET /api/heads/floor-summary → FloorSummary
+GET /api/heads/health → per-head state and freshness
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.7 — execution_routes.py + market_routes.py (Depends on Step 8.4)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: api_server, data_aggregator
+Imports from: data_aggregator
+
+execution_routes.py:
+GET /api/execution/state → ExecutionDisplayState
+GET /api/execution/position → active position detail
+GET /api/execution/orders → order lifecycle state
+GET /api/execution/blocked → recent blocked actions
+GET /api/execution/logs → execution logs (filtered)
+
+market_routes.py:
+GET /api/market/snapshot → current market data
+GET /api/market/chart → OHLCV + indicator data for chart surface
+GET /api/market/session → current session context
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.8 — memory_routes.py + replay_routes.py (Depends on Step 8.4)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: api_server, data_aggregator
+Imports from: data_aggregator, side_c_source
+
+memory_routes.py:
+GET /api/memory/trades → trade history (from Side C read model)
+GET /api/memory/decisions → decision history (from Side C read model)
+GET /api/memory/events → health events (filtered)
+GET /api/memory/alerts → alert history
+
+CRITICAL: All Side C queries go through Read Models ONLY.
+No raw store access from API layer.
+
+replay_routes.py:
+GET /api/replay/sessions → available replay sessions
+POST /api/replay/start → start replay session
+POST /api/replay/stop → stop replay session
+POST /api/replay/speed → set replay speed
+GET /api/replay/state → current replay state
+GET /api/replay/data → replay data stream
+
+CRITICAL: Replay workspace is READ-ONLY. No execution from replay.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.9 — control_routes.py + alert_routes.py + command_handlers/
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: api_server, data_aggregator
+Imports from: data_aggregator
+
+control_routes.py:
+POST /api/control/mode → change execution mode (→ mode_handler)
+POST /api/control/capital → update capital config (→ capital_handler)
+POST /api/control/kill-switch → activate/deactivate kill switch (→ kill_switch_handler)
+POST /api/control/override → confirm override (→ override_handler)
+POST /api/control/reconnect → request broker reconnect (→ reconnect_handler)
+POST /api/control/account/reset → reset paper account (→ account_handler)
+
+CRITICAL: Side B routes commands to correct owners. Side B does NOT execute.
+All control routes prefix with `request_` in action naming convention.
+
+command_handlers/:
+Each handler validates the request, routes to the correct floor/side,
+and returns acknowledgement.
+
+Common handler pattern:
+- validate(params) → is_valid, error_message
+- route(params) → owner (floor/side) receives command
+- acknowledge(result) → return ack to dashboard
+- log(action) → record in execution log
+
+alert_routes.py:
+GET /api/alerts → current active alerts
+GET /api/alerts/history → alert history
+POST /api/alerts/acknowledge → acknowledge alert
+GET /api/alerts/settings → alert configuration
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.10 — UI Foundation: index.html + main.css + app.js + api_client.js
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: Step 8.4 (API server must be running for UI to connect)
+
+index.html: SPA entry point. Loads CSS, JS, renders root div.
+main.css: Base styles, CSS variables, layout grid, typography, color scheme.
+app.js: App bootstrap, router, component lifecycle management.
+api_client.js: HTTP + WebSocket client for backend API.
+
+Color scheme (trading terminal inspired):
+- Background: dark (#0a0e17, #111827, #1f2937)
+- Text: light (#e5e7eb, #9ca3af)
+- Accent green: buy/up (#22c55e, #16a34a)
+- Accent red: sell/down (#ef4444, #dc2626)
+- Warning yellow: caution (#eab308)
+- Info blue: system (#3b82f6)
+- Muted: neutral grays for secondary data
+
+Layout grid:
+- Left sidebar: navigation, workspace selector
+- Center: main content area (cockpit, workspaces)
+- Right panel: contextual info (drill-down, details)
+- Top bar: system status, mode, quick alerts
+- Bottom bar: session info, clock, connection status
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.11 — state_manager.js + refresh_scheduler.js
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: api_client.js
+
+state_manager.js:
+Client-side state management. Maintains a local copy of DashboardState
+updated via WebSocket push + periodic polling.
+
+Methods:
+- get_state() → current client state
+- update(component, data) → update specific component state
+- subscribe(component, callback) → register for state changes
+- get_by_path(path) → e.g., get_by_path("captain.mood") → "AGGRESSIVE"
+- get_refresh_tier(component) → HOT/WARM/COLD
+
+refresh_scheduler.js:
+Manages the HOT/WARM/COLD refresh cycle.
+
+- schedule_hot(): positions, prices, alerts — every 500ms
+- schedule_warm(): head reports, captain, floor summary — every 3s
+- schedule_cold(): reference data, logs — every 30s or on-demand
+- On WebSocket message: immediately update relevant state
+- On user focus: prioritize visible components
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.12 — health_panel.js + alert_panel.js
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: state_manager.js, api_client.js
+
+health_panel.js:
+First-glance system health surface. Shows:
+- Per-floor status indicator: GREEN/YELLOW/RED
+- Per-side status indicator
+- Data health signal
+- Connection status
+- HOT refresh tier (sub-second updates)
+
+Visual: status dots or bars with labels. Click → drill-down to per-component.
+
+alert_panel.js:
+Alert feed display.
+
+Alert severity: INFO / CAUTION / SEVERE / CRITICAL (color-coded)
+Alert categories: SYSTEM / DATA / EXECUTION / CAPTAIN / OPERATOR
+
+- Active alerts at top (auto-dismiss configurable)
+- History below (scrollable)
+- Acknowledge button per alert
+- Filter by severity and category
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.13 — cockpit.js (PRIMARY COCKPIT — main dashboard view)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: state_manager.js, all panel components
+Imports from: all UI components
+
+THE primary dashboard view. First-glance operational awareness.
+
+Cockpit layout (left-to-right, top-to-bottom):
+
+Row 1 — SYSTEM STATUS BAR:
+[Mode: PAPER] [Health: GREEN] [Trade: ACTIVE/NONE] [Alert count]
+[Captain Mood] [Conviction Band] [Escalation Level]
+
+Row 2 — EXECUTION PANEL (left 40%) + CAPTAIN PANEL (right 60%):
+┌──────────────────────┬──────────────────────────────────┐
+│ EXECUTION            │ CAPTAIN                          │
+│ State: PROTECTED     │ Mood: AGGRESSIVE                 │
+│ Position: +1 CE 25000│ Decision: TRADE (75 STRONG)      │
+│ P&L: +₹850           │ Story: Bullish trend, VWAP above │
+│ Risk: ₹2000 at risk  │ Reason: Strong SMC + ICT conf    │
+└──────────────────────┴──────────────────────────────────┘
+
+Row 3 — FLOOR SUMMARY + HEAD HEALTH:
+[Floor Bias: BULLISH] [Confidence: 72] [Setups: 2 active]
+[SMC: READY] [ICT: READY] [Tech: READY] [Opt: UNCERTAIN] [Macro: READY] [Psych: OK]
+
+Row 4 — QUICK ALERTS + CONTROLS:
+[Alert: Risk gate blocked duplicate intent — CAUTION]
+[Control buttons: Mode | Capital | Kill-Switch | Override]
+
+Methods:
+- render(state) → builds cockpit HTML from current state
+- update(state) → updates individual panels without full re-render
+- on_panel_click(panel) → navigates to drill-down workspace
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.14 — captain_panel.js + execution_panel.js
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: state_manager.js
+
+captain_panel.js:
+Full Captain state display.
+
+Shows:
+- Captain mood (with icon: OBSERVER👁 / PATIENT⏳ / AGGRESSIVE⚡ / DEFENSIVE🛡 / SILENT🔇)
+- Decision (TRADE/WAIT/BLOCKED with color)
+- Conviction band (REJECT/WEAK/TRADABLE/STRONG/ELITE with progress bar)
+- Market story summary (narrative paragraph)
+- Recent narrative timeline (compact timeline)
+- Trade/no-trade reason (prominent, structured)
+- Active armed plans (if any)
+- Decision snapshot history (expandable list)
+- WARM refresh tier
+
+execution_panel.js:
+Full Execution state display.
+
+Shows:
+- Mode: ALERT (always active) + PAPER/REAL current
+- Execution state: major state + substate
+- Active position: filled_qty, avg_price, direction, SL, TGT
+- P&L: realized + unrealized
+- Order lifecycle: all orders for current trade
+- Blocked actions: recent blocks with severity color
+- Escalation level: NORMAL/CAUTION/SEVERE/EMERGENCY
+- Unknown/reconcile state: prominent if active
+- HOT refresh tier (sub-second)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.15 — head_panels.js + explainability_panel.js
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: state_manager.js
+
+head_panels.js:
+Per-head report display.
+
+- Grid of 6 head cards
+- Each card: head name, bias (BULLISH/BEARISH/NEUTRAL), confidence (0-100 bar),
+  state (READY/UNCERTAIN/STALE with color), freshness tag
+- SMC/ICT cards: context_quality_score displayed
+- Macro/Psychology cards: NO setups (verified display rule)
+- Primary/backup setup displayed for actionable heads
+- Invalidation level shown for each head
+- Click → expand to full report detail
+- WARM refresh tier
+
+explainability_panel.js:
+WHY the system did what it did.
+
+Shows:
+- If TRADE: confluence summary, opposite case consideration,
+  conviction score breakdown, trade construction rationale
+- If WAIT/BLOCKED: silence reason (structured), which gate blocked,
+  what would need to change
+- Head alignment visualization: which heads supported, which opposed
+- Weighted influence: SMC/ICT priority visible
+- Market story context for decision
+- WARM refresh tier (on decision change)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.16 — chart_surface.js (Depends on data source for chart data)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: state_manager.js, api_client.js
+
+Chart rendering surface. Displays Floor 3 render truth with Floor 4 overlays.
+
+Chart features:
+- OHLCV candlestick chart (1m default, switchable timeframes)
+- Overlays: EMA 9/21/50, VWAP, PDH/PDL, OR high/low
+- SMC overlays: order blocks (highlighted zones), FVGs, liquidity levels
+- ICT overlays: premium/discount zones, displacement markers
+- Options overlays: call/put walls, max pain level
+- Structure: swing highs/lows, BOS/CHoCH markers
+- Session markers: opening, lunch, closing
+- Armed plan trigger zones (if plans active)
+- Execution entry/SL/TGT markers (if active trade)
+
+Technical approach:
+- Canvas-based or SVG-based rendering (performance on local machine)
+- No heavy charting library dependency — lightweight custom renderer
+- Or use lightweight library: Lightweight-Charts (TradingView) or Chart.js
+- HOT refresh on OHLCV updates
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.17 — control_panel.js
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: state_manager.js, api_client.js
+
+Operator control surface.
+
+Controls:
+- Mode selector: ALERT (info only) / PAPER / REAL
+  → Disabled during active trade (mode switch blocked)
+- Capital display + update: view current capital, update limit
+- Kill switch: SOFT (block new) / CRITICAL (flatten) / OFF
+  → Confirmation dialog before activation
+  → Current state clearly visible
+- Override confirmation: popup for real mode lock breach
+  → Requires explicit operator confirmation
+- Reconnect button: request broker reconnect
+- Paper account reset: reset balance with confirmation
+- Session reset: clear session cache
+
+State-Based Adaptive UI:
+- During active trade: execution controls prominent, capital config hidden
+- During no-trade: explainability panels prominent, controls reduced
+- During SEVERE/EMERGENCY escalation: kill switch prominent, flashing
+- During NORMAL operation: clean layout, no alerts
+
+CRITICAL: Side B controls route COMMANDS. Side B does NOT execute.
+Every control action follows: request → validate → route → ack.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.18 — floor_drilldown.js + session_cache_display.js
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: state_manager.js
+
+floor_drilldown.js:
+Per-floor/side state drill-down. Accessible from cockpit health indicators.
+
+- Click on floor health dot → expand to floor detail view
+- Shows: all modules in that floor, their state, last update
+- Floor 1: source health, packet stats, connection status
+- Floor 2: validation pipeline, raw/clean/structured stats, replay status
+- Floor 3: per-domain states, maps, scores, candidates
+- Floor 4: per-head reports expanded, floor summary detail
+- Floor 5: captain engine state, heavy cycle stats, armed plans
+- Side A: execution state machine, position detail, order chain
+- Side C: memory stores, read model availability
+
+session_cache_display.js:
+View and manage session cache contents.
+- View HOT/WARM/COLD cache entries
+- Cache hit/miss rates per tier
+- Manual cache invalidation per component
+- Cache size and memory usage
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.19 — workspace_replay.js + workspace_review.js + workspace_diagnostics.js
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: state_manager.js, api_client.js, chart_surface.js
+
+workspace_replay.js:
+Replay workspace. READ-ONLY. Cannot trigger execution.
+
+Features:
+- Select replay session from list (date range, data sources)
+- Playback controls: play, pause, stop, speed (1x, 2x, 5x, 10x)
+- Timeline scrubber: jump to specific timestamp
+- Chart updates in real-time during replay
+- Side-by-side: replay data vs original data comparison
+- Decision replay: see what Captain would decide at each candle
+- Export replay session data
+- Replay state prominently displayed (not live)
+
+workspace_review.js:
+Post-session review workspace.
+
+Features:
+- Trade journal: per-trade review with full lifecycle
+- Decision review: conviction calibation, what-if analysis
+- Head report review: were heads correct in their assessment?
+- Blocked action review: were blocks justified?
+- Execution log review: full execution trail per trade
+- Export review as report
+
+workspace_diagnostics.js:
+System diagnostics workspace.
+
+Features:
+- Per-module health and status
+- Contract validation results
+- Performance metrics (poll times, render times)
+- Memory usage (cache, stores)
+- Error logs
+- Connection test panel
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.20 — UI Components Alphabetical (remaining)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: state_manager.js, all panels above
+
+The remaining component files provide specialized sub-views.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.21 — websocket_client.js (Real-time data subscription)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: api_client.js
+
+WebSocket connection to API server for real-time state updates.
+
+Methods:
+- connect() → establish WebSocket connection
+- subscribe(channel) → subscribe to data channel
+- unsubscribe(channel) → unsubscribe
+- on_message(callback) → handle incoming updates
+- on_disconnect(callback) → handle reconnect
+
+Channels:
+- health: system health updates
+- execution: execution state changes (HOT)
+- captain: captain state changes (WARM)
+- alerts: new alert notifications
+- market: price/tick updates (HOT)
+- replay: replay data stream
+
+Falls back to polling if WebSocket unavailable.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.22 — formatters.js + colors.js
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: none (pure utility)
+
+formatters.js:
+Data formatting utilities.
+
+- format_price(value) → ₹12,345.50
+- format_pnl(value) → +₹850 / -₹230 (with color)
+- format_percentage(value) → 72.3%
+- format_timestamp(ts) → 09:45:23
+- format_datetime(ts) → 2026-06-06 09:45:23
+- format_conviction_band(score) → STRONG (75)
+- format_state(state) → human-readable state with CSS class
+- format_duration(seconds) → 2h 34m
+- truncate(text, length) → text...
+
+colors.js:
+Color scheme constants.
+
+- BUY_GREEN, SELL_RED, WARNING_YELLOW, INFO_BLUE
+- NEUTRAL_GRAY, MUTED_GRAY
+- STATE_READY, STATE_UNCERTAIN, STATE_STALE
+- SEVERITY_INFO, SEVERITY_CAUTION, SEVERITY_SEVERE, SEVERITY_CRITICAL
+- BACKGROUND_DARK, SURFACE_DARK, BORDER_DARK
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.23 — workspaces.css + cockpit.css + controls.css + health.css + alerts.css
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: main.css (base styles)
+
+Workspace-specific styling.
+
+cockpit.css: Primary cockpit layout and panel styling.
+workspaces.css: Replay, review, diagnostics workspace layouts.
+controls.css: Control panel, buttons, dialogs, forms.
+health.css: Health indicators, status dots, health bars.
+alerts.css: Alert feed, notification styling, severity colors.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.24 — __init__.py files
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Module init files for all Python packages.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.25 — Integration wiring + end-to-end test
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: ALL modules above
+
+Connect Side B API to all floor/side data sources.
+Connect Side B UI to Side B API.
+Verify end-to-end data flow.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8.26 — __init__.py + final wiring
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Final module exposition. Side B ready for system integration (Phase 9).
+
+================================================================================
+SECTION 4: INPUT/OUTPUT CONTRACTS
+================================================================================
+
+INPUTS (Side B consumes from ALL floors/sides):
+
+| Input Source       | Format                 | Key Fields                            |
+|-------------------|------------------------|---------------------------------------|
+| Floor 1           | SourceHealth           | lifecycle_state, latency, reconnect   |
+| Floor 2           | DataHealth, Validation | health_signal, validation_stats,      |
+|                   | Stats, ReplayStatus    | replay_active                         |
+| Floor 3           | DomainStates, CMSP,    | per-domain states, maps, scores,      |
+|                   | ChartData              | chart-ready OHLCV, indicators         |
+| Floor 4           | FloorSummary,          | floor_bias, confidence, head_health,  |
+|                   | HeadReports[]          | setups, invalidation, witness         |
+| Floor 5           | CaptainState,          | mood, decision, conviction, story,    |
+|                   | DecisionSnapshot[]     | reason, armed_plans                   |
+| Side A            | ExecutionSnapshot,     | state, position, orders, blocked,     |
+|                   | BlockedAction[]        | mode, escalation                      |
+| Side C            | ReadModels             | trade_history, decision_history,      |
+|                   | (QUERY LAYER ONLY)     | health_events (never raw stores)      |
+
+OUTPUTS (Side B routes commands to owners):
+
+| Output Command    | Destination   | Format              | Key Fields                      |
+|------------------|---------------|---------------------|---------------------------------|
+| mode_change      | Side A        | ControlCommand      | new_mode, operator_id           |
+| capital_update   | Side A        | ControlCommand      | new_capital_limit, reason       |
+| kill_switch      | Side A        | ControlCommand      | SOFT/CRITICAL/OFF, reason       |
+| override_grant   | Floor 5       | ControlCommand      | override_confirmation, trade_id |
+| reconnect_request| Side A        | ControlCommand      | target_broker                   |
+| account_reset    | Side A        | ControlCommand      | confirm, new_balance            |
+
+CONTRACT VIOLATIONS THAT MUST REJECT:
+
+1. Command with `execute_` prefix in route name → HALT (should be `request_`)
+2. Side C query targeting raw store path → HALT (must go through read model)
+3. Command to non-existent floor/side → REJECT
+4. Replay workspace command that affects live state → HALT (read-only violation)
+5. Operator command without operator context → CAUTION + REJECT
+6. Side B displaying recalculated confidence/conviction → P0 violation
+7. Dashboard UI placing orders directly → HALT (execution belongs to Side A)
+
+================================================================================
+SECTION 5: DEPENDENCY MAP
+================================================================================
+
+EXTERNAL DEPENDENCIES:
+
+Side B Depends On (for data):
+- Phase 0: types.py, config.py, logging.py
+- Floor 1: SourceHealth, packet health stats
+- Floor 2: DataHealth, validation stats, replay status
+- Floor 3: Domain states, CMSP, chart data
+- Floor 4: FloorSummary, HeadReports
+- Floor 5: CaptainState, DecisionSnapshots, ArmedPlans
+- Side A: ExecutionSnapshot, BlockedActions
+- Side C: Read models (trade history, decision history, health events)
+
+Side B Depended By:
+- OPERATOR (human): uses dashboard for monitoring and control
+
+Side B does NOT depend on:
+- Any floor/side internal implementation
+- Any broker API directly
+- Any external cloud services
+
+CURRENT BUILD PATH:
+- Backend: FastAPI (Python) — lightweight, async, localhost
+- Frontend: Plain HTML/CSS/JS (no React/Vue/Angular build toolchain)
+- Chart: Lightweight-Charts (TradingView) or custom Canvas renderer
+- Storage: In-memory session cache (no database needed)
+- Realtime: WebSocket for push updates, HTTP polling fallback
+- Single operator on localhost — no auth needed for V1
+
+FUTURE SCALE PATH:
+- React/Vue frontend (when UI complexity justifies build toolchain)
+- PostgreSQL-backed session cache (when multi-session or persistence needed)
+- Auth layer (when multiple operators or remote access)
+- Mobile companion view (when on-the-go monitoring needed)
+- Dark mode / theme customization (operator preference)
+
+================================================================================
+SECTION 6: WIRING DIAGRAM
+================================================================================
+
+ALL FLOORS + SIDES (data producers)
+        │
+        ▼  (polled by data_aggregator)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  SIDE B API (api_server.py)                                                 │
+│                                                                             │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │  DATA AGGREGATOR (data_aggregator.py)                                 │   │
+│  │  Polls all sources → caches in session_cache.py                      │   │
+│  │  HOT: 500ms → positions, prices, alerts                               │   │
+│  │  WARM: 3s → heads, captain, floor summary                             │   │
+│  │  COLD: 30s → reference, logs, history                                  │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│         │                                                                    │
+│         ▼                                                                    │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │  ROUTES (HTTP + WebSocket)                                           │   │
+│  │  health_routes → system health endpoints                              │   │
+│  │  captain_routes → captain state endpoints                             │   │
+│  │  head_routes → head report endpoints                                  │   │
+│  │  execution_routes → execution state endpoints                         │   │
+│  │  market_routes → market data endpoints                                │   │
+│  │  memory_routes → Side C read model endpoints                          │   │
+│  │  replay_routes → replay workspace endpoints (read-only)               │   │
+│  │  control_routes → operator command endpoints                          │   │
+│  │  alert_routes → alert/notification endpoints                          │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│         │                                                                    │
+│         ▼                                                                    │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │  COMMAND HANDLERS (command_handlers/)                                │   │
+│  │  validate → route to owner → return ack                              │   │
+│  │  mode_handler → Side A (mode_router)                                  │   │
+│  │  capital_handler → Side A (risk_gate)                                 │   │
+│  │  kill_switch_handler → Side A (kill_switch)                           │   │
+│  │  override_handler → Floor 5 (override_guard)                          │   │
+│  │  reconnect_handler → Side A/Side C (broker/store reconnect)           │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────┘
+        │
+        ▼  (HTTP + WebSocket)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  SIDE B DASHBOARD (Frontend UI)                                             │
+│                                                                             │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │  CLIENT STATE (state_manager.js + refresh_scheduler.js)              │   │
+│  │  HOT/WARM/COLD refresh cycles                                        │   │
+│  │  WebSocket push + HTTP polling fallback                              │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│         │                                                                    │
+│         ▼                                                                    │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │  PRIMARY COCKPIT (cockpit.js)                                        │   │
+│  │  System status → Execution panel → Captain panel                     │   │
+│  │  Floor summary → Head health → Quick alerts → Controls               │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│         │                                                                    │
+│         ├── captain_panel.js       ─── Captain state + reason              │
+│         ├── execution_panel.js     ─── Execution state + position          │
+│         ├── head_panels.js         ─── Per-head reports                    │
+│         ├── chart_surface.js       ─── OHLCV + overlays                    │
+│         ├── health_panel.js        ─── System health                       │
+│         ├── alert_panel.js         ─── Alert feed                          │
+│         ├── control_panel.js       ─── Operator controls                   │
+│         ├── explainability_panel.js── Trade/no-trade reasons              │
+│         ├── floor_drilldown.js     ─── Per-floor state detail              │
+│         ├── workspace_replay.js    ─── Read-only replay workspace          │
+│         ├── workspace_review.js    ─── Post-session review                 │
+│         └── workspace_diagnostics.js── System diagnostics                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+SECTION 7: DATA FLOW
+================================================================================
+
+COMPLETE DASHBOARD DATA FLOW:
+
+1. DATA AGGREGATION (backend):
+   a. Background pollers fire on their HOT/WARM/COLD intervals
+   b. Each data_source adapter calls its floor/side API or reads shared state
+   c. Data is normalized into standard response schemas (data_contracts.py)
+   d. session_cache stores each result with tier-appropriate TTL
+   e. WebSocket pushes updates to connected dashboard clients
+
+2. API RESPONSE (backend → frontend):
+   a. Frontend sends HTTP GET to /api/* endpoint
+   b. Route handler reads from session_cache (or triggers poll if cache expired)
+   c. Returns JSON matching data_contracts.py schema
+   d. WebSocket pushes real-time updates for HOT-tier data
+
+3. STATE MANAGEMENT (frontend):
+   a. api_client.js receives response → state_manager.js updates local state
+   b. WebSocket pushes update state incrementally
+   c. refresh_scheduler.js maintains refresh cycle
+   d. Components subscribed to state changes re-render
+
+4. COCKPIT RENDERING:
+   a. app.js initializes cockpit view
+   b. cockpit.js reads from state_manager and renders panels
+   c. Panel components update independently (no full page re-render)
+   d. State-Based Adaptive UI: panels emphasize based on system state
+
+5. OPERATOR COMMAND:
+   a. Operator clicks control button
+   b. control_panel.js → api_client.js sends POST to /api/control/*
+   c. control_routes.py validates and forwards to command_handler
+   d. command_handler routes to correct floor/side owner
+   e. Owner processes command and returns acknowledgement
+   f. Dashboard updates to reflect new state
+
+6. WORKSPACE NAVIGATION:
+   a. Operator clicks workspace tab
+   b. app.js switches to selected workspace
+   c. Workspace component fetches relevant data
+   d. Chart surface re-renders for replay or diagnostics
+
+================================================================================
+SECTION 8: VALIDATION MATRIX
+================================================================================
+
+UNIT VALIDATION (per module, before integration):
+
+| Module                        | Unit Tests                           | Validates                                  |
+|------------------------------|--------------------------------------|--------------------------------------------|
+| api_config.py                | test_api_config.py                   | Config loads, defaults correct             |
+| data_contracts.py            | test_data_contracts.py               | All schemas instantiate correctly          |
+| data_sources/*.py            | test_data_sources.py                 | Each source returns normalized data        |
+| data_aggregator.py           | test_data_aggregator.py              | Aggregates all sources, cache works        |
+| session_cache.py             | test_session_cache.py                | HOT/WARM/COLD tiers, expiry, invalidation  |
+| api_server.py                | test_api_server.py                   | Server starts, routes register             |
+| health_routes.py             | test_routes_health.py                | Health endpoints return correct format     |
+| captain_routes.py            | test_routes_captain.py               | Captain endpoints return correct format    |
+| execution_routes.py          | test_routes_execution.py             | Execution endpoints return correct format  |
+| control_routes.py            | test_routes_control.py               | Control endpoints route correctly          |
+| command_handlers/*.py        | test_command_handlers.py             | Each handler validates + routes            |
+| state_manager.js             | (manual or headless browser test)    | State updates, subscriptions work          |
+| refresh_scheduler.js         | (manual or headless browser test)    | HOT/WARM/COLD cycles correct               |
+| api_client.js                | (manual or headless browser test)    | HTTP + WebSocket communication             |
+
+CONTRACT VALIDATION (cross-module):
+
+| Test File                       | Validates                                    |
+|---------------------------------|----------------------------------------------|
+| test_contract_validation.py     | All routes use correct schemas               |
+|                                 | All Side C queries go through read models    |
+|                                 | No `execute_` prefix in any route            |
+|                                 | No raw Side C store paths in any route       |
+|                                 | All command handlers return acknowledgement  |
+
+INTEGRATION VALIDATION (end-to-end Side B):
+
+| Test File                       | Validates                                    |
+|---------------------------------|----------------------------------------------|
+| test_integration.py             | API starts, all routes respond               |
+|                                 | Data aggregator polls all sources             |
+|                                 | Session cache stores and retrieves            |
+|                                 | Command routes to correct handler             |
+|                                 | WebSocket pushes updates                      |
+|                                 | Dashboard renders with mock data              |
+|                                 | State-Based Adaptive UI works                 |
+|                                 | HOT/WARM/COLD refresh cycles correct          |
+
+================================================================================
+SECTION 9: CROSS-COMPONENT IMPACTS
+================================================================================
+
+IMPACT ON REPLAY:
+
+Side B is the primary consumer of replay data.
+
+- Replay workspace is READ-ONLY — no execution from replay
+- Replay data comes from Floor 2 replay engine
+- Replay displays identical state to live mode but with "REPLAY" banner
+- Chart surface updates during replay at configurable speed
+- Decision replay: shows what Captain WOULD have decided
+- Replay sessions are selectable by date range and data sources
+
+IMPACT ON DASHBOARD (Side B self):
+
+Dashboard is Side B. Cross-component impacts are the INPUTS to Side B:
+
+- Floor 1 provides: source health, connection status
+- Floor 2 provides: data health, validation stats, replay capability
+- Floor 3 provides: domain states, chart data, CMSP
+- Floor 4 provides: head reports, floor summary, explainability context
+- Floor 5 provides: captain state, decisions, armed plans, stories
+- Side A provides: execution state, positions, blocked actions
+- Side C provides: historical data through read models
+
+IMPACT ON MEMORY (Side C):
+
+Side B does NOT write to Side C directly.
+Side B consumes Side C data through read models only.
+
+- Read models used: trade_history, decision_history, health_events,
+  blocked_action_history, override_history
+- NEVER raw store queries from Side B
+- Dashboard is a consumer of memory, not a producer
+
+IMPACT ON EXECUTION (Side A):
+
+Side B controls execution parameters but does NOT execute:
+
+- Mode changes route to Side A (mode_router)
+- Kill switch commands route to Side A (kill_switch)
+- Override confirmations route to Floor 5 (override_guard)
+- Capital updates route to Side A (risk_gate)
+- Reconnect requests route to Side A (execution_core/reconciliation)
+
+Side B displays execution state but never overrides Side A's execution logic.
+
+================================================================================
+SECTION 10: COMMON MISTAKES + ANTI-PATTERNS
+================================================================================
+
+ARCHITECTURE-BREAKING MISTAKES:
+
+MISTAKE 1: Dashboard making decisions instead of revealing them
+  - WRONG: Side B shows "Buy now" button that creates trades
+  - RIGHT: Side B shows "Request trade" that sends to Captain for approval
+  - PREVENTION: CI check: no `execute_` route prefix, only `request_`
+  - DETECTION: Route creates trade without Captain approval → P0 violation
+
+MISTAKE 2: Side B recalculating Floor 4 confidence or Floor 5 conviction
+  - WRONG: Dashboard re-aggregates head biases into custom confidence score
+  - RIGHT: Side B displays Floor 4 confidence exactly as reported
+  - PREVENTION: CI check: no Floor 3/4 calculation imports in side_b_api/
+  - DETECTION: Dashboard shows confidence that differs from Floor 4 output
+
+MISTAKE 3: Dashboard querying raw Side C stores directly
+  - WRONG: side_b_api queries raw SQLite tables or raw store APIs
+  - RIGHT: side_b_api queries Side C query layer (read models only)
+  - PREVENTION: side_c_source.py only exposes read model methods
+  - DETECTION: API route accesses raw store path → P0 violation
+
+MISTAKE 4: Dashboard placing orders directly through broker API
+  - WRONG: side_b_dashboard has broker API keys and places LIMIT orders
+  - RIGHT: Dashboard changes mode to PAPER/REAL, Side A handles execution
+  - PREVENTION: No broker API keys in Side B config. No broker SDK in Side B.
+  - DETECTION: Side B code imports broker SDK → P0 violation
+
+MISTAKE 5: Building UI before backend data exists
+  - WRONG: Building Captain panel before Floor 5 produces CaptainState
+  - RIGHT: Build data sources first, UI components after data contract verified
+  - PREVENTION: Entry criteria requires data-producing floors/sides to be complete
+  - DETECTION: UI component displays empty/error for non-existent data
+
+MISTAKE 6: Replay workspace allowing execution
+  - WRONG: Replay has "Place order" button that sends to live broker
+  - RIGHT: Replay workspace is READ-ONLY, all action buttons disabled
+  - PREVENTION: Replay routes refuse any command that modifies live state
+  - DETECTION: Replay session modifies position → P0 violation
+
+MISTAKE 7: Mobile-first instead of desktop-first
+  - WRONG: Dashboard designed for 400px phone screens
+  - RIGHT: Dashboard designed for 1920px+ desktop monitors
+  - PREVENTION: UI components use desktop-appropriate layout
+  - DETECTION: Key trading info hidden behind hamburger menus
+
+WHAT CREATES REWORK LATER:
+
+1. Building UI before backend data contracts are verified with each floor/side
+   → Fix: data_aggregator and data_sources built and tested FIRST
+   → Why: UI that displays wrong-format data requires full rewrite
+
+2. Not using HOT/WARM/COLD refresh model from day one
+   → Fix: session_cache.py + refresh_scheduler.js built in Phase A
+   → Why: retrofitting refresh tiers means rewriting data flow
+
+3. Over-engineering frontend with heavy framework
+   → Fix: plain HTML/CSS/JS or lightweight framework (no build toolchain)
+   → Why: this is a single-operator terminal, not a consumer web app
+
+4. Forgetting State-Based Adaptive UI
+   → Fix: cockpit.js respects system state for panel prominence
+   → Why: showing all controls all the time creates operator confusion
+
+5. Not making no-trade reason first-class
+   → Fix: explainability_panel.js has equal weight for trade and no-trade
+   → Why: operator needs to understand WHY not trading, not just why trading
+
+6. Hardcoding chart timeframe or overlays
+   → Fix: chart_surface.js configurable by operator preferences
+   → Why: each operator has different chart preferences
+
+7. Missing failure visibility for degraded/stale/unknown states
+   → Fix: floor_drilldown.js + health_panel.js show ALL states prominently
+   → Why: hidden failures lead to operator surprises
+
+================================================================================
+SECTION 11: READY-TO-CODE CHECKLIST
+================================================================================
+
+ENTRY CRITERIA (before you write any Side B code):
+
+[ ] Phase 0 foundation complete (types.py, config.py, logging.py)
+[ ] Phase 1 complete (Floor 1 — source health data available)
+[ ] Phase 2 complete (Floor 2 — data health, validation stats, replay available)
+[ ] Phase 3 complete (Side C — read models available for query)
+[ ] Phase 4 complete (Floor 3 — domain states, CMSP, chart data available)
+[ ] Phase 5 complete (Floor 4 — FloorSummary + HeadReports available)
+[ ] Phase 6 complete (Floor 5 — CaptainState, DecisionSnapshots available)
+[ ] Phase 7 complete (Side A — ExecutionSnapshot, BlockedActions available)
+[ ] All floor/side output contracts verified with Side B consumption format
+[ ] Data aggregator polling contracts defined per source
+[ ] Chart data format agreed with Floor 3 output
+[ ] WebSocket protocol defined (channels, message format)
+[ ] UI framework decision made (plain HTML/CSS/JS vs lightweight library)
+[ ] Color scheme and layout mockup approved
+[ ] HOT/WARM/COLD refresh intervals configured
+[ ] Workspace list finalized (Cockpit, Replay, Review, Diagnostics)
+
+BUILD CRITERIA (verify during each step):
+
+Per-file checklist (fill as you build each .py/.js file):
+
+File: api_config.py + data_contracts.py
+[ ] API port, CORS, refresh intervals configured
+[ ] DashboardState schema — all mandatory fields
+[ ] SystemHealthSnapshot schema
+[ ] CaptainDisplayState schema
+[ ] ExecutionDisplayState schema
+[ ] HeadReportDisplay schema
+[ ] FloorSummaryDisplay schema
+[ ] MarketDataSnapshot schema
+[ ] AlertEntry schema
+[ ] ControlCommand schema
+[ ] WorkspaceState schema
+[ ] Unit tests passing
+
+File: data_sources/ (all 7 source adapters)
+[ ] floor_1_source: source health, connection status
+[ ] floor_2_source: data health, validation stats, replay status
+[ ] floor_3_source: domain summaries, CMSP, chart data
+[ ] floor_4_source: floor summary, head reports, head states
+[ ] floor_5_source: captain state, decision snapshots, armed plans
+[ ] side_a_source: execution state, blocked actions, execution logs
+[ ] side_c_source: read model queries only (no raw stores)
+[ ] Unit tests passing per source
+
+File: data_aggregator.py
+[ ] poll_all() collects from ALL sources
+[ ] poll_hot() collects critical data only
+[ ] poll_warm() collects important data only
+[ ] get_aggregated_state() returns last cached state
+[ ] Unit tests passing
+
+File: session_cache.py
+[ ] HOT tier: 500ms refresh
+[ ] WARM tier: 3s refresh
+[ ] COLD tier: 30s refresh or on-demand
+[ ] get/set/invalidate work per tier
+[ ] Cache stats trackable
+[ ] Unit tests passing
+
+File: api_server.py
+[ ] Server starts on configured port
+[ ] All routes registered
+[ ] WebSocket endpoint active
+[ ] CORS configured for localhost
+[ ] Unit tests passing
+
+File: health_routes.py
+[ ] GET /api/health → SystemHealthSnapshot
+[ ] GET /api/health/{component} → component detail
+[ ] Unit tests passing
+
+File: captain_routes.py
+[ ] GET /api/captain/state → CaptainDisplayState
+[ ] GET /api/captain/story → market story
+[ ] GET /api/captain/snapshots → decision snapshots
+[ ] GET /api/captain/reason → trade/no-trade reason
+[ ] Unit tests passing
+
+File: head_routes.py
+[ ] GET /api/heads → all head reports
+[ ] GET /api/heads/{head} → specific head detail
+[ ] GET /api/heads/floor-summary → FloorSummary
+[ ] Unit tests passing
+
+File: execution_routes.py
+[ ] GET /api/execution/state → ExecutionDisplayState
+[ ] GET /api/execution/position → position detail
+[ ] GET /api/execution/blocked → blocked actions
+[ ] Unit tests passing
+
+File: market_routes.py
+[ ] GET /api/market/snapshot → market data
+[ ] GET /api/market/chart → OHLCV + indicators
+[ ] Unit tests passing
+
+File: memory_routes.py
+[ ] GET /api/memory/trades → trade history (read model)
+[ ] GET /api/memory/decisions → decision history (read model)
+[ ] NO raw Side C store access in any route
+[ ] Unit tests passing
+
+File: replay_routes.py
+[ ] GET /api/replay/sessions → available sessions
+[ ] POST /api/replay/start → starts replay
+[ ] POST /api/replay/stop → stops replay
+[ ] POST /api/replay/speed → set speed
+[ ] Replay routes read-only (no execution)
+[ ] Unit tests passing
+
+File: control_routes.py
+[ ] POST /api/control/mode → routes to mode_handler
+[ ] POST /api/control/capital → routes to capital_handler
+[ ] POST /api/control/kill-switch → routes to kill_switch_handler
+[ ] POST /api/control/override → routes to override_handler
+[ ] All routes use `request_` naming convention
+[ ] Unit tests passing
+
+File: command_handlers/ (all 6 handlers)
+[ ] Each handler validates params
+[ ] Each handler routes to correct floor/side owner
+[ ] Each handler returns acknowledgement
+[ ] Unit tests passing
+
+File: index.html + main.css
+[ ] SPA structure loads
+[ ] Dark color scheme applied
+[ ] Layout grid: sidebar, center, right panel, top bar, bottom bar
+[ ] All CSS variables defined
+
+File: app.js
+[ ] App initializes without errors
+[ ] Router works (cockpit, workspaces)
+[ ] Component lifecycle management works
+[ ] Works with api_client.js
+
+File: api_client.js
+[ ] HTTP GET/POST works
+[ ] WebSocket connect/disconnect works
+[ ] Fallback to HTTP polling works
+[ ] Error handling works
+
+File: state_manager.js + refresh_scheduler.js
+[ ] State updates work
+[ ] Subscriptions notify on change
+[ ] HOT/WARM/COLD intervals correct
+[ ] WebSocket push updates state
+
+File: cockpit.js
+[ ] System status bar renders
+[ ] Execution panel renders
+[ ] Captain panel renders
+[ ] Floor summary + head health renders
+[ ] Quick alerts + controls render
+[ ] State-Based Adaptive UI works
+
+File: captain_panel.js
+[ ] Captain mood displayed with icon
+[ ] Decision + conviction band displayed
+[ ] Market story summary rendered
+[ ] Trade/no-trade reason prominent
+[ ] WARM refresh tier
+
+File: execution_panel.js
+[ ] Mode displayed
+[ ] Execution state displayed
+[ ] Position detail displayed
+[ ] P&L displayed
+[ ] Blocked actions displayed
+[ ] HOT refresh tier
+
+File: head_panels.js
+[ ] 6 head cards rendered
+[ ] Bias, confidence, state, freshness per head
+[ ] SMC/ICT context_quality_score displayed
+[ ] Macro/Psychology: NO setups displayed
+[ ] WARM refresh tier
+
+File: explainability_panel.js
+[ ] Trade reason displayed (if TRADE)
+[ ] No-trade reason displayed (if WAIT/BLOCKED)
+[ ] Head alignment visualization
+[ ] Confluence summary
+
+File: chart_surface.js
+[ ] OHLCV candlestick chart renders
+[ ] EMA/VWAP overlays work
+[ ] SMC/ICT zones render
+[ ] Session markers render
+[ ] HOT refresh on price updates
+
+File: control_panel.js
+[ ] Mode selector works
+[ ] Kill switch activates with confirmation
+[ ] Capital display + update works
+[ ] Override confirmation popup works
+[ ] State-Based Adaptive: controls adapt to system state
+
+File: floor_drilldown.js
+[ ] Per-floor state detail accessible from health indicators
+[ ] All 5 floors + 3 sides drillable
+[ ] Module-level state visible
+
+File: workspace_replay.js
+[ ] Replay sessions list works
+[ ] Playback controls work
+[ ] Timeline scrubber works
+[ ] READ-ONLY (no execution)
+[ ] Replay state prominently displayed
+
+File: workspace_review.js
+[ ] Trade journal per-trade review
+[ ] Decision review display
+[ ] Blocked action review
+[ ] Export function works
+
+File: websocket_client.js
+[ ] Connects to WebSocket endpoint
+[ ] Subscribes/unsubscribes to channels
+[ ] Handles disconnection gracefully
+[ ] Falls back to HTTP polling
+
+File: formatters.js + colors.js
+[ ] All formatters produce correct output
+[ ] Color scheme constants exported
+
+VERIFICATION TESTS:
+
+[ ] Each unit test file has ≥5 test cases covering edge cases
+[ ] Data aggregator: all 7 sources polled → pass
+[ ] Session cache: HOT/WARM/COLD tiers correct → pass
+[ ] All 6 command handlers: validate + route + ack → pass
+[ ] All 10 route groups: correct response format → pass
+[ ] Side C consumption: read models only (no raw stores) → pass
+[ ] Control routes: `request_` prefix enforced → CI check passes
+[ ] No `execute_` routes → CI check passes
+[ ] No broker SDK imports in side_b_api → CI check passes
+[ ] Replay workspace: read-only, no execution → pass
+[ ] No-trade reason visible on WAIT/BLOCKED → pass
+[ ] State-Based Adaptive UI: active trade vs no-trade → pass
+[ ] HOT/WARM/COLD: correct refresh timing → pass
+[ ] Integration: full API + Dashboard with mock data → pass
+
+EXIT CRITERIA (Phase 8 complete):
+
+[ ] All unit tests pass (12+ test files)
+[ ] Contract validation tests pass
+[ ] Data aggregator polls all 7 data sources successfully
+[ ] Session cache HOT/WARM/COLD tiers verified
+[ ] All 10 route groups respond with correct schemas
+[ ] All 6 command handlers validate + route + ack correctly
+[ ] WebSocket pushes real-time updates
+[ ] Primary cockpit renders all panels correctly
+[ ] Captain panel: mood, decision, conviction, story, reason
+[ ] Execution panel: state, position, P&L, blocked actions
+[ ] Chart surface: OHLCV with SMC/ICT/Technical overlays
+[ ] Head panels: 6 heads with bias, confidence, state, setups
+[ ] Explainability panel: trade/no-trade reason prominent
+[ ] Control panel: mode, kill-switch, capital, override
+[ ] Replay workspace: read-only, playback, timeline
+[ ] Review workspace: trade/decision/blocked review
+[ ] Diagnostics workspace: health, contracts, perf, memory
+[ ] State-Based Adaptive UI works (active trade vs no-trade)
+[ ] No architecture violations (no execution, no intelligence, no raw stores)
+[ ] Dashboard renders correctly on localhost
+[ ] No-trade reason has equal visibility to trade reason
+[ ] All data sources return valid data (or graceful error if source unavailable)
+[ ] Session cache resets correctly on new session
+
+================================================================================
+END OF ROADMAP SIDE B
+================================================================================

@@ -1,0 +1,4563 @@
+================================================================================
+ JUNIOR ALADDIN - IMPLEMENTATION SEQUENCING PLAN V1.1 FINAL
+ Master Build Sequencing Document (Strengthened Edition)
+================================================================================
+
+PURPOSE OF THIS DOCUMENT
+-------------------------------------------------------------------------------
+"Today if coding starts, in what exact order should I build?"
+
+This document is NOT:
+- a generic roadmap
+- a high-level summary
+- a motivational guide
+- a redesigned architecture
+
+This document IS:
+- the deepest possible implementation sequencing reference
+- a daily usable build-time reference manual
+- a dependency-driven phase map
+- an architecture-aligned execution plan
+- a production-oriented build sequence
+- a "what to build, what NOT to build, and in what exact order" contract
+- a daily reference during coding — open this file every morning
+
+Every section answers:
+- what to build
+- what NOT to build yet
+- which dependencies must be complete first
+- why this phase in this exact position
+- entry criteria, build criteria, validation criteria, exit criteria
+- common mistakes, what breaks architecture, what creates rework
+- unit validation, contract validation, replay validation, integration validation
+- ready-to-code checklist
+- current build path vs future scale path
+
+================================================================================
+SECTION 1 - BUILD PHILOSOPHY
+================================================================================
+
+LOCKED BUILD DIRECTION:
+BOTTOM → UP
+
+Meaning:
+FLOOR 1 (Market Connection) built first.
+FLOOR 5 (Captain) built last.
+Sides built after Floors are operational.
+
+Why bottom-up is locked:
+- each floor depends on the floor below it for truth/data
+- you cannot test a Head without calculation inputs
+- you cannot test Captain without Head reports
+- you cannot test Dashboard without backend data flowing
+- you cannot test Execution without Captain decisions
+- building top-down means building blind — no data to test against
+
+OVERALL BUILD ORDER BLOCK:
+
+PHASE 0  → Foundation / Project Skeleton / Shared Types / Config
+PHASE 1  → FLOOR 1 — Market Connection (raw data ingress)
+PHASE 2  → FLOOR 2 — Data Center (truth/validation/structure/replay)
+PHASE 3  → SIDE C — Base Memory Layer (journal/event stores)
+PHASE 4  → FLOOR 3 — Calculation Engines (intelligence factory)
+PHASE 5  → FLOOR 4 — Department Heads (interpretation/confidence)
+PHASE 6  → FLOOR 5 — Captain (decision/conviction/judge)
+PHASE 7  → SIDE A — Execution (action layer)
+PHASE 8  → SIDE B — Dashboard (operator terminal)
+PHASE 9  → Full Integration (end-to-end wiring)
+PHASE 10 → Testing Gates
+PHASE 11 → Production Readiness (Paper → Real)
+
+CRITICAL RULE:
+No phase starts until ALL dependencies of that phase are verified complete.
+
+CRITICAL RULE 2:
+Every phase must define explicit READINESS CRITERIA (conditions to START)
+and VALIDATION CRITERIA (how to VERIFY the phase output).
+These are distinct from SUCCESS CRITERIA (conditions to EXIT the phase).
+
+CRITICAL RULE 3:
+Every phase must define WHY THIS PHASE FIRST — the dependency justification
+that explains why this phase sits in this exact position in the build order.
+Without this justification, the build order is ambiguous.
+
+================================================================================
+SECTION 2 - IMPLEMENTATION PRINCIPLES
+================================================================================
+
+PRINCIPLE 1: TRUTH BEFORE INTELLIGENCE
+Without truthful data, all intelligence is garbage.
+Floor 1 and Floor 2 must be rock-solid before any calculation logic is written.
+
+PRINCIPLE 2: INTELLIGENCE BEFORE JUDGMENT
+Floor 3 must produce correct states/maps/scores before Floor 4 can interpret.
+Floor 4 must produce correct confidence/reports before Floor 5 can judge.
+
+PRINCIPLE 3: INTERPRETATION BEFORE DECISION
+Heads first, Captain later.
+Captain without Heads is an empty brain.
+
+PRINCIPLE 4: DECISION BEFORE EXECUTION
+Side A has nothing to execute until Captain produces an approved intent.
+But Side A's paper broker and state machine can be built in parallel.
+
+PRINCIPLE 5: MEMORY IS CROSS-CUTTING, NOT ORDERED
+Side C (Memory) receives events from all layers.
+Build Side C base infrastructure early (Phase 3) so it can start ingesting.
+But full Side C richness grows as each floor/side emits events.
+
+PRINCIPLE 6: DASHBOARD IS LAST
+Side B consumes from all floors and sides.
+Building it earlier means building against unstable/nonexistent backends.
+Build Side B API + Cockpit only after Floors 1-5 + Side A emit real data.
+
+PRINCIPLE 7: REPLAY IS FIRST-CLASS FROM PHASE 2
+Replay capability must be designed in Floor 2 from day one.
+Retrofitting replay later is exponentially harder.
+
+PRINCIPLE 8: NO LAYER ABSORBS THE LAYER ABOVE
+If a layer starts doing the job of the layer above it, stop and refactor.
+
+PRINCIPLE 9: TEST ISOLATED, INTEGRATE LATER
+Each floor must be testable with mocked inputs from the floor below.
+Integration testing is Phase 9, not Phase 1.
+
+PRINCIPLE 10: CONTRACTS BEFORE CODE
+Define the input/output contracts of each module before writing logic.
+Contracts are the backbone of a 5-floor system.
+
+PRINCIPLE 11: ARCHITECTURE LAWS ARE ENFORCED AUTOMATICALLY
+Add these checks to your CI/linting pipeline. If any violation is found, it's a P0 bug:
+- No `confidence` variables/modules/classes in floor_3_calculations/ (belongs to Floor 4)
+- No `conviction` variables/modules/classes in floor_4_heads/ (belongs to Floor 5)
+- No `quality` used as confidence label in floor_4_heads/
+- No trade approval logic below floor_5_captain/
+- No setup generation in macro_head.py or psychology_head.py
+- Dashboard API routes prefix with `request_` not `execute_`
+- Side C stores have no `score`/`rank`/`recommend` methods
+- No Floor 3 direct packet consumption as Captain routine input path
+- No execution logic in dashboard (Side B never places orders directly)
+- No raw Side C store consumption from Side B (must go through query layer)
+
+PRINCIPLE 12: LOCAL-FIRST, CLOUD-OPTIONAL
+This system is designed for a single developer on a single laptop.
+Zero mandatory paid infrastructure. Zero mandatory cloud dependency.
+Zero mandatory enterprise stack.
+Future cloud/scale upgrades are possible but never required for core operation.
+SQLite for dev. PostgreSQL only if/when scale demands it.
+No Docker/Kubernetes required. No cloud account required.
+The system must work on a laptop with Python, a broker API key, and an internet connection.
+
+================================================================================
+SECTION 3 - DEPENDENCY MAP
+================================================================================
+
+CRITICAL PATH (must be serial):
+
+FLOOR 1 (Market Connection)
+    ↓ MUST HAVE
+FLOOR 2 (Data Center)
+    ↓ MUST HAVE
+FLOOR 3 (Calculation Engines)
+    ↓ MUST HAVE
+FLOOR 4 (Department Heads)
+    ↓ MUST HAVE
+FLOOR 5 (Captain)
+    ↓ MUST HAVE
+SIDE A (Execution)
+    ↓ MUST HAVE
+SIDE B (Dashboard)
+
+PARALLEL-SAFE PATHS:
+
+Side C (Memory) — Stage A:
+- Base infrastructure (types, stores, query layer)
+- Starts after Phase 2 data contracts are defined, NOT after Phase 2 complete
+- Can run in parallel with Phase 4 start
+
+Side C (Memory) — Stage B:
+- Full ingestion grows alongside Phases 4-7 as floors emit real events
+- Does not block any floor
+
+Side A Internal Architecture (Risk Gate, State Machine, Paper Broker):
+- Can start after Floor 5 contracts are defined (don't need live Captain)
+- Final integration needs live Captain output
+
+Side B API:
+- Cannot be fully built until Floors 1-5 + Side A emit real data
+- But UI scaffolding, component library, workspace layout can start early
+
+DEPENDENCY TABLE:
+
+| Block           | Depends On                    | Blocks                        |
+|----------------|-------------------------------|-------------------------------|
+| Floor 1        | Nothing (external SDK)        | Floor 2                       |
+| Floor 2        | Floor 1                       | Floor 3, Side C               |
+| Side C (base)  | Floor 2 data contracts        | Full Side C richness          |
+| Floor 3        | Floor 2                       | Floor 4                       |
+| Floor 4        | Floor 3                       | Floor 5                       |
+| Floor 5        | Floor 4                       | Side A                        |
+| Side A         | Floor 5 (contracts), Floor 1  | Side B (execution visibility) |
+| Side B         | Floors 1-5, Side A            | Nothing (consumes all)        |
+
+DEPENDENCY VALIDATION SUMMARY:
+
+PHASE 0 (Foundation) — First because: nothing depends on it, everything depends on it.
+  Without project skeleton, types, config, logging — no module can be written.
+  No phase can start until Phase 0 is complete.
+
+PHASE 1 (Floor 1) — First floor because: Floor 1 is closest to the market.
+  Without market data ingress, no data exists to process.
+  No phase above Floor 1 can be tested with real data.
+  Phase 1 is the system's window to the outside world.
+
+PHASE 2 (Floor 2) — Second because: raw data is not usable.
+  Floor 1 produces raw packets. Floor 2 validates, cleans, structures them.
+  Floor 3 cannot compute intelligence on raw/unvalidated data.
+  Phase 2 transforms noise into truth.
+
+PHASE 3 (Side C Base) — Third because: memory should start from day one.
+  Side C base infrastructure needs Floor 2 data contracts (event formats, schemas).
+  Once data contracts are defined, Side C can begin building storage foundations.
+  Side C does NOT need Floor 3+ to be complete — it stores events from all layers.
+  Starting Side C early means every subsequent phase can emit events immediately.
+
+PHASE 4 (Floor 3) — Fourth because: structured truth must exist first.
+  Floor 3 requires Floor 2's validated candles, tick streams, options snapshots.
+  Without clean data, all intelligence is garbage.
+  Floor 3 is the first layer that creates meaning from data.
+
+PHASE 5 (Floor 4) — Fifth because: interpretation requires intelligence.
+  Heads cannot interpret what Floor 3 hasn't calculated yet.
+  Floor 4 is entirely dependent on Floor 3's domain outputs.
+  Without Floor 3 states/maps/scores, Heads have nothing to form opinions on.
+
+PHASE 6 (Floor 5) — Sixth because: judgment requires interpreted opinions.
+  Captain requires Head reports and Floor Summary from Floor 4.
+  Without expert interpretation, Captain would need to redo all analysis directly.
+  Captain is the culmination of everything below — it must be built last.
+
+PHASE 7 (Side A) — Seventh because: execution requires decisions.
+  Side A executes Captain's approved intents.
+  Without Captain, there's nothing to execute.
+  Paper broker and state machine can be built in parallel after contracts are defined.
+
+PHASE 8 (Side B) — Eighth because: visibility requires something to see.
+  Dashboard consumes data from ALL floors and sides.
+  Building it earlier means building against nonexistent/stub backends.
+  Dashboard is the last thing built because it shows everything that came before.
+
+PHASE 9-11 — Final because: integration, testing, production come after build.
+  Full integration requires all components to exist.
+  Testing requires a complete integrated system.
+  Production readiness requires tested, verified code.
+
+================================================================================
+SECTION 4 - SYSTEM DEPENDENCY GRAPH
+================================================================================
+
+```
+                         +-----------+
+                         |  MARKET   |
+                         +-----+-----+
+                               |
+                         +-----v-----+
+               +---------> FLOOR 1   <---------+
+               |         |(Connection)|         |
+               |         +-----+------+         |
+               |               |                |
+               |         +-----v------+         |
+               |         | FLOOR 2    |         |
+               |         |(Data Truth)|         |
+               |         +--+------+--+         |
+               |            |      |            |
+               |     +------v+  +--v--------+   |
+               |     |SIDE C |  | FLOOR 3   |   |
+               |     |(Memory|  |(Intell.   |   |
+               |     | Base) |  | Factory)  |   |
+               |     +-------+  +-----+-----+   |
+               |                          |     |
+               |                    +-----v-----+
+               |                    | FLOOR 4    |
+               |                    | (Heads)    |
+               |                    +-----+------+
+               |                          |
+               |                    +-----v------+
+               |                    | FLOOR 5    |
+               |                    | (Captain)  |
+               |                    +-----+------+
+               |                          |
+               |                    +-----v------+
+               |           +--------> SIDE A     |
+               |           |        |(Execution) |
+               |           |        +-----+------+
+               |           |              |
+               |           |        +-----v------+
+               |           |        | SIDE B     |
+               |           |        |(Dashboard) |
+               |           |        +-----+------+
+               |           |              |
+               |           +--------+-----+
+               |                    |
+               |              +-----v------+
+               +--------------> SIDE C     |
+                              |(Full       |
+                              | Memory)    |
+                              +------------+
+```
+
+Note: Side C receives events from Floors 1, 2, 5 and Side A.
+Side C does not sit "between" floors in the decision path.
+
+================================================================================
+SECTION 5 - BUILD READINESS RULES
+================================================================================
+
+RULE 1: CONTRACT FIRST, CODE SECOND
+Before writing a single line of code in any module:
+- define the input contract (what this module receives)
+- define the output contract (what this module produces)
+- define the error contract (what happens when input is invalid)
+
+RULE 2: MOCK BEFORE INTEGRATE
+Each floor must be testable with mock data from the floor below.
+If Floor 3 cannot be tested with fake Floor 2 data, the architecture is wrong.
+
+RULE 3: ONE MODULE AT A TIME
+Do not build two modules in parallel within the same floor.
+Build one, test it, verify its output, then move to the next.
+
+RULE 4: NO MODULE LEFT UNTESTED
+Every module must have:
+- a unit test (isolated logic)
+- an integration test (with its immediate dependencies)
+Before it is considered "complete."
+
+RULE 5: CONTRACT TEST AFTER EVERY INTEGRATION
+Whenever two floors/sides are connected for the first time:
+- verify every output field matches what the consumer expects
+- verify error conditions are handled
+
+RULE 6: STOP AT FAILURE
+If a phase's exit criteria are not met, do NOT proceed to the next phase.
+Fixing problems later costs 10x more.
+
+RULE 7: REPLAY READINESS FROM PHASE 2
+Floor 2 must be replay-capable from day one.
+No retrofitting replay later.
+
+RULE 8: ALERT MODE FROM PHASE 7
+Side A's ALERT mode must be operational before PAPER mode testing begins.
+ALERT is always active — it's the safety net.
+
+RULE 9: PAPER BEFORE REAL
+No REAL mode testing until PAPER mode has:
+- 100+ simulated trades
+- zero critical failures in state machine
+- verified risk gate behavior
+
+RULE 10: DASHBOARD LAST
+Do not build dashboard panels for data that does not yet exist upstream.
+
+RULE 11: LOCAL-FIRST BUILD
+Everything must work on a single laptop with zero paid cloud services.
+SQLite for storage, local filesystem for logs, localhost for dashboard.
+Cloud/PostgreSQL/Docker are future scale options, not current requirements.
+
+RULE 12: NEVER BUILD WHAT YOU CANNOT TEST
+If you cannot test a module in isolation with mocked inputs, restructure it.
+Untestable code is untrustworthy code.
+
+================================================================================
+SECTION 6 - MODULE READINESS RULES
+================================================================================
+
+Each module in the system must satisfy these criteria before it is considered
+ready for integration:
+
+MODULE READINESS CHECKLIST:
+[ ] Input contract defined
+[ ] Output contract defined
+[ ] Error contract defined
+[ ] Core logic implemented
+[ ] Unit tests passing (>80% coverage)
+[ ] Edge cases handled (empty input, corrupt input, timeout)
+[ ] Logging implemented (input, output, errors at minimum)
+[ ] No hardcoded values (all configurable via config)
+[ ] No direct dependencies on modules above it
+[ ] Does not duplicate logic that exists elsewhere
+[ ] Type annotations complete (if typed language)
+[ ] Can be tested in isolation with mocked inputs
+
+MODULE INTEGRATION READINESS CHECKLIST:
+[ ] All dependent modules satisfy Module Readiness Checklist
+[ ] Contract alignment verified between producer and consumer
+[ ] Integration test passes (real producer → real consumer)
+[ ] Error propagation works (if producer fails, consumer handles gracefully)
+[ ] Latency/performance within acceptable bounds
+
+================================================================================
+SECTION 7 - BOTTOM-UP BUILD STRATEGY
+================================================================================
+
+The build strategy follows a strict bottom-up dependency chain.
+Each phase builds exactly one logical layer of the system.
+
+LAYER BREAKDOWN:
+
+PHASE 0: FOUNDATION
+- Project skeleton
+- Shared types, enums, base classes
+- Configuration system
+- Logging framework
+- Testing infrastructure
+- CI/CD pipeline
+
+PHASE 1: DATA INGRESS
+- Floor 1 — Market Connection
+  Raw data enters the system.
+  Purpose: prove that Angel One data can be received, enveloped, and routed.
+
+PHASE 2: DATA TRUTH
+- Floor 2 — Data Center
+  Raw data becomes trusted, validated, structured truth.
+  Purpose: prove that raw ticks become clean 1m candles + options snapshots.
+
+PHASE 3: MEMORY BASE
+- Side C — Base Infrastructure
+  Event ingestion, routing, storage.
+  Purpose: preserve system memory from day one.
+
+PHASE 4: INTELLIGENCE
+- Floor 3 — Calculation Engines
+  Structured truth becomes structured intelligence.
+  Purpose: prove that clean candles produce correct SMC/ICT/Technical states.
+
+PHASE 5: INTERPRETATION
+- Floor 4 — Department Heads
+  Intelligence becomes expert confidence + invalidation.
+  Purpose: prove that states/maps produce correct head reports.
+
+PHASE 6: DECISION
+- Floor 5 — Captain
+  Confidence becomes conviction and final decision.
+  Purpose: prove that head reports produce correct TRADE/WAIT/BLOCKED decisions.
+
+PHASE 7: ACTION
+- Side A — Execution
+  Decision becomes action (ALERT/PAPER/REAL).
+  Purpose: prove that Captain intent becomes a properly executed trade.
+
+PHASE 8: VISIBILITY
+- Side B — Dashboard
+  All layers become visible to the operator.
+  Purpose: prove that operator can monitor, analyze, control, and review.
+
+PHASE 9: INTEGRATION
+- End-to-end system wiring.
+  All layers connected with real data flow.
+  Purpose: prove the full chain works together.
+
+PHASE 10: TESTING
+- System-wide validation.
+  Purpose: prove the system is safe, correct, and robust.
+
+PHASE 11: PRODUCTION
+- Paper mode → Real mode transition.
+  Purpose: safe live deployment.
+
+================================================================================
+SECTION 8 - PHASE 0: FOUNDATION LAYER
+================================================================================
+
+WHY THIS PHASE FIRST:
+- Nothing in the system can be built without a project skeleton.
+- Shared types, config, logging, and testing infrastructure are prerequisites
+  for every module in every phase.
+- This phase has zero dependencies — it's the starting point.
+- Every subsequent phase depends on Phase 0 being complete.
+
+WHAT TO BUILD:
+
+0.1 PROJECT SKELETON
+File: (root)/
+junior_aladdin/
+├── floor_1_connection/
+├── floor_2_datacenter/
+├── floor_3_calculations/
+│   ├── market_structure/
+│   ├── smc/
+│   ├── ict/
+│   ├── technical/
+│   ├── options/
+│   ├── macro/
+│   └── support_metrics/
+├── floor_4_heads/
+├── floor_5_captain/
+├── side_a_execution/
+├── side_b_api/
+├── side_b_dashboard/
+├── side_c_memory/
+├── shared/
+│   ├── __init__.py
+│   ├── types.py           (common enums, dataclasses)
+│   ├── contracts.py       (base contract definitions)
+│   ├── errors.py          (error hierarchy)
+│   ├── config.py          (configuration loader)
+│   ├── logging.py         (centralized logging)
+│   └── testing.py         (mock generators, test utilities)
+├── config/
+│   ├── default.yaml
+│   ├── production.yaml
+│   └── test.yaml
+├── tests/
+│   ├── conftest.py
+│   ├── test_floor_1/
+│   ├── test_floor_2/
+│   ├── test_floor_3/
+│   ├── test_floor_4/
+│   ├── test_floor_5/
+│   ├── test_side_a/
+│   ├── test_side_b/
+│   └── test_side_c/
+├── scripts/
+│   ├── setup.sh
+│   ├── run_all_tests.sh
+│   └── seed_test_data.py
+├── data/
+│   ├── raw/
+│   ├── clean/
+│   └── replay/
+├── requirements.txt
+├── setup.py
+├── pyproject.toml
+├── .env.example
+├── .gitignore
+└── README.md
+
+0.2 SHARED TYPES (shared/types.py)
+Core enums:
+- MarketPhase: PRE_OPEN / OPEN / LUNCH / CLOSING / POST_CLOSE
+- SessionType: ASIA / LONDON / NY / ALL
+- BiasType: BULLISH / BEARISH / NEUTRAL
+- TrendState: STRONG_UP / WEAK_UP / RANGE / WEAK_DOWN / STRONG_DOWN
+- HeadState: READY / UNCERTAIN / STALE
+- CaptainMood: OBSERVER / PATIENT / AGGRESSIVE / DEFENSIVE / SILENT
+- DecisionType: TRADE / WAIT / BLOCKED
+- TradeClass: SCALP / CONTINUATION / REVERSAL / LIQUIDITY_RECLAIM / OPTIONS_PRESSURE
+- ExecutionMode: ALERT / PAPER / REAL
+- DataHealth: GOOD / CAUTION / DEGRADED / CRITICAL
+- FreshnessTag: FRESH / WARM / STALE
+- Severity: INFO / CAUTION / SEVERE / CRITICAL
+
+Core dataclasses (base contracts):
+- PacketEnvelope (source, feed_type, packet_id, timestamp, etc.)
+- HeadReport (bias, confidence, state, freshness, invalidation, etc.)
+- FloorSummary (floor_bias, floor_confidence, head_health_snapshots, etc.)
+- CaptainDecision (decision, action, conviction, entry_plan, etc.)
+- ExecutionIntent (trade_id, action, strike, entry, SL, target, etc.)
+- ArmedPlan (plan_id, direction, trigger, expiry, invalidation, etc.)
+- DecisionSnapshot (market_story, heads_summary, conviction, reason, etc.)
+- MemoryEvent (source, family, timestamp, payload, refs)
+
+0.3 CONFIGURATION SYSTEM (shared/config.py)
+- Load from YAML/config files
+- Environment variable override (.env)
+- Per-environment configs (default, production, test)
+- Required configs: Angel One API keys, capital limits, thresholds
+
+0.4 LOGGING FRAMEWORK (shared/logging.py)
+- Centralized logger factory
+- Structured JSON logging
+- Per-module log levels
+- Log rotation
+- Sensitive data redaction (API keys, tokens)
+
+0.5 TESTING INFRASTRUCTURE (shared/testing.py)
+- Mock Angel One tick generator
+- Mock Floor 2 structured data generator
+- Mock Floor 3 states/maps/scores generator
+- Mock Floor 4 head reports generator
+- Mock Floor 5 captain decision generator
+- In-memory test stores
+
+WHAT NOT TO BUILD YET:
+- Any business logic
+- Any floor/side implementation
+- Any dashboard UI
+- Any real broker integration
+- Any database schema (can be added in Phase 2)
+
+ENTRY CRITERIA (before starting Phase 0):
+[ ] Python 3.11+ installed and available in PATH
+[ ] pip/poetry/conda package manager available
+[ ] Git installed and repository initialized
+[ ] Development environment set up (editor, terminal, debugger)
+[ ] NIFTY 50 market understanding confirmed (this is a NIFTY 50-only system)
+[ ] Architecture plan files read and understood (all 9 canonical files)
+[ ] Project name chosen (junior_aladdin or as preferred)
+
+BUILD CRITERIA (during Phase 0):
+- Every shared type must be importable without errors
+- Config must load from file AND from env vars
+- Logger must output structured JSON
+- Mock generators must produce data matching shared types
+- No business logic written yet
+
+VALIDATION CRITERIA (how to VERIFY Phase 0 output):
+- `python -c "from shared.types import *"` → zero import errors
+- `pytest tests/` → discovers tests, runs, all pass
+- `from shared.config import Config; c = Config(); c.get('env')` → returns 'test'
+- Logger writes structured JSON to configured output
+- Mock generators produce realistic data matching shared/types.py schemas
+- All 9 canonical files from MASTER_ASSEMBLY_PLAN_V1_1_FINAL.txt listed as references
+
+EXIT CRITERIA (Phase 0 complete):
+[ ] Project compiles/imports without errors
+[ ] Shared types imported and used correctly
+[ ] Config loads from file and from env vars
+[ ] Logger writes structured logs
+[ ] Mock generators produce realistic test data
+[ ] pytest discovers and runs at least 1 test
+[ ] CI pipeline passes (if configured)
+
+WHAT CAN BREAK ARCHITECTURE IN THIS PHASE:
+- Defining types that violate ownership boundaries (e.g., putting confidence fields
+  in Floor 3 types)
+- Creating config entries that hardcode values that belong in higher floors
+- Making mock generators too simplified (unrealistic test data)
+- Not defining contracts early enough (contract drift later)
+
+WHAT CREATES REWORK LATER:
+- Skipping mock generators (every module becomes hard to test)
+- Not setting up logging (debugging becomes blind)
+- Hardcoding paths instead of using config
+- Not adding .env to .gitignore (credentials leaked)
+- Not setting up the full folder structure (creates refactoring later)
+- Not defining base contracts in shared/types.py (contract drift)
+
+UNIT VALIDATION:
+- Each shared utility has at least 1 test
+- Config loads correctly from all sources
+- Logger formats correctly
+- Mock generators produce type-correct data
+
+CONTRACT VALIDATION:
+- All base contracts defined in shared/types.py
+- All floors/sides listed in folder structure
+- Canonical architecture files referenced
+
+REPLAY VALIDATION: N/A (no data yet)
+
+INTEGRATION VALIDATION:
+- `python -c "from shared.types import *"` — must import cleanly
+- `pytest tests/` — must discover tests, pass 1+ test
+
+READY TO CODE CHECKLIST:
+[ ] Python environment set up and verified
+[ ] Project skeleton created and imports verified
+[ ] Shared types defined and verified
+[ ] Config system working
+[ ] Logging system working
+[ ] Mock generators producing data
+[ ] pytest discovers and runs tests
+[ ] Git initialized with .gitignore
+[ ] .env.example created (no real keys)
+[ ] Architecture plan files accessible for daily reference
+
+CURRENT BUILD PATH:
+- SQLite for development storage (zero setup, file-based)
+- Local logging to filesystem
+- pytest for testing
+- No Docker, no cloud, no external infrastructure
+
+FUTURE SCALE PATH:
+- PostgreSQL for production (when SQLite limits are hit)
+- Structured log aggregation (when local logs become unwieldy)
+- CI/CD pipeline (when team grows)
+- Docker containers (when deployment needs isolation)
+
+================================================================================
+SECTION 9 - PHASE 1: FLOOR 1 BUILD
+================================================================================
+
+WHY THIS PHASE FIRST (among floors):
+- Floor 1 is the system's connection to the outside world.
+- Without market data ingress, no data exists for any other floor to process.
+- Floor 2 cannot validate/clean data it never receives.
+- Floor 1 has no dependencies on other floors — only on external APIs.
+- This is the only floor that connects to the broker/exchange.
+- If Floor 1 doesn't work, nothing above it can be tested with real data.
+
+WHY THIS PHASE BEFORE PHASE 2:
+- Floor 2 requires Floor 1 data to validate, clean, and structure.
+- Floor 2 tests need real packet formats from Floor 1.
+- Floor 2's handoff contract is defined by what Floor 1 produces.
+
+WHY NOT LATER:
+- Delaying Floor 1 means delaying ALL real-data testing.
+- Without real data, every floor above is built against assumptions.
+
+WHAT TO BUILD:
+
+1.1 AUTH MANAGER
+File: floor_1_connection/auth_manager.py
+- Angel One API login
+- Token generation, storage, refresh
+- Session management
+- Auth failure detection
+- Config: client_id, api_key, pin from config
+
+1.2 SOURCE ADAPTERS
+File: floor_1_connection/source_adapters.py
+- AngelOneAdapter: WebSocket + REST connectivity
+- Source lifecycle: CONNECT → HEALTHY → DEGRADED → STALE → AUTH_FAILED → DISCONNECTED → RECONNECT
+- Reconnect loop with configurable retry
+- Heartbeat monitoring
+- Connection_id generation per session
+
+1.3 FEED ADAPTERS
+File: floor_1_connection/feed_adapters.py
+- SpotFeedAdapter: NIFTY 50 LTP, OHLC (1m from tick stream)
+- OptionsFeedAdapter: Option chain, OI, premium
+- VixFeedAdapter: India VIX
+- MacroFeedAdapter: FII/DII, global cues (can start with stubs)
+- CalendarFeedAdapter: Holiday/expiry/event (manual + derived)
+
+1.4 PACKET ENVELOPE BUILDER
+File: floor_1_connection/packet_envelope.py
+- Raw packet → envelope transformation
+- Envelope fields: source, feed_type, connection_id, packet_id,
+  routing_id, received_at, source_timestamp
+- No interpretation — pure operational wrapping
+
+1.5 SOURCE HEALTH MONITOR
+File: floor_1_connection/source_health.py
+- Track: latency, heartbeat_age, reconnect_count, lifecycle_state
+- Emit health facts: HEALTHY/DEGRADED/STALE/AUTH_FAILED/DISCONNECTED
+- Health facts travel to Floor 2 as metadata
+
+1.6 FLOOR 2 HANDOFF
+File: floor_1_connection/floor2_handoff.py
+- Output contract:
+  - original_raw_packet
+  - minimal_source_envelope
+  - feed_routing_identity (SPOT_FEED, OPTIONS_FEED, etc.)
+  - source_health_facts
+  - manual_source_tags (if applicable)
+
+1.7 INGRESS ROUTER
+File: floor_1_connection/ingress_router.py
+- Accept packets from all source adapters
+- Route through correct feed adapter
+- Apply envelope
+- Forward to Floor 2 handoff
+
+1.8 MANUAL INGRESS LANE
+File: floor_1_connection/manual_ingress.py
+- Manual calendar events, manual overrides
+- Manual packets still get envelope + source tag
+- MANUAL_CALENDAR, MANUAL_EVENT, MANUAL_OVERRIDE types
+
+WHAT NOT TO BUILD YET:
+- Any data validation (Floor 2 owns this)
+- Any data cleaning (Floor 2 owns this)
+- Any intelligence (Floor 3+ owns this)
+- Any setup detection (Floor 3+ owns this)
+- Any broker trade execution (Side A owns this)
+- Any persistence logic beyond raw store handoff
+
+ENTRY CRITERIA (conditions to START Phase 1):
+[ ] Phase 0 complete — project skeleton, shared types, config, logging functional
+[ ] Angel One API credentials obtained and verified (client_id, api_key, pin)
+[ ] SmartAPI Python SDK installed (pip install smartapi-python)
+[ ] WebSocket library available (websockets or built-in)
+[ ] Network connectivity to Angel One servers verified
+[ ] Floor 1 → Floor 2 output contract drafted (at least mentally)
+
+BUILD CRITERIA (during Phase 1):
+- Each module must be independently testable with mocked Angel One
+- Packet envelope must be created before any data transformation
+- Source health monitoring must be wired from day one (not retrofitted)
+- Manual ingress must be treated as first-class (not a hack)
+- No validation/cleaning logic in any Floor 1 module
+
+VALIDATION CRITERIA (how to VERIFY Phase 1 output):
+- AuthManager.login() → returns valid token (not None, not expired)
+- SourceAdapter WebSocket → receives 10+ ticks within 30 seconds
+- PacketEnvelope → every mandatory field populated for each received tick
+- SourceHealthMonitor → lifecycle state transitions correctly on forced disconnect:
+  HEALTHY → DEGRADED → STALE → AUTH_FAILED → DISCONNECTED → RECONNECT
+- Floor2Handoff → every output field matches shared/contracts.py exactly
+- ManualIngress → manual packets have MANUAL_ prefix in source tag
+- All outputs can be serialized to JSON without type errors
+
+EXIT CRITERIA (Phase 1 complete):
+[ ] Angel One login succeeds
+[ ] WebSocket subscribes to NIFTY 50 ticks
+[ ] Ticks received and enveloped correctly
+[ ] Source health states change correctly (simulate disconnect)
+[ ] Manual ingress lane accepts and envelopes packets
+[ ] Floor 2 handoff produces all required output fields
+[ ] Reconnect loop works after forced disconnection
+[ ] All tests pass with mocked Angel One
+
+FAILURE PREVENTION — WHAT CAN BREAK ARCHITECTURE:
+- Putting validation/cleaning logic in Floor 1 (violates Floor 2 ownership)
+- Interpreting market data in packet_envelope (violates Floor 3 ownership)
+- Creating trade signals in Floor 1 (violates Captain ownership)
+- Making Floor 1 depend on Floor 2+ types (creates circular dependency)
+
+FAILURE PREVENTION — WHAT CREATES REWORK LATER:
+- Hardcoding API credentials (security risk + rotation pain)
+- Not handling AUTH_FAILED as distinct from DISCONNECTED (debugging nightmare)
+- Not generating unique packet_id per packet (traceability lost)
+- Letting WebSocket buffer overflow without backpressure (data loss)
+- Trying to parse/reformat data before envelope (creates coupling)
+- Not implementing reconnect loop (system goes blind on disconnect)
+
+UNIT VALIDATION:
+- AuthManager: login, token refresh, auth failure → all testable with mock API
+- SourceAdapters: connect, disconnect, reconnect → all testable with mock Angel One
+- PacketEnvelope: every mandatory field populated → testable with minimal input
+- SourceHealthMonitor: state transitions → testable with simulated events
+- Floor2Handoff: every output field present → testable with controlled input
+
+CONTRACT VALIDATION:
+- Floor 1 → Floor 2 handoff: verify all 5 payload families exist
+- Packet envelope: verify all mandatory fields present
+- Source health: verify lifecycle_state values match enum
+
+REPLAY VALIDATION: N/A (Floor 1 is live-only ingress; replay is Floor 2's domain)
+
+INTEGRATION VALIDATION:
+- Auth + Source + Envelope + Handoff: full chain with mocked Angel One
+- Feed 10 ticks → verify envelope output matches contract
+- Simulate disconnection → verify lifecycle_state goes DISCONNECTED → RECONNECT
+- Run `pytest tests/test_floor_1/ -v` — all tests pass
+
+READY TO CODE CHECKLIST:
+[ ] Phase 0 exit criteria met
+[ ] Angel One API credentials obtained and verified
+[ ] SmartAPI Python SDK installed and importable
+[ ] WebSocket connectivity verified to Angel One
+[ ] Floor 1 output contract drafted
+[ ] Mock Angel One generator ready in shared/testing.py
+[ ] This phase's modules listed, ordered by dependency
+[ ] First module to build identified: auth_manager.py
+
+CURRENT BUILD PATH:
+- Local Angel One WebSocket connection
+- File-based raw packet logging
+- Console-based source health monitoring
+- No database writes yet (Floor 2 handles persistence)
+- Mock Angel One for test scenarios
+
+FUTURE SCALE PATH:
+- Multiple broker sources (when Angel One limits are hit)
+- Backup source failover (when redundancy is needed)
+- WebSocket connection pooling (when scaling to multiple feeds)
+
+================================================================================
+SECTION 10 - PHASE 2: FLOOR 2 BUILD
+================================================================================
+
+WHY THIS PHASE AFTER PHASE 1:
+- Floor 2 receives all its data from Floor 1.
+- Without Floor 1 producing enveloped packets, Floor 2 has nothing to process.
+- Floor 2's input contract IS Floor 1's output contract.
+- Floor 2 cannot be tested with real data until Floor 1 produces it.
+
+WHY THIS PHASE BEFORE PHASE 3:
+- Side C data contracts (event formats, schemas) depend on Floor 2's data model.
+- Side C needs to know what a "health event" or "structured data reference" looks like.
+- Floor 2 defines the canonical data formats that Side C stores.
+
+WHY THIS PHASE BEFORE PHASE 4:
+- Floor 3 cannot compute intelligence on raw/unvalidated data.
+- Floor 3 needs Floor 2's validated candles, tick streams, options snapshots.
+- Floor 3's input contract IS Floor 2's output contract.
+
+WHY NOT LATER:
+- Delaying Floor 2 means every floor above builds against hypothetical data.
+- Without validation, all intelligence is garbage-in/garbage-out.
+- Replay (critical for testing) cannot be built later — must be in Floor 2.
+
+WHAT TO BUILD:
+
+2.1 DATA CONTRACT REGISTRY
+File: floor_2_datacenter/datacenter_contracts.py
+- Define all feed schemas
+- Versioning support
+- Incoming/outgoing contract registry
+
+2.2 RAW STORAGE
+Files: floor_2_datacenter/raw/
+- original_raw_store.py: write Floor 1 raw packets as-is
+- normalized_raw_store.py: write normalized envelope for downstream
+- raw_retention_manager.py: retention by data class (Major/Minor)
+
+2.3 VALIDATION PIPELINE
+Files: floor_2_datacenter/validation/
+- validation_router.py: route by data type Tier (A/B/C)
+- duplicate_validator.py: packet_id + timestamp dedup
+- timestamp_validator.py: chronological order
+- continuity_validator.py: missing ticks/candles detection
+- schema_validator.py: required fields present
+- corruption_validator.py: OHLC sanity (high >= low, etc.)
+
+2.4 CLEANING LAYER
+Files: floor_2_datacenter/cleaning/
+- tick_cleaner.py: remove obviously bad ticks (zero volume spikes, etc.)
+- options_cleaner.py: OI sanity, premium bounds
+- packet_cleaner.py: general packet anomalies
+- anomaly_repair.py: interpolate minor gaps, flag major gaps
+- cleaned_layer_writer.py: write validated+cleaned data
+
+2.5 STRUCTURING LAYER
+Files: floor_2_datacenter/structuring/
+- tick_stream_builder.py: validated ticks → structured tick stream
+- candle_stream_builder.py: ticks → 1m OHLCV candles
+- options_snapshot_builder.py: OI snapshots at configurable intervals
+- session_packet_builder.py: session_id, type, phase, status
+- major_minor_classifier.py: classify each feed as Major/Minor
+
+2.6 METADATA SIDE-CHANNEL
+Files: floor_2_datacenter/metadata/
+- quality_fact_builder.py: raw_trust_level, validation_confidence,
+  packet_completeness, continuity_status
+- source_trace_builder.py: source, fetched_at, validated_at,
+  review_status, transform_stage
+- transform_stage_tracker.py: track raw → validated → cleaned → structured
+
+2.7 REVIEW ENGINE (LIGHT)
+Files: floor_2_datacenter/review/
+- continuous_review_engine.py: ongoing health monitoring
+- event_triggered_review_engine.py: corruption spike, degradation,
+  validation failure burst
+- review_signal_builder.py: generate 4-level signal
+  (GOOD/CAUTION/DEGRADED/CRITICAL)
+- review_status_router.py: route signal to metadata side-channel
+
+2.8 REPLAY ENGINE (BASE)
+Files: floor_2_datacenter/replay/
+- raw_replay_engine.py: replay raw packets from store
+- cleaned_replay_engine.py: replay cleaned packets
+- structured_replay_engine.py: replay structured streams
+- replay_contracts.py: replay query interface
+- replay_controller.py: manage replay sessions
+
+2.9 FLOOR 3 HANDOFF
+File: floor_2_datacenter/output/floor3_handoff_builder.py
+Outputs:
+- validated_tick_stream
+- validated_candle_streams (1m, 3m, 5m, 15m where appropriate)
+- options_snapshots
+- session_packets
+- macro_support_packets
+- metadata side-channel (quality facts, traceability, health signal)
+- computed-ready hooks (stable interfaces for Floor 3)
+
+2.10 MAJOR/MINOR CLASSIFICATION
+File: floor_2_datacenter/structuring/major_minor_classifier.py
+- Major: ticks, candle streams, options chain, OI snapshots
+- Minor: support feeds, auxiliary, secondary references
+- Effects: storage priority, processing priority, validation strictness,
+  replay importance, retention behavior, output routing
+
+WHAT NOT TO BUILD YET:
+- Any intelligence/analysis logic (Floor 3+)
+- Any setup detection (Floor 3+)
+- Any confidence/conviction (Floors 4-5)
+- Any trading judgment
+- Full Side C integration (Phase 3)
+- Dashboard-facing API (Phase 8)
+
+ENTRY CRITERIA (conditions to START Phase 2):
+[ ] Phase 1 complete — Floor 1 producing enveloped packets
+[ ] Floor 1 → Floor 2 contract verified (all fields present, types match)
+[ ] Storage schema designed (raw, cleaned, structured tables)
+[ ] Storage backend chosen (SQLite for dev — zero setup, file-based)
+[ ] Floor 2 → Floor 3 output contract drafted
+
+BUILD CRITERIA (during Phase 2):
+- Validation before cleaning before structuring (strict order)
+- Replay engine MUST be built during Phase 2, not deferred
+- Metadata side-channel MUST be populated for every packet
+- Build validators in dependency order: duplicate → timestamp → continuity → schema → corruption
+- Each validator must be independently testable
+- Replay engine must be testable with stored test data
+
+VALIDATION CRITERIA:
+- DuplicateValidator: 10 identical packets → 9 rejected as duplicates
+- TimestampValidator: out-of-order ticks → flagged/corrected
+- CorruptionValidator: high<low OHLC → flagged
+- CandleStreamBuilder: 60 ticks → 1 correct 1m candle
+- OptionsSnapshotBuilder: chain data → correct OI snapshot
+- ReplayEngine: store → replay → identical output
+- ReviewSignalBuilder: degraded data → CAUTION/DEGRADED signal
+
+EXIT CRITERIA (Phase 2 complete):
+[ ] Raw data from Floor 1 validated → cleaned → structured → stored
+[ ] 1m candles can be built from tick stream
+[ ] Options snapshots generated correctly
+[ ] Session packets produced per session boundaries
+[ ] Validation catches duplicates, bad timestamps, corrupt OHLC
+[ ] Metadata side-channel populated with quality facts
+[ ] Review signal correctly reflects data health
+[ ] Raw and structured replay both work
+[ ] Floor 3 handoff produces all required fields
+[ ] Major/Minor classification affects storage + processing priority
+
+FAILURE PREVENTION — WHAT CAN BREAK ARCHITECTURE:
+- Creating intelligence-like scores in metadata ("this feed is good for trading")
+- Building Floor 3 logic inside Floor 2 structuring layer
+- Computing confidence/conviction in Floor 2 (belongs to Floors 4/5)
+- Making Floor 2 depend on Floor 3+ types (bottom-up dependency violation)
+- Adding setup/trade detection in review engine (belongs to Floor 3+)
+
+FAILURE PREVENTION — WHAT CREATES REWORK LATER:
+- Not implementing replay engine now (exponentially harder later)
+- Not tracking transform_stage (debugging becomes detective work)
+- Forgetting dual-raw model (losing original source truth)
+- Applying same validation depth to all data types (wasteful)
+- Making storage schema hard to extend (painful migration later)
+- Not preserving original raw alongside normalized raw (audit failure)
+
+UNIT VALIDATION:
+- Each validator: testable with known-good and known-bad packets
+- Each cleaner: testable with artificially corrupted data
+- CandleBuilder: testable with known tick sequence
+- ReplayEngine: testable with stored test data
+- SessionPacketBuilder: testable with time-series input
+
+CONTRACT VALIDATION:
+- Floor 1 → Floor 2 input contract: verify all Floor 1 output fields consumed
+- Floor 2 → Floor 3 output contract: verify all 7 output categories present
+- Metadata side-channel: verify only factual fields (no opinions)
+- Review signal: verify 4 levels match enum DataHealth
+
+REPLAY VALIDATION:
+- Store 1 hour of Floor 1 data → replay → verify identical output
+- Store → replay structured data → verify same candles produced
+- Replay must be bit-for-bit identical for raw data
+
+INTEGRATION VALIDATION:
+- Feed 1 hour of Floor 1 data → verify Floor 2 produces clean 1m candles,
+  validation stats, and metadata side-channel
+- Replay that 1 hour → verify same candles produced
+- Run `pytest tests/test_floor_2/ -v` — all tests pass
+
+READY TO CODE CHECKLIST:
+[ ] Phase 1 exit criteria met
+[ ] Floor 1 handoff verified (all fields present, types match)
+[ ] Storage schema designed (SQLite for dev)
+[ ] Floor 2 → Floor 3 output contract drafted
+[ ] Test data set prepared (1 hour of Floor 1 recordings or mocks)
+[ ] Each validator's logic understood before coding
+[ ] Replay engine's place in build order confirmed (build after cleaning, before structuring)
+
+CURRENT BUILD PATH:
+- SQLite for all storage (file-based, zero infra)
+- Local filesystem for raw packet dumps
+- In-memory replay for test scenarios
+- No cloud database, no external storage service
+
+FUTURE SCALE PATH:
+- PostgreSQL for production (when SQLite concurrency limits hit)
+- Object storage (S3/MinIO) for raw packet archives
+- Dedicated replay server (when replay load grows)
+- TimescaleDB for time-series data (when performance demands it)
+
+================================================================================
+SECTION 11 - PHASE 3: SIDE C BASE BUILD
+================================================================================
+
+WHY THIS PHASE AFTER PHASE 2 (AND BEFORE FLOOR 3):
+- Side C base infrastructure needs Floor 2 data contracts to be finalized.
+- Event formats, schemas, and record families depend on Floor 2's data model.
+- Side C does NOT need Floor 3+ to be complete — it stores events from ALL layers.
+- Starting Side C early means every subsequent phase can emit events immediately.
+- Side C can grow in parallel with Floors 3-5 and Side A.
+
+WHY SIDE C BASE COMES BEFORE FLOOR 3 (CRITICAL ARCHITECTURE DECISION):
+- Architecture Principle 5: "Memory is cross-cutting, not ordered."
+- Side C base is event storage infrastructure — it's independent of intelligence.
+- Floor 3 needs data contracts (from Floor 2) to define what to calculate.
+- Side C needs data contracts (from Floor 2) to define what to store.
+- Both depend on Floor 2 data contracts — NOT on each other.
+- Therefore Side C base CAN and SHOULD start after Phase 2 data contracts are defined.
+- This is NOT a serial dependency. Side C doesn't block Floor 3. Floor 3 doesn't block Side C.
+- Building Side C base early ensures memory exists FROM PHASE 4 onward, not retrofitted.
+
+WHY NOT LATER:
+- If Side C is deferred, ALL Phase 4-7 events are lost.
+- No trade journal. No decision journal. No health history.
+- Retrofitting memory later means backfilling from logs — lossy and unreliable.
+- Side C base is CHEAP to build early (types + stores + query = ~200 lines).
+- The cost of building it early is negligible. The cost of building it late is enormous.
+
+WHAT TO BUILD:
+
+3.1 SIDE C TYPES
+Files: side_c_memory/c_types.py
+- MemoryEvent, EventFamily (TRADE_JOURNAL, DECISION_JOURNAL,
+  EXECUTION_EVENT, HEALTH_EVENT, OVERRIDE, REPLAY_REF, REVIEW_REF, BLOCKED_ACTION)
+- MemoryEnvelope (event_type, source, timestamp, severity, refs)
+
+3.2 INGEST LAYER
+File: side_c_memory/ingest_layer.py
+- Accept inputs from approved emitters (Floor 1, 2, 5, Side A)
+- Validate emitter identity
+- Apply envelope normalization
+- Forward to Event Router
+
+3.3 EVENT ROUTER
+File: side_c_memory/event_router.py
+- Classify incoming event family
+- Validate against write contract
+- Route to: event_store, journal_store, or reference_store
+- Preserve append-first behavior
+- No mutation, no deletion
+
+3.4 EVENT STORE
+File: side_c_memory/event_store.py
+- Write operational/system events
+- Examples: execution events, health events, blocked actions,
+  override events, state transitions
+- Append-first, indexed by timestamp + family
+
+3.5 JOURNAL STORE
+File: side_c_memory/journal_store.py
+- Write durable journal records
+- Examples: trade journal entries, decision journal entries
+- Higher-level narrative memory
+
+3.6 REFERENCE STORE
+File: side_c_memory/reference_store.py
+- Write linkable references
+- Examples: replay_ref, review_ref, source_ref, packet lineage
+- Cross-reference keys
+
+3.7 QUERY LAYER (BASE)
+File: side_c_memory/query_layer.py
+- Simple read projections for dashboard consumption
+- Family-aware retrieval by timestamp range
+- Reference lookup by ID
+- NOT for complex analytics — Side C does not score/rank/recommend
+
+3.8 RETENTION MANAGER
+File: side_c_memory/retention_manager.py
+- Family-based retention policy
+- Trade Journal → long-term
+- Decision Journal → long-term
+- Execution Events → medium
+- Health Events → medium
+- Blocked Actions → medium
+- Archive support (cold storage)
+
+WHAT NOT TO BUILD YET:
+- Full integration with all floors (done in Phases 4-7)
+- Complex query capabilities
+- Any scoring/ranking/analysis logic
+- Dashboard integration (Phase 8)
+- Replay workspace UI (Phase 8)
+
+ENTRY CRITERIA (conditions to START Phase 3):
+[ ] Phase 2 data contracts finalized (feed schemas, health event contracts)
+[ ] Storage backend chosen (SQLite for dev — file-based, zero setup)
+[ ] Approved emitter list defined (Floor 1, 2, 5, Side A)
+[ ] Memory event types/families finalized (8 families from architecture)
+
+BUILD CRITERIA (during Phase 3):
+- Build in dependency order: types → ingest → router → stores → query → retention
+- Each store must be independently testable
+- Append-first must be enforced from day one
+- No mutation logic under any circumstance
+
+VALIDATION CRITERIA:
+- Verify ingest layer accepts known-good events from each approved emitter
+- Verify Event Router rejects events from non-approved sources (emitter not in approved list)
+- Verify stores return exact same data on query (append-only fidelity test)
+- Verify retention manager correctly expires test events after configured TTL
+- Verify query layer returns events for correct family + timerange only
+  (no cross-family leakage)
+
+EXIT CRITERIA (Phase 3 complete):
+[ ] Ingest layer accepts events from approved sources
+[ ] Event Router correctly classifies and routes events
+[ ] Event Store appends events without mutation
+[ ] Journal Store stores journal-family records
+[ ] Reference Store stores linkable references
+[ ] Query Layer returns correct events by family + timerange
+[ ] Retention policy correctly expires/archives events
+[ ] All tests pass
+
+FAILURE PREVENTION — WHAT CAN BREAK ARCHITECTURE:
+- Letting Side C become an analytics/ranking layer (violates "memory only" rule)
+- Adding score/rank/recommend methods to stores (violates Side C philosophy)
+- Allowing non-approved emitters to write (corrupts memory integrity)
+- Mutating stored events instead of appending corrections (violates append-first)
+- Making Side C a dependency for Floor 3/4/5 operation (violates parallel-safe design)
+- Adding trade decision logic to query layer (violates Captain ownership)
+
+FAILURE PREVENTION — WHAT CREATES REWORK LATER:
+- Not defining approved emitters list early (governance gaps)
+- Forgetting event envelope on ingress (non-standardized records)
+- Making stores too complex before floors emit real events (over-engineering)
+- Not indexing by timestamp + family (slow queries later)
+- Making retention policy too aggressive (losing useful debugging data)
+- Not separating event/journal/reference stores (everything becomes a mess)
+
+UNIT VALIDATION:
+- Each store: testable with mock events (in-memory implementation)
+- Router: testable with known event families and fake emitters
+- Retention: testable with time-passing simulations (mock time)
+- Query layer: testable with known stored events
+
+CONTRACT VALIDATION:
+- Approved emitter list: verify each source/owner pair
+- Event envelope: verify all mandatory fields present
+- Record families: verify all 8 families recognized
+
+REPLAY VALIDATION: N/A (Side C is memory storage, not replay source — replay belongs to Floor 2)
+
+INTEGRATION VALIDATION:
+- Send mock events from Floor 1, Floor 2, Floor 5, Side A →
+  verify each is stored in correct store with correct envelope
+- Query by timerange → verify correct events returned
+- Verify non-approved emitter events are rejected
+- Run `pytest tests/test_side_c/ -v` — all tests pass
+
+READY TO CODE CHECKLIST:
+[ ] Phase 2 data contracts finalized
+[ ] Storage backend chosen (SQLite for dev)
+[ ] Approved emitter list defined and documented
+[ ] Memory event families finalized
+[ ] This phase's modules ordered by dependency
+[ ] First module to build: c_types.py
+[ ] Will run in parallel with Phase 4 (Side C does not block Floor 3)
+
+CURRENT BUILD PATH:
+- SQLite for all stores (file-based, zero infra)
+- Single-file stores for dev simplicity
+- In-memory query layer for fast testing
+- No cloud database, no external storage service
+
+FUTURE SCALE PATH:
+- PostgreSQL for production stores (when write volume grows)
+- Read replicas for query layer (when dashboard load increases)
+- Event streaming (Kafka/Redis) for real-time event distribution
+- Object storage for archived/cold records
+
+================================================================================
+SECTION 12 - PHASE 4: FLOOR 3 BUILD
+================================================================================
+
+WHY THIS PHASE AFTER PHASE 2:
+- Floor 3 requires Floor 2's validated candles, tick streams, options snapshots.
+- Without clean data from Floor 2, all Floor 3 calculations are garbage.
+- Floor 3's input contract IS Floor 2's output contract.
+- Floor 3 cannot be tested with real data until Floor 2 produces structured output.
+
+WHY THIS PHASE BEFORE PHASE 5:
+- Floor 4 Heads interpret Floor 3's domain outputs (states, maps, scores, candidates).
+- Without Floor 3 producing intelligence, Heads have nothing to interpret.
+- Floor 4's input contract IS Floor 3's output contract.
+
+WHY NOT EARLIER:
+- Cannot start before Phase 2 because Floor 2 provides all input data.
+- Building Floor 3 on raw data means redoing validation logic (violates No Duplication rule).
+- Floor 3 without Floor 2 = guessing instead of computing.
+
+WHY NOT LATER:
+- Floor 3 is the bottleneck for ALL higher floors (4, 5, Side A).
+- Delaying Floor 3 delays everything above it.
+- Floor 3 is the largest phase — starting it early gives more buffer.
+
+ARCHITECTURE LAW (MUST NEVER BE VIOLATED):
+QUALITY = FLOOR 3
+CONFIDENCE = FLOOR 4
+CONVICTION = FLOOR 5
+
+WHAT TO BUILD:
+
+4.1 FLOOR 3 TYPES + CMSP
+Files: floor_3_calculations/
+- calc_types.py: domain states, map types, score enums
+- common_market_state_projection.py: price_state, volatility_state,
+  session_state, regime_state, key_levels
+
+4.2 MARKET STRUCTURE (Tier 1 — MUST BUILD FIRST)
+Files: floor_3_calculations/market_structure/
+- structure_engine.py: main orchestrator for this domain
+- swing_engine.py: swing high/low detection
+- break_engine.py: BOS (Break of Structure), CHoCH (Change of Character)
+- trend_state_engine.py: trend identification (strong_up → strong_down)
+- structure_scores.py: structure_strength_score
+
+Outputs:
+- Raw: swing_highs, swing_lows, break_points
+- States: structure_state, trend_structure_state, break_state, continuity_state
+- Maps: full_structure_map, active_structure_map, active_level_map
+- Scores: structure_strength_score
+- Candidates: continuation, structure_failure, reclaim
+
+4.3 SMC DOMAIN (Tier 1 — PARALLEL SAFE WITH ICT AFTER STRUCTURE)
+Files: floor_3_calculations/smc/
+- ob_engine.py: order block detection (bullish/bearish OB)
+- fvg_engine.py: fair value gap detection (bullish/bearish FVG)
+- liquidity_engine.py: liquidity pools (above highs, below lows)
+- sweep_engine.py: sweep detection (price sweeps through liquidity)
+- mitigation_engine.py: mitigation of OB/FVG (partial/full)
+- smc_scores.py: smc_quality_score
+
+Outputs:
+- Raw: ob_list, fvg_list, liquidity_points, sweep_events, mitigation_events
+- States: smc_state, ob_state, fvg_state, liquidity_state,
+  sweep_state, mitigation_state
+- Maps: full_ob_map, full_fvg_map, full_liquidity_map (internal)
+        active_ob_map, active_fvg_map, active_liquidity_map (public)
+- Scores: smc_quality_score
+- Candidates: bullish_fvg_retest, liquidity_reclaim, ob_bounce, sweep_failure
+
+4.4 ICT DOMAIN (Tier 1 — PARALLEL SAFE WITH SMC AFTER STRUCTURE)
+Files: floor_3_calculations/ict/
+- premium_discount_engine.py: premium/discount zone detection
+- displacement_engine.py: displacement detection (bullish/bearish)
+- mss_engine.py: Market Structure Shift detection
+- delivery_context_engine.py: institutional delivery quality
+- ict_scores.py: ict_delivery_score
+
+Outputs:
+- Raw: pd_values, displacement_events, mss_events, delivery_markers
+- States: ict_state, premium_discount_state, displacement_state,
+  mss_state, delivery_context_state
+- Maps: full_pd_map, full_displacement_map, full_delivery_map (internal)
+        active_pd_map, active_displacement_map, active_delivery_map (public)
+- Scores: ict_delivery_score
+- Candidates: discount_reaction, displacement_reclaim, mss_continuation
+
+4.5 TECHNICAL DOMAIN (Tier 2)
+Files: floor_3_calculations/technical/
+- ema_engine.py: 9, 21, 50 EMA values + crossovers
+- vwap_engine.py: VWAP + VWAP distance
+- atr_engine.py: ATR value + volatility context
+- rsi_engine.py: RSI + momentum state
+- adx_engine.py: ADX + trend strength
+- mtf_alignment_engine.py: alignment score across timeframes
+- candle_pattern_engine.py: doji, engulfing, hammer, shooting star, etc.
+- technical_states.py: consolidate all technical states
+
+Outputs:
+- Raw: ema_values, vwap_values, atr_values, rsi_values, adx_values,
+  mtf_alignment_values, candle_pattern_detections
+- States: trend_state, momentum_state, technical_condition_state,
+  mtf_state, candle_pattern_state
+- Maps: full_technical_level_map, active_technical_level_map
+- Scores: optional (no mandatory Tier 1 score)
+- Candidates: vwap_pullback, trend_continuation, technical_reclaim
+
+4.6 OPTIONS DOMAIN (Tier 2)
+Files: floor_3_calculations/options/
+- oi_engine.py: OI change, OI buildup/unwinding
+- pcr_engine.py: PCR value, PCR change
+- iv_engine.py: IV, IV percentile, IV skew
+- wall_engine.py: call wall, put wall detection
+- max_pain_engine.py: max pain level
+- options_pressure_engine.py: overall options pressure direction
+- options_states.py: consolidate states
+
+Outputs:
+- Raw: pcr, oi_change, iv, wall_levels, max_pain
+- States: options_state, pressure_state, wall_state, iv_state
+- Maps: full_wall_map, full_options_pressure_map (internal)
+        active_wall_map, active_options_pressure_map (public)
+- Scores: optional
+- Candidates: wall_bounce, pressure_continuation, pressure_collapse
+
+4.7 MACRO DOMAIN (Tier 3 — LIGHT)
+Files: floor_3_calculations/macro/
+- vix_state_engine.py: India VIX level, change, regime
+- fii_dii_engine.py: FII/DII net buy/sell
+- global_cues_engine.py: global market references
+- calendar_state_engine.py: holiday, expiry, event flags
+- macro_states.py: consolidate
+
+Outputs:
+- Raw: vix_value, fii_dii_net, global_cues, event_calendar
+- States: macro_state, caution_state, event_risk_state, environment_state
+- Maps: none required
+- Scores: optional
+- Candidates: NONE (locked — Macro does not generate setups)
+
+4.8 SUPPORT METRICS
+Files: floor_3_calculations/support_metrics/
+- trap_metrics_engine.py: trap density
+- loss_metrics_engine.py: recent loss count
+- cooldown_metrics_engine.py: cooldown timer
+- overtrade_metrics_engine.py: overtrade flag
+
+Outputs:
+- trap_count, recent_loss_count, cooldown_timer, overtrade_flag
+- support_psych_state_basic (for Psychology Head)
+
+4.9 MAP LIFECYCLE MANAGER
+File: floor_3_calculations/map_lifecycle_manager.py
+- Full Internal Maps: all detected zones/levels
+- Active Public Maps: only currently relevant subset
+- Refresh/expire logic for active maps
+- Debug access to full maps
+
+4.10 CANDIDATE FORMATTER
+File: floor_3_calculations/candidate_formatter.py
+- Standard candidate structure (bias, zone, quality_grade)
+- Candidate grades: A (high), B (medium), C (weak)
+- NOT confidence, NOT conviction, NOT trade approval
+
+4.11 FLOOR 4 HANDOFF
+File: floor_3_calculations/floor4_handoff.py
+- Per-head consumption mapping:
+  - Technical Head: trend_state, momentum_state, active_technical_level_map
+  - SMC Head: shared_structure_state, smc_state, active_ob_map,
+    active_fvg_map, active_liquidity_map, smc_quality_score, candidates
+  - ICT Head: shared_structure_state, ict_state, active_pd_map,
+    active_displacement_map, active_delivery_map, ict_delivery_score, candidates
+  - Options Head: options_state, pressure_state, active_wall_map, candidates
+  - Macro Head: macro_state, caution_state, event_risk_state
+  - Psychology Head: trap_count, loss_count, cooldown_timer
+- Common Market State Projection (for all heads + Floor 5 summary context)
+
+WHAT NOT TO BUILD YET:
+- Any confidence/conviction (Floor 4-5)
+- Any trade approval (Floor 5)
+- Any expert interpretation (Floor 4)
+- Any head report generation (Floor 4)
+- Any dashboard rendering (Side B, Phase 8)
+
+ENTRY CRITERIA (conditions to START Phase 4):
+[ ] Phase 2 complete — Floor 2 producing validated candles + tick streams
+[ ] Floor 2 → Floor 3 contract verified (validated_tick_stream, candle_streams,
+    options_snapshots, session_packets, macro_support_packets, metadata side-channel)
+[ ] Shared types include all domain state enums (TrendState, SmcState, IctState, etc.)
+[ ] Test data set prepared (1 day of NIFTY 50 ticks for validation)
+[ ] Tier 1 execution order understood: Structure first → SMC + ICT parallel
+
+BUILD CRITERIA (during Phase 4):
+- Build Tier 1 first (Market Structure → SMC + ICT), then Tier 2, then Tier 3
+- Structure domain MUST be built before SMC and ICT
+- SMC and ICT CAN be built in parallel after Structure
+- Each domain engine must be testable in isolation with known OHLCV input
+- Every domain must produce ALL 5 output layers: Raw, States, Maps, Scores, Candidates
+- NO confidence logic in any Floor 3 module (belongs to Floor 4)
+- NO conviction logic in any Floor 3 module (belongs to Floor 5)
+- Macro domain MUST NOT produce setup candidates
+- Active Maps must be a SUBSET of Internal Maps (never extra zones)
+
+VALIDATION CRITERIA:
+- MarketStructure: known data set → swing highs/lows match manual analysis
+- SMC: known zone → OB/FVG detected at correct price levels
+- ICT: known displacement → correctly flagged
+- Technical: known price → EMA/VWAP/RSI values match manual calculation
+- Options: known OI → wall levels match expected
+- Macro: holiday date → holiday flag = True
+- ActiveMaps: should be subset of InternalMaps (no extra zones)
+- Candidates: all candidates have grade (A/B/C), none have confidence score
+
+EXIT CRITERIA (Phase 4 complete):
+[ ] All 6 domains produce states/maps/scores/candidates
+[ ] Structure runs first, SMC + ICT in parallel
+[ ] Active Maps filter correctly from Internal Maps
+[ ] No confidence/conviction in any Floor 3 output
+[ ] Macro produces NO setup candidates
+[ ] Candidates are quality-graded, not trade-approved
+[ ] CMSP produced for all consumers
+[ ] Floor 4 handoff contract verified
+[ ] All Floor 3 tests pass
+
+FAILURE PREVENTION — WHAT CAN BREAK ARCHITECTURE:
+- Generating confidence/conviction in Floor 3 (belongs to Floor 4/5 — P0 violation)
+- Creating setup candidates that sound like trade orders ("Buy Now")
+- Merging SMC and ICT into one domain (violates domain separation)
+- Making Macro generate setups (violates "gate only" role)
+- Adding Psychology as a full domain instead of support metrics
+- Captain consuming Floor 3 domain packets as routine input (bypasses Floor 4)
+- Not separating Internal Maps from Active Maps (Heads see noise)
+
+FAILURE PREVENTION — WHAT CREATES REWORK LATER:
+- Building all domains before testing any (integration nightmare)
+- Not using the 5-layer output model (inconsistent domain interfaces)
+- Skipping candidate_formatter (Heads have to parse raw domain outputs)
+- Over-optimizing Tier 2/3 before Tier 1 is solid (misplaced effort)
+- Not building map_lifecycle_manager (maps never expire → stale zones forever)
+- Testing only with perfect market data (hidden edge cases surface later)
+
+UNIT VALIDATION:
+- Each domain engine: testable with known OHLCV input
+- Each score: independently verifiable against manual calculation
+- Map lifecycle: testable with zone creation/deletion
+- CMSP: testable with known domain states
+- Candidate formatter: testable with mock candidates
+
+CONTRACT VALIDATION:
+- Floor 2 → Floor 3 input: verify all Floor 2 output fields consumed correctly
+- Floor 3 → Floor 4 output: verify per-head consumption mapping matches
+- No confidence/conviction fields in any Floor 3 module
+- Tier 1 scores are quality scores, not confidence/conviction
+
+REPLAY VALIDATION:
+- Feed same 1-day data through Floor 2 → Floor 3 twice → verify identical outputs
+- Replay must produce identical zones, states, maps, scores, candidates
+- CMSP must be identical on replay of same input
+
+INTEGRATION VALIDATION:
+- Feed 1 day of clean Floor 2 data → verify all 6 domains produce correct
+  states, maps, scores, candidates
+- Verify SMC + ICT zones match manual analysis of same data
+- Verify Macro produces no setup candidates
+- Verify CMSP contains all required fields
+- Run `pytest tests/test_floor_3/ -v` — all tests pass
+
+ARCHITECTURE ENFORCEMENT (AUTOMATED CHECKS):
+Add these to CI/linting pipeline:
+- No `confidence` variable/module/class in floor_3_calculations/
+- No `conviction` variable/module/class in floor_4_heads/
+- No `quality` used as confidence label in floor_4_heads/
+- No trade approval logic below floor_5_captain/
+- No setup generation in macro_head.py or psychology_head.py
+If any violation found → P0 bug. Fix before next commit.
+
+READY TO CODE CHECKLIST:
+[ ] Phase 2 exit criteria met
+[ ] Floor 2 → Floor 3 handoff verified
+[ ] Test data set prepared (1+ day of NIFTY 50 ticks)
+[ ] Tier 1 execution order confirmed (Structure → SMC + ICT)
+[ ] All 6 domain contracts defined in calc_types.py
+[ ] First module to build: market_structure/structure_engine.py
+[ ] Manual analysis of test data prepared (expected zones, swings, etc.)
+[ ] Architecture law (Q=C-F3, C=C-F4, C=C-F5) printed and visible
+
+CURRENT BUILD PATH:
+- Pure Python calculations (no external computation engines)
+- Local file-based test data
+- In-memory maps and states during development
+- SQLite for persistent domain state if needed
+
+FUTURE SCALE PATH:
+- Numba/Cython for performance-critical calculations
+- Distributed computation for multi-timeframe analysis
+- GPU acceleration for heavy indicator sets (unlikely needed)
+- Parallel domain execution for candle processing
+
+================================================================================
+SECTION 13 - PHASE 5: FLOOR 4 BUILD
+================================================================================
+
+WHY THIS PHASE AFTER PHASE 4:
+- Floor 4 Heads interpret Floor 3's domain outputs.
+- Without Floor 3 producing states/maps/scores/candidates, Heads have nothing to interpret.
+- Floor 4's input contract IS Floor 3's output contract.
+- Heads cannot form opinions on intelligence that doesn't exist yet.
+
+WHY THIS PHASE BEFORE PHASE 6:
+- Captain requires Head reports and Floor Summary to make decisions.
+- Without Heads, Captain has no expert input to judge.
+- Floor 5's input contract IS Floor 4's output contract.
+
+WHY NOT EARLIER:
+- Cannot start before Phase 4 — Heads need real Floor 3 data to interpret.
+- Building Heads on fake/hypothetical Floor 3 outputs means redesign when real outputs arrive.
+- Cost of redesigning Heads against real Floor 3 = 2x-3x more than building in order.
+
+WHY NOT LATER:
+- Floor 5 needs Heads to function. Delaying Floor 4 delays the ENTIRE decision layer.
+- Heads are the bridge between raw intelligence and expert judgment.
+- Without this bridge, Captain is either blind or bloated.
+
+WHAT TO BUILD:
+
+5.1 HEAD INFRASTRUCTURE
+Files: floor_4_heads/
+- head_types.py: Bias, HeadState, TriggerType, SetupPriority, FreshnessTag
+- head_report_schema.py: standard report contract (all heads follow this)
+- head_memory_base.py: common memory interface (not uniform depth)
+- head_refresh_policy.py: 1m base, 5m/15m deep, tick watch
+- trigger_formatter.py: standardized trigger object
+- invalidation_formatter.py: standardized invalidation object
+- head_state_manager.py: READY/UNCERTAIN/STALE logic + freshness score+tag
+
+5.2 TECHNICAL HEAD
+File: floor_4_heads/technical_head.py
+Inputs (from Floor 3):
+- trend_state, momentum_state, technical_condition_state, mtf_state, candle_pattern_state
+- active_technical_level_map
+Interpretation:
+- Is market technically aligned?
+- Continuation-friendly or fade-prone?
+- Does current state support Captain's trade timing?
+Memory: recent trend shifts, MTF alignment evolution, VWAP history
+Output:
+- bias, confidence, dominant_tf, timeframe_view
+- primary_setup (e.g., VWAP pullback continuation)
+- backup_setup (e.g., technical support/resistance rebound)
+- active_zones, armed_triggers
+- invalidation (MANDATORY), bull_case, bear_case
+- confluence_note, witness_summary
+- freshness + state
+
+5.3 SMC HEAD
+File: floor_4_heads/smc_head.py
+Inputs (from Floor 3):
+- shared structure state, smc_state, ob_state, fvg_state
+- liquidity_state, sweep_state, mitigation_state
+- active_ob_map, active_fvg_map, active_liquidity_map
+- smc_quality_score, SMC candidates
+Interpretation:
+- Where is strongest structural opportunity?
+- Is current interaction meaningful or weak?
+- Is sweep real, failed, or trap-like?
+Memory: active OBs, FVGs, liquidity pools, defended/broken levels, trap zones
+Output:
+- bias, confidence, context_quality_score (MANDATORY)
+- dominant_tf, timeframe_view
+- primary_setup (FVG retest, liquidity sweep reclaim, OB bounce)
+- backup_setup (BOS continuation, defended imbalance continuation)
+- active_zones, armed_triggers
+- invalidation (MANDATORY), bull_case, bear_case
+- confluence_note, witness_summary
+- freshness + state
+
+5.4 ICT HEAD
+File: floor_4_heads/ict_head.py
+Inputs (from Floor 3):
+- shared structure state, ict_state
+- premium_discount_state, displacement_state, mss_state, delivery_context_state
+- active_pd_map, active_displacement_map, active_delivery_map
+- ict_delivery_score, ICT candidates
+Interpretation:
+- Is price in premium or discount?
+- Was displacement real or weak?
+- Is MSS meaningful?
+Memory: previous day context, displacement history, PD map continuity
+Output:
+- bias, confidence, context_quality_score (MANDATORY)
+- dominant_tf, timeframe_view
+- primary_setup (premium/discount reaction, displacement reclaim)
+- backup_setup (MSS continuation, delivery-aligned reversal)
+- active_zones, armed_triggers
+- invalidation (MANDATORY), bull_case, bear_case
+- confluence_note, witness_summary
+- freshness + state
+
+5.5 OPTIONS HEAD
+File: floor_4_heads/options_head.py
+Inputs (from Floor 3):
+- options_state, pressure_state, wall_state, iv_state
+- active_wall_map, active_options_pressure_map
+- options candidates
+Interpretation:
+- Does options market confirm directional continuation?
+- Is price pushing into wall resistance?
+Memory: session OI behavior, wall shifts, IV regime
+Output:
+- bias, confidence, context bucket
+- primary_setup (OI wall bounce, options pressure continuation)
+- backup_setup (wall-break, pressure collapse)
+- active_zones/walls, armed_triggers
+- invalidation (MANDATORY), bull_case, bear_case
+- witness_summary
+- freshness + state
+
+5.6 MACRO HEAD
+File: floor_4_heads/macro_head.py
+Inputs (from Floor 3):
+- macro_state, caution_state, event_risk_state, environment_state
+Interpretation:
+- Is broader environment calm or risky?
+- Event risk nearby?
+Memory: current day macro state, carryover context, event schedule
+Output:
+- macro_bias_leaning (LIGHT — not dominant)
+- confidence, caution_level, event_risk_flag
+- invalidation (MANDATORY — event passed, caution removed)
+- bull_case/bear_case if helpful
+- witness_summary
+- freshness + state
+- PRIMARY SETUP: NONE (locked)
+- BACKUP SETUP: NONE (locked)
+
+5.7 PSYCHOLOGY HEAD
+File: floor_4_heads/psychology_head.py
+Inputs (from Floor 3):
+- trap_count, recent_loss_count, cooldown_timer, overtrade_flag
+Interpretation:
+- Trade allowed or not?
+- Brake level?
+- Cooldown active?
+Memory: today's losses, cooldown history, same-zone errors, trap zones
+Output:
+- trade_allowed, caution_level
+- cooldown_active, repeated_mistake_flag, trap_pressure
+- block_reason, invalidation (brake release condition)
+- witness_summary
+- freshness + state
+- PRIMARY SETUP: NONE (locked — brake head)
+- BACKUP SETUP: NONE (locked — brake head)
+
+5.8 FLOOR SUMMARY BUILDER
+File: floor_4_heads/floor_summary_builder.py
+Inputs: all 6 head reports
+Output:
+- summary_timestamp
+- floor_bias_snapshot, floor_confidence_snapshot
+- active_setup_count, primary_setups_by_head, backup_setups_by_head
+- ready_heads_count, uncertain_heads_count, stale_heads_count
+- head_health_snapshot (per-head: state + freshness_tag)
+- core_head_health_snapshot (SMC, ICT, Technical, Macro, Psychology)
+- conflict_present, stale_warning_present
+- strongest_domain_signal, strongest_context_signal, strongest_risk_warning
+- data_health_signal (from Floor 2 via metadata side-channel)
+- summary_witness_lines
+- NO_SETUP intelligence propagation (healthy silence / uncertain / stale)
+
+WHAT NOT TO BUILD YET:
+- Any conviction (Floor 5)
+- Any trade approval (Floor 5)
+- Any execution logic (Side A)
+- Any dashboard rendering (Side B)
+- Any memory persistence beyond what Side C provides
+
+ENTRY CRITERIA (conditions to START Phase 5):
+[ ] Phase 4 complete — Floor 3 producing all 6 domain outputs correctly
+[ ] Floor 3 → Floor 4 per-head consumption contracts verified
+[ ] Head report schema finalized in shared/types.py
+[ ] Mock Floor 3 data generator can produce realistic domain states
+
+BUILD CRITERIA (during Phase 5):
+- Build head infrastructure FIRST (types, schema, memory, refresh, state manager)
+- Then build each head independently (they don't depend on each other)
+- Then build Floor Summary builder (depends on all heads)
+- Macro Head MUST NOT produce setups (locked rule, verify in tests)
+- Psychology Head MUST NOT produce setups (locked rule, verify in tests)
+- ALL heads MUST produce invalidation (non-negotiable)
+- SMC/ICT Heads MUST produce context_quality_score
+
+VALIDATION CRITERIA:
+- TechnicalHead: given weak_trend + low_momentum → confidence < 50
+- SMCHead: given high smc_quality_score + READY state → context_quality_score = high
+- ICTHead: given STALE ict_delivery_score → state = STALE
+- OptionsHead: given strong wall near price → bias matches wall direction
+- MacroHead: verify NO primary_setup, NO backup_setup output
+- PsychologyHead: verify NO primary_setup, NO backup_setup output
+- FloorSummary: verify conflict_present=true when heads disagree
+- FloorSummary: verify NO_SETUP intelligence correctly classifies silence type
+
+EXIT CRITERIA (Phase 5 complete):
+[ ] All 6 heads produce correctly formatted reports
+[ ] Macro and Psychology have NO primary/backup setups
+[ ] SMC/ICT produce context_quality_score
+[ ] ALL heads produce invalidation (non-negotiable)
+[ ] Floor Summary aggregates correctly + detects conflict + stale
+[ ] NO_SETUP intelligence propagated correctly
+[ ] Floor 5 handoff contract verified
+[ ] All Floor 4 tests pass
+
+FAILURE PREVENTION — WHAT CAN BREAK ARCHITECTURE:
+- Heads producing conviction instead of confidence (belongs to Floor 5 — P0)
+- Macro Head becoming a directional setup machine (violates "gate only" role)
+- Psychology Head becoming a directional or entry engine (violates "brake" role)
+- SMC/ICT Heads not producing context_quality_score (Captain can't assess quality)
+- Heads not producing invalidation (Captain lacks thesis integrity data)
+- Floor Summary containing too much detail (defeats its purpose)
+- Heads duplicating Floor 3 calculations instead of interpreting them
+- Cross-head coupling (one head relying on another head's output directly)
+
+FAILURE PREVENTION — WHAT CREATES REWORK LATER:
+- Not standardizing head report schema early (inconsistent reports)
+- Making heads too complex before Captain tests them (over-engineering)
+- Skipping head_state_manager (no freshness awareness → stale opinions used)
+- Not defining NO_SETUP intelligence propagation (Captain can't distinguish silence types)
+- Testing heads only with aligned data (never test conflict scenarios)
+- Building all heads before testing any against Captain (integration surprises)
+
+UNIT VALIDATION:
+- Each head: testable with mock Floor 3 data
+- Floor Summary: testable with known head outputs
+- Head state manager: testable with mock state transitions
+- Context quality score: independently verifiable from Floor 3 inputs
+
+CONTRACT VALIDATION:
+- Floor 3 → Floor 4 input: verify per-head consumption mapping matches
+- Floor 4 → Floor 5 output: verify head report schema matches shared/types.py
+- NO confidence in Floor 3 outputs (verify contract adherence)
+- NO setups in Macro/Psychology outputs (verify locked rules)
+
+REPLAY VALIDATION:
+- Feed same Floor 3 data twice → verify identical head reports produced
+- Replay must produce identical confidence, invalidation, setups
+- Floor Summary must be identical on replay of same head outputs
+
+INTEGRATION VALIDATION:
+- Feed mock Floor 3 data for all 6 domains → verify all 6 heads produce
+  correctly formatted reports
+- Verify Floor Summary correctly aggregates + detects conflict + stale heads
+- Verify Macro and Psychology have no setups
+- Run `pytest tests/test_floor_4/ -v` — all tests pass
+
+READY TO CODE CHECKLIST:
+[ ] Phase 4 exit criteria met
+[ ] Floor 3 → Floor 4 per-head consumption contracts verified
+[ ] Head report schema finalized in shared/types.py
+[ ] Mock Floor 3 data generator ready
+[ ] Build order confirmed: head infra → all 6 heads → Floor Summary
+[ ] First module to build: head_types.py
+[ ] Locked rules printed and visible (no setups in Macro/Psychology, invalidation mandatory)
+
+CURRENT BUILD PATH:
+- Pure Python interpretation logic
+- In-memory head memory (session-only, no persistence needed yet)
+- Floor Summary built as a lightweight aggregation function
+- No database dependency for head operation
+
+FUTURE SCALE PATH:
+- Persistent head memory via Side C (for cross-session context)
+- Head confidence calibration using historical accuracy data
+- Parallel head execution for performance
+- Head-specific config files for threshold tuning
+
+================================================================================
+SECTION 14 - PHASE 6: FLOOR 5 BUILD
+================================================================================
+
+WHY THIS PHASE AFTER PHASE 5:
+- Captain requires Head reports and Floor Summary from Floor 4.
+- Without expert interpretation, Captain has nothing to judge.
+- Floor 5's input contract IS Floor 4's output contract.
+- Captain is the CULMINATION of everything below — it must be built last.
+
+WHY THIS PHASE BEFORE PHASE 7:
+- Side A executes Captain's approved intents.
+- Without Captain producing decisions, Side A has nothing to execute.
+- Side A's input contract IS Floor 5's output contract.
+
+WHY NOT EARLIER:
+- Captain without Heads is a judge without witnesses.
+- Building Captain before Floor 4 means designing against hypothetical Head reports.
+- When real Head reports arrive, Captain logic needs redesign.
+- Cost of redesigning Captain = HIGHEST in the system (most complex module).
+
+WHY NOT LATER:
+- Side A cannot be fully integrated without Captain output.
+- Side B Dashboard cannot show Captain state without Captain running.
+- Full system end-to-end test requires Captain in the loop.
+
+WHAT TO BUILD:
+
+6.1 CAPTAIN TYPES
+File: floor_5_captain/captain_types.py
+- DecisionState, CaptainMood, TradeClass, ArmedPlan, DecisionSnapshot
+- InterventionReason, SilenceReason, ConvictionBand
+- PermissionState, ExecutionIntent
+
+6.2 PERMISSION GATE
+File: floor_5_captain/permission_gate.py
+Checks (BLOCK if ANY fails):
+- Market open? (not holiday, not after hours)
+- Psychology block active? (non-overridable)
+- Active trade already open? (one-trade rule)
+- Data health signal OK? (not CRITICAL)
+- Real mode lock active? (if 3 losses today)
+- Mode valid?
+
+6.3 MARKET STORY ENGINE
+File: floor_5_captain/market_story_engine.py
+Builds current market story from:
+- Floor Summary overall bias
+- Key level interactions (PDH, PDL, OR high/low, VWAP)
+- Session context (opening, golden morning, lunch, closing)
+- Regime (trend/range/chop)
+- Premium/discount location
+Outputs: structured market story context for decision layers
+
+6.4 NARRATIVE TIMELINE ENGINE
+File: floor_5_captain/narrative_timeline_engine.py
+- Maintain timestamped event chain through the day
+- Events: gap_up/down, PDH/PDL touch, sweep, displacement,
+  FVG creation, consolidation, BOS/CHOCH, regime shift, wall interaction
+- Supports: story continuity, thesis review, decision snapshots
+- Heavy cycle: update after market story interpretation
+- NOT raw data logging — significant event memory
+
+6.5 CONFLUENCE ENGINE
+File: floor_5_captain/confluence_engine.py
+Inputs: all directional head reports (Technical, SMC, ICT, Options, Macro)
+Logic:
+- Head priority: SMC > ICT > Technical > Options > Macro
+- Weighted confluence (not simple vote counting)
+- Minimum meaningful alignment: ~60% or 3 of 5
+- Trust weighting applies: head state + freshness + context_quality
+Output: confluence_quality, conflict_present, aligned_heads list
+
+6.6 OPPOSITE CASE ENGINE
+File: floor_5_captain/opposite_case_engine.py
+Checks strongest opposite argument:
+- Nearby resistance/support that invalidates thesis
+- Weak volume / unconfirmed move
+- Fake sweep risk
+- Options wall opposition
+- Contradictory macro context
+- Same-zone trap history
+- Opposite structure case
+If opposite case too strong → reduces conviction, can turn to WAIT/REJECT
+
+6.7 CONVICTION ENGINE
+File: floor_5_captain/conviction_engine.py
+Builds from: permission + story + confluence + opposite + psychology + context
+Outputs:
+- permission_score (0-100)
+- conviction_score (0-100)
+- no_trade_score (0-100)
+Conviction bands:
+- 0-39 = REJECT
+- 40-59 = WEAK / WATCH
+- 60-74 = TRADABLE BUT PATIENT
+- 75-89 = STRONG
+- 90+ = ELITE
+
+6.8 PERSONALITY ENGINE
+File: floor_5_captain/personality_engine.py
+Determines Captain mood:
+- OBSERVER: low confidence, range market, no clear edge
+- PATIENT: moderate confidence, waiting for better entry
+- AGGRESSIVE: high confidence, strong confluence, good session
+- DEFENSIVE: active trade exists, market choppy, recent loss
+- SILENT: no permission, no setups, healthy no-trade
+Adaptive factors: session, regime, conviction, battlefield condition
+
+6.9 TRADE CLASS ENGINE
+File: floor_5_captain/trade_class_engine.py
+Assigns one of 5 trade classes:
+- SCALP: quick 1:1, tight SL, 1-2 candle target
+- CONTINUATION: trend following, trail stop
+- REVERSAL: structure break, counter-trend with confirmation
+- LIQUIDITY_RECLAIM: sweep + reclaim trade
+- OPTIONS_PRESSURE: wall bounce, pressure continuation
+
+6.10 SETUP MEMORY STORE
+File: floor_5_captain/setup_memory_store.py
+Remembers:
+- Active setups (currently being evaluated/armed)
+- Rejected setups (why rejected, so same mistake not repeated)
+- Failed zones (zones where traps occurred — avoid re-entry)
+- Same-zone trap count
+
+6.11 ARMED PLAN ENGINE
+File: floor_5_captain/armed_plan_engine.py
+THE KEY FEATURE — Built after heavy cycle.
+Creates prepared conditional plans:
+- plan_id, direction, setup_class
+- trigger_condition: price hits zone + confirmation
+- expiry_condition: plan expires after N candles / market shift
+- invalidation_level: if this breaks, plan is invalid
+- originating_heads: which heads support this plan
+- readiness: WATCHING / TRIGGERED / EXPIRED / INVALIDATED
+Light cycle watches these plans. No heavy thinking at tick level.
+
+6.12 SETUP EXPIRY MANAGER
+File: floor_5_captain/setup_expiry_manager.py
+- Setup validity by trade class:
+  - scalp = 1-2 candles
+  - continuation = 2-4 candles
+  - reversal = 2-3 candles
+  - liquidity_reclaim = until sweep reclaimed or fail
+  - options_pressure = until wall tested or pressure collapses
+- Removes stale/invalid plans from armed_plan_engine
+
+6.13 CONFIDENCE DECAY ENGINE
+File: floor_5_captain/confidence_decay_engine.py
+- Not same as expiry
+- Setup still valid technically, but freshness weakens
+- Conviction gradually decays as time passes without trigger
+- Different decay rates by trade class
+
+6.14 TRADE CONSTRUCTOR
+File: floor_5_captain/trade_constructor.py
+Only called if TRADE state approved.
+Steps:
+1. Direction (from confluence) → CE or PE
+2. Capital feasibility (within operator-set limit)
+3. Strike selection hierarchy: ATM → slight ITM → near OTM (must be justified)
+4. Deep OTM rejected (lottery behavior)
+5. Entry logic (zone + trigger condition + confirmation)
+6. Invalidation level (from heads)
+7. Stop loss structure
+8. Target structure (1:1, 1:2, trail)
+9. Trade class assignment
+10. Capital fit verification (lot size × premium ≤ capital limit)
+
+6.15 ACTIVE TRADE SUPERVISOR
+File: floor_5_captain/active_trade_supervisor.py
+While trade is active:
+- Track thesis integrity: is original OB/FVG/zone still valid?
+- Is options support still alive?
+- Did macro context shift?
+- Does market story still support thesis?
+- Rare intervention trigger if strong opposite confluence emerges
+
+6.16 INTERVENTION ENGINE
+File: floor_5_captain/intervention_engine.py
+Rare Captain override during active trade:
+Scenarios:
+- thesis break
+- regime flip
+- strong opposite confluence
+- options support collapse
+- risk emergency
+Tags: NORMAL, CAUTION, EMERGENCY_OVERRIDE
+Not on ordinary pullbacks/noise.
+
+6.17 SILENCE REASON LOGGER
+File: floor_5_captain/silence_reason_logger.py
+Structured reasons for WAIT/BLOCKED/REJECT:
+- insufficient_confluence, psychology_block, active_trade_exists
+- dead_market, trap_risk_high, stale_setup, plan_expired
+- narrative_shift, capital_mismatch, real_mode_lock, weak_conviction
+
+6.18 DECISION SNAPSHOT WRITER
+File: floor_5_captain/decision_snapshot_writer.py
+Every major decision freezes a snapshot:
+- market_story_summary, narrative_timeline_excerpt
+- heads_summary, armed_plan_reference
+- conviction_score, invalidation, reason
+- session_context, capital_context, mood/personality
+For: audit, review, shadow logging, confidence calibration, dashboard
+
+6.19 LOSS LOCK MANAGER
+File: floor_5_captain/loss_lock_manager.py
+- Track real mode losing trades
+- 3 losses → REAL mode locked
+- ALERT + PAPER remain active
+- Counter resets next trading day
+- Popup override required for each next REAL trade after lock
+
+6.20 OVERRIDE GUARD
+File: floor_5_captain/override_guard.py
+- Popup for real mode rule breach override
+- Minimum confirmation requirement
+- Log every override event
+
+6.21 SESSION POLICY
+File: floor_5_captain/session_policy.py
+- Opening: observe/cautious (less aggressive)
+- Golden morning: strongest permission window
+- Lunch: defensive/selective
+- Closing: cautious/risk-aware
+- Modifies: permission strictness, aggression, trade class preference
+
+6.22 CAPTAIN ENGINE (MAIN ORCHESTRATOR)
+File: floor_5_captain/captain_engine.py
+
+HEAVY CYCLE (on 1m candle close):
+1. permission_gate (BLOCKED/WAIT if fails)
+2. market_story_engine (build today's story)
+3. narrative_timeline_engine (update event chain)
+4. read Floor Summary first (summary-first workflow)
+5. decide drill-down necessity (conflict? stale core head? high conviction?)
+6. if needed, read individual head reports
+7. apply report trust weighting (head type × state × freshness × context_quality)
+8. apply stale core head logic (SMC/ICT stale = stricter)
+9. evaluate NO_SETUP intelligence
+10. confluence_engine (weighted alignment)
+11. opposite_case_engine (how does this fail?)
+12. conviction_engine (scores + bands)
+13. personality_engine (mood determination)
+14. trade_class_engine (if trade)
+15. setup_memory_store update
+16. armed_plan_engine build/update
+17. setup_expiry_manager
+18. confidence_decay_engine
+19. active_trade_supervisor (if active trade)
+20. trade_constructor (only if TRADE state approved)
+21. decision_snapshot_writer
+22. silence_reason_logger (if no trade)
+23. output to execution + dashboard
+
+LIGHT CYCLE (on every tick):
+1. armed_plan_engine watch active prepared plans
+2. active_trade_supervisor (thesis check)
+3. intervention_engine review (if active trade)
+4. trigger execution if armed plan condition met
+
+OUTPUT TO SIDE A:
+- decision: TRADE / WAIT / BLOCKED
+- action: BUY / SELL
+- option_side: CE / PE
+- strike_type: ATM / slight_ITM / near_OTM
+- selected_strike
+- trade_class
+- permission_score, conviction_score, no_trade_score
+- entry_plan, invalidation_level, stop_loss_plan, target_plan
+- intervention_allowed flag
+- reason_summary / silence_reason
+- session_context, capital_context
+- snapshot_id, timestamp
+
+OUTPUT TO SIDE B (Dashboard):
+- current market story summary
+- latest narrative timeline excerpt
+- heads summary
+- mood/personality
+- why trade / why no trade
+- active trade supervision state
+- intervention note if any
+- real mode lock / override requirement
+
+WHAT NOT TO BUILD YET:
+- Any Floor 3 calculations (Floor 3 owns this)
+- Any Floor 4 interpretation (Floor 4 owns this)
+- Any execution logic (Side A)
+- Any dashboard rendering (Side B)
+- Any memory persistence (Side C — but snapshots can feed Side C)
+
+ENTRY CRITERIA (conditions to START Phase 6):
+[ ] Phase 5 complete — Floor 4 producing Floor Summary + all 6 head reports
+[ ] Floor 4 → Floor 5 contracts verified (Floor Summary + Head Report fields)
+[ ] Side C (Stage A) available for decision snapshot emission
+[ ] All Captain module contracts defined in shared/types.py
+[ ] Mock Floor 4 data generator producing realistic head reports
+
+BUILD CRITERIA (during Phase 6):
+- Build in dependency order: types → permission → story → confluence → opposite → conviction → ...
+- Captain engine (orchestrator) must be built LAST
+- Heavy cycle must be fully testable with mock Floor 4 data
+- Light cycle must be verified as lightweight (no heavy computation)
+- Light cycle must NOT import or call any heavy computation modules
+
+VALIDATION CRITERIA:
+- PermissionGate: psychology_block=true → decision=BLOCKED (must be non-overridable)
+- PermissionGate: holiday=true → decision=BLOCKED
+- ConfluenceEngine: 4/5 heads bullish + SMC/ICT strong → confluence_quality=high
+- OppositeCaseEngine: strong counter-argument present → conviction reduction >10%
+- ConvictionEngine: conviction 0-39 → decision=REJECT, 75-89 → STRONG
+- ArmedPlanEngine: plan created → expiry works after N candles
+- LightCycle: armed plan watched WITHOUT full heavy cycle recomputation
+- TradeConstructor: capital limit 10,000 → only ATM/ITM strike (no deep OTM)
+- LossLockManager: 3 losses → REAL mode locked
+
+EXIT CRITERIA (Phase 6 complete):
+[ ] Captain produces TRADE/WAIT/BLOCKED correctly
+[ ] Permission Gate blocks correctly on all conditions
+[ ] Armed plans created, watched, expired correctly
+[ ] Light cycle watches plans without full recomputation
+[ ] Decision snapshots frozen on every major decision
+[ ] Silence reasons meaningful for all no-trade cases
+[ ] Loss lock activates at 3 losses
+[ ] Intervention is RARE (verified by count in tests)
+[ ] Side A handoff contract verified
+[ ] All Floor 5 tests pass
+
+FAILURE PREVENTION — WHAT CAN BREAK ARCHITECTURE:
+- Violating the supreme law: QUALITY=F3, CONFIDENCE=F4, CONVICTION=F5
+  (Captain creates conviction, NOT recalculates quality or confidence — P0)
+- Captain consuming Floor 3 domain packets directly as routine input (bypasses Floor 4)
+- Making light cycle heavy (light cycle must remain ultra-lightweight)
+- Allowing intervention too easily (intervention is RARE)
+- Not respecting non-overridable psychology block
+- Allowing re-entry without fresh trigger + cooldown
+- Captain doing execution work (belongs to Side A)
+
+FAILURE PREVENTION — WHAT CREATES REWORK LATER:
+- Over-engineering — too many conditions leading to decision paralysis
+- Not handling NO_SETUP intelligence properly (healthy vs stale silence)
+- Forgetting SMC/ICT priority in weighted confluence
+- Not testing with real historical market data (edge cases hidden)
+- Making conviction engine too complex to calibrate later
+- Not wiring decision snapshots from day one (losing historical decisions)
+- Building armed plans before basic Captain works (premature optimization)
+
+UNIT VALIDATION:
+- Each engine: testable with mock Floor 4 data
+- Permission gate: testable with all combinations of block conditions
+- Confluence engine: testable with various head report combinations
+- Armed plan engine: testable with mock plan creation/watching/expiry
+- Trade constructor: testable with various capital/instrument scenarios
+
+CONTRACT VALIDATION:
+- Floor 4 → Floor 5 input: verify Floor Summary + Head Report fields consumed
+- Floor 5 → Side A output: verify all execution fields present
+- Floor 5 → Side B output: verify all dashboard fields present
+
+REPLAY VALIDATION:
+- Feed same Floor 4 data through Floor 5 twice → verify identical decisions
+- Replay must produce identical conviction scores, armed plans, decisions
+- Decision snapshots must be identical on replay
+
+INTEGRATION VALIDATION:
+- Feed 1 day of mock Floor 4 data → verify Captain produces decisions
+  with correct structure
+- Verify armed plans are created after heavy cycle
+- Verify light cycle watches armed plans without full recomputation
+- Verify all output contracts match Side A expectations
+- Run `pytest tests/test_floor_5/ -v` — all tests pass
+
+READY TO CODE CHECKLIST:
+[ ] Phase 5 exit criteria met
+[ ] Floor 4 → Floor 5 handoff verified
+[ ] Side C Stage A available for snapshots
+[ ] All 23 Captain modules listed in build order
+[ ] Mock Floor 4 data generator producing realistic head reports
+[ ] Heavy cycle vs light cycle responsibilities clearly defined
+[ ] First module to build: captain_types.py
+[ ] Supreme architecture law visible: Q=F3, C=F4, C=F5
+
+CURRENT BUILD PATH:
+- Pure Python decision logic
+- In-memory decision state (session only)
+- Decision snapshots written to local JSON/SQLite
+- Armed plans stored in-memory (not persisted across sessions)
+
+FUTURE SCALE PATH:
+- Captain confidence calibration using Side C historical data
+- Persistent armed plans (for multi-session strategies)
+- Parallel heavy cycle optimization
+- Captain personality tuning via config files
+
+================================================================================
+SECTION 15 - PHASE 7: SIDE A BUILD
+================================================================================
+
+WHY THIS PHASE AFTER PHASE 6:
+- Side A executes Captain's approved intents.
+- Without Captain producing decisions, Side A has nothing to execute.
+- Side A's input contract IS Floor 5's output contract.
+- Execution is the final action layer — it acts, it does not decide.
+
+WHY THIS PHASE BEFORE PHASE 8:
+- Side B Dashboard shows execution state.
+- Without Side A running, there's no execution state to display.
+- Side B's execution panel depends on Side A's state machine.
+
+WHY NOT EARLIER:
+- Building execution before Captain means designing against hypothetical decisions.
+- Risk gate, state machine, and order lifecycle all depend on Captain's intent format.
+- If Captain intent format changes, Side A needs redesign.
+
+WHY NOT LATER:
+- Side A is the final output layer — the system cannot produce action without it.
+- Side B needs Side A's state to display execution visibility.
+- Full system integration cannot happen without execution in the loop.
+
+WHAT TO BUILD:
+
+7.1 MODE ROUTER
+File: side_a_execution/mode_router.py
+- Receive Captain execution intent
+- ALERT path always active
+- Route to PAPER or REAL based on current mode
+- Mode transition governance (mode switch blocked during active trade)
+
+7.2 RISK GATE
+File: side_a_execution/risk_gate.py
+Pre-order checks:
+- available_capital >= required_capital
+- margin_availability
+- quantity_sanity (lot size × premium ≤ limit)
+- lot_feasibility (standard lot multiples)
+- max_loss_limit (pre-defined per trade/day)
+- mode_validation (correct mode for intent)
+- real_lock_state (if REAL locked, block)
+- duplicate_execution_prevention (intent_fingerprint check)
+- one_trade_enforcement (no second trade if one exists)
+- stale_intent_detection (intent too old? reject)
+- data_health_check (if STALE/CRITICAL, adjust behavior)
+
+7.3 EXECUTION CORE
+File: side_a_execution/execution_core.py
+- order_submit(broker/simulator)
+- broker_communication (Angel One API for REAL)
+- acknowledgement_tracking (order placed → ack received)
+- rejection_capture (broker rejection reason)
+- retry_invocation (on recoverable failure)
+- fill_event_handling
+- forward to Order Lifecycle Manager + Position Manager
+
+7.4 ORDER LIFECYCLE MANAGER
+File: side_a_execution/order_lifecycle_manager.py
+States:
+- PLACED → ACKNOWLEDGED → PARTIAL_FILL → FILLED
+- → MODIFIED → CANCELLED → REJECTED → EXPIRED
+SL/TGT linkage: OCO-style logical linkage + position quantity sync
+Partial fill: track actual quantity, adjust remainder
+
+7.5 POSITION MANAGER
+File: side_a_execution/position_manager.py
+Owns position truth:
+- filled_quantity, pending_quantity
+- SL_state, TGT_state, trail_state, breakeven_state
+- partial_exit_state, time_exit_state
+- exposure_tracking
+
+7.6 PAPER BROKER (SIMULATOR)
+File: side_a_execution/paper_broker.py
+Realistic simulation:
+- slippage (configurable, e.g., 0.05-0.1%)
+- brokerage / charges (realistic NSE rates)
+- spread_effect
+- delay (simulate network latency)
+- rejection_possibility (configurable rate)
+- selective_partial_fill_simulation
+- rolling_paper_account (default), optional_reset
+
+7.7 REAL BROKER (ANGEL ONE)
+File: side_a_execution/real_broker.py
+Strict live safety:
+- Primary order: LIMIT
+- Protection: SL-LIMIT
+- Broker API integration (place/modify/cancel)
+- Real acknowledgement handling
+- Real rejection handling
+- Real partial fill handling
+- Reconciliation with broker truth
+- Broker disconnect/reconnect handling
+
+7.8 PROTECTION MODEL
+File: side_a_execution/protection_model.py
+- Entry fill → immediate protection intent
+- SL placement, TGT placement
+- Protection adjustment on partial fill / reconcile
+- OCO linkage via position manager
+
+7.9 RECONCILIATION ENGINE
+File: side_a_execution/reconciliation_engine.py
+- Detect state mismatch
+- Compare local snapshot vs broker truth
+- Reconcile with safe action
+- Handle: reconnect, unclear ack, partial fill repair, position/order mismatch
+- Local snapshot = recovery aid, broker truth = final live authority
+
+7.10 KILL-SWITCH
+File: side_a_execution/kill_switch.py
+SOFT: block new entries, existing trades continue under management
+CRITICAL: flatten path, freeze execution
+
+7.11 EXECUTION STATE MACHINE
+File: side_a_execution/execution_state_machine.py
+Major states:
+IDLE → INTENT_RECEIVED → RISK_PASSED/FAILED → ORDER_PENDING
+→ PARTIAL_FILL/FILLED/REJECTED/UNKNOWN → PROTECTED
+→ MANAGING → EXITING → CLOSED
++ LOCKED, UNKNOWN/PENDING_RECONCILE, EMERGENCY_FLATTEN paths
+State transition table per locked design.
+
+7.12 LOGGING LAYER
+File: side_a_execution/execution_logging_layer.py
+Layer 1 — Normal detailed operational log:
+- entry, exit, pnl, timestamps, mode, order lifecycle, fills
+- slippage, capital context, execution reason, exit reason
+Layer 2 — Critical audit-depth log:
+- Captain override, emergency exit, risk block, broker error
+- stale data warning, degraded health, unexpected path
+
+7.13 BLOCKED ACTION JOURNAL
+File: side_a_execution/blocked_action_journal.py
+Record:
+- timestamp, trade_id, block_reason, mode, severity
+Severity: INFO, CAUTION, SEVERE, CRITICAL
+
+7.14 DATA HEALTH EXECUTION POLICY
+File: side_a_execution/data_health_policy.py
+DEGRADED: allow with stricter caution/risk checks
+STALE: block new entries; existing protected trades continue
+CRITICAL: safety escalation / lock path / flatten
+
+7.15 CAPTAIN → SIDE A INTERFACE
+File: side_a_execution/captain_interface.py
+Receives: trade_id, action, option_side, selected_strike, trade_class,
+entry_plan, invalidation_level, stop_loss_plan, target_plan,
+execution_mode context, capital context, intervention allowance
+
+WHAT NOT TO BUILD YET:
+- Any Captain logic (Floor 5)
+- Any market intelligence (Floors 3-4)
+- Any dashboard panels (Side B)
+- Full Side C integration beyond emitting execution events
+
+ENTRY CRITERIA (conditions to START Phase 7):
+[ ] Phase 6 complete — Floor 5 producing approved execution intents
+[ ] Floor 5 → Side A contract verified (trade_id, action, strike, SL, target, etc.)
+[ ] Angel One API credentials for PAPER mode (can test without REAL)
+[ ] Paper broker config defined (slippage %, brokerage, spread defaults)
+[ ] Execution state machine states defined and agreed
+
+BUILD CRITERIA (during Phase 7):
+- Build in dependency order: mode_router → risk_gate → execution_core → ...
+- Paper broker must be built BEFORE real broker (paper is the test path)
+- Paper broker must NOT give perfect fills (unrealistic)
+- State machine must be verifiable against transition table
+- Blocked action journal must capture every rejection
+- No Captain logic in any Side A module
+
+VALIDATION CRITERIA:
+- ModeRouter: ALERT always fires + PAPER/REAL routing correct per mode setting
+- RiskGate: capital=0 → ALL intents blocked
+- RiskGate: active trade open → second intent blocked with CAUTION severity
+- ExecutionCore: order placed → ack received → state transition tracked
+- PaperBroker: slippage adds 0.05% to entry price (configurable, verify applied)
+- ProtectionModel: fill → SL placed within 500ms
+- StateMachine: every valid transition tested (all rows in transition table)
+- ReconciliationEngine: local state mismatch → corrected to broker truth
+- KillSwitch: SOFT → blocks new, existing continues; CRITICAL → flattens
+- BlockedActionJournal: every block has non-null timestamp, trade_id, reason, severity
+
+EXIT CRITERIA (Phase 7 complete):
+[ ] Mode Router correctly routes to PAPER/REAL/ALERT
+[ ] Risk Gate blocks when capital insufficient, lot mismatch, duplicate intent
+[ ] Risk Gate enforces one-trade rule
+[ ] State Machine transitions correctly through all states
+[ ] Order Lifecycle Manager tracks order states correctly
+[ ] Position Manager maintains correct position truth
+[ ] Paper Broker simulates realistic trades (no perfect fills)
+[ ] Protection Model establishes SL/TGT immediately after fill
+[ ] Reconciliation Engine handles local/broker mismatch
+[ ] Kill Switch soft blocks new entries, critical flattens
+[ ] UNKNOWN state handled with bounded reconciliation + escalation
+[ ] Blocked Action Journal records all rejections with severity
+[ ] Data Health Policy adjusts behavior in STALE/CRITICAL states
+[ ] Full end-to-end: Mock Captain intent → Risk Gate → Paper Broker → Close
+
+FAILURE PREVENTION — WHAT CAN BREAK ARCHITECTURE:
+- Side A creating trades (it executes, it does NOT decide — P0 violation)
+- Side A increasing size beyond Captain intent (never allowed)
+- Side A doing market intelligence (belongs to Floors 3-4)
+- Side A modifying entry side after execution start (Captain override is exit-only)
+- Bypassing risk gate for "urgent" trades (never allowed)
+- Dashboard directly controlling execution without going through Side A
+
+FAILURE PREVENTION — WHAT CREATES REWORK LATER:
+- Paper broker giving perfect fills (unrealistic — masks slippage issues)
+- Not handling UNKNOWN state properly (critical safety issue)
+- Not logging blocked actions (audit failure)
+- Mixing ALERT/PAPER/REAL logic too deeply (hard to change later)
+- Not implementing reconciliation engine (position mismatches become invisible)
+- Making state machine too simple (missing edge case transitions)
+
+UNIT VALIDATION:
+- Each module: testable in isolation
+- Risk gate: testable with every combination of pre-order checks
+- Paper broker: testable without any real connection
+- State machine: testable with known inputs/events
+
+CONTRACT VALIDATION:
+- Floor 5 → Side A input: verify all Captain output fields consumed
+- Side A → Side C output: verify execution events have correct format
+- Side A → Side B output: verify state machine state fields
+
+REPLAY VALIDATION:
+- Paper trade lifecycle: store → replay → verify identical execution flow
+- Blocked actions: store → replay → verify same blocks produced
+- Override events: store → replay → verify same overrides
+
+INTEGRATION VALIDATION:
+- Send mock Captain intent → verify full execution lifecycle
+  (PAPER mode): INTENT_RECEIVED → RISK_PASSED → ORDER_PENDING → FILLED
+  → PROTECTED → MANAGING → EXITING → CLOSED
+- Verify blocked action on second intent during active trade
+- Run `pytest tests/test_side_a/ -v` — all tests pass
+
+READY TO CODE CHECKLIST:
+[ ] Phase 6 exit criteria met
+[ ] Floor 5 → Side A handoff verified
+[ ] Angel One API credentials for PAPER mode obtained
+[ ] Paper broker config defined (slippage, brokerage, spread defaults)
+[ ] State machine transition table documented
+[ ] Build order confirmed: mode_router → risk_gate → paper_broker → ...
+[ ] First module to build: mode_router.py
+[ ] Principle visible: Side A executes, does NOT decide
+
+CURRENT BUILD PATH:
+- Paper broker: pure Python simulation (no external API needed)
+- Real broker: Angel One API via smartapi-python
+- State machine: in-memory state transitions
+- Blocked actions: local journal file
+- No database dependency for core execution
+
+FUTURE SCALE PATH:
+- Multiple broker integrations (when Angel One limits are hit)
+- Advanced order types (bracket orders, cover orders)
+- Real-time broker reconciliation service
+- Execution analytics and performance tracking
+
+================================================================================
+PHASE 8: SIDE B BUILD
+================================================================================
+
+WHY THIS PHASE AFTER PHASES 1-7:
+- Side B Dashboard consumes data from ALL floors and sides.
+- Without Floors 1-5 producing data, Dashboard has nothing to display.
+- Without Side A producing execution state, Dashboard can't show trades.
+- Without Side C (Stage A) available, Dashboard can't show history.
+- Dashboard is the LAST thing built because it shows everything that came before.
+
+WHY THIS PHASE AFTER PHASE 7:
+- Execution panel depends on Side A's state machine.
+- Trade history depends on Side A and Side C.
+- Mode/capital controls depend on Side A's risk gate.
+
+WHY NOT EARLIER:
+- Building UI before backend data exists means building against stubs/placeholders.
+- Every panel depends on real data from specific floors/sides.
+- Dashboard contracts change when backend contracts change.
+- Cost of redesigning UI = HIGH (many visual components).
+
+WHY NOT LATER:
+- Dashboard is the operator's window into the system.
+- Without Dashboard, the system is a black box.
+- Operator cannot monitor, control, or review without it.
+
+ARCHITECTURE RULE (Side C Consumption):
+Side B must consume Side C through READ MODELS / PROJECTIONS.
+Side B must NOT consume raw Side C stores directly.
+Path: Side B → Read Models → Side C Query Layer → Side C Stores
+Violation: P0 bug. Dashboard must not become the memory owner or raw store consumer.
+
+WHAT TO BUILD:
+
+8.1 BACKEND API (FastAPI)
+Files: side_b_api/
+- main.py: FastAPI app with WebSocket + REST
+- ws_manager.py: WebSocket manager for live data push
+- routes/
+  - mode_routes.py: mode request (blocked during active trade)
+  - capital_routes.py: capital change (applies next trade)
+  - kill_switch_routes.py: soft/critical kill
+  - reconnect_routes.py: Floor 1 reconnect request
+  - override_routes.py: override confirmation
+  - status_routes.py: read current state from all floors/sides
+  - history_routes.py: read from Side C (through query layer)
+  - replay_routes.py: replay access (read-only)
+- command_router.py: Request → Validation → Route → Owner → Ack
+
+8.2 FRONTEND — COCKPIT
+Files: side_b_dashboard/src/cockpit/
+- First-glance layout:
+  - Critical Alerts (top, most visible)
+  - System Health (grouped: feeds/truth/intelligence/decision/action)
+  - Mode (PAPER/REAL/ALERT indicator)
+  - Active Trade State (symbol, qty, P&L, execution state)
+  - Captain State (decision, conviction band, mood)
+  - Risk State (current risk level, warnings)
+- Priority order: Safety > State > Action > Context
+
+8.3 CAPTAIN PANEL
+File: side_b_dashboard/src/panels/CaptainPanel.tsx
+- Primary Owner: Floor 5
+- Supporting Signals: Floor 4, Floor 2
+- Shows: decision status, conviction band, market story summary
+- No-trade reason (first-class, same importance as trade reason)
+- Override/attention notes
+- Layered explainability (Layer 1: summary, Layer 2: heads, Layer 3: full)
+
+8.4 HEADS PANEL
+File: side_b_dashboard/src/panels/HeadsPanel.tsx
+- Primary Owner: Floor 4
+- Shows: floor summary, each head's state/confidence/bias
+- Core head health snapshot (SMC/ICT/Technical/Macro/Psychology)
+- Conflict indicator, stale warnings
+- Expandable for full head report detail
+
+8.5 EXECUTION PANEL
+File: side_b_dashboard/src/panels/ExecutionPanel.tsx
+- Primary Owner: Side A
+- Shows: execution state, order lifecycle, position state
+- SL/TGT state, P&L, mode
+- Blocked action alerts, override events
+- UNKNOWN/PENDING_RECONCILE state visibility (MUST NOT be hidden)
+
+8.6 HEALTH PANEL
+File: side_b_dashboard/src/panels/HealthPanel.tsx
+- Primary Owner: Floor 2 (data health), Floor 1 (connection)
+- Top-level: grouped view (feeds/truth/intelligence/decision/action)
+  with per-group status: HEALTHY/DEGRADED/STALE/UNAVAILABLE/LOCKED/SILENT
+- Drill-down: per floor/side detail view
+- Historical health timeline (via Side C)
+
+8.7 CHART PANEL
+File: side_b_dashboard/src/panels/ChartPanel.tsx
+- Default owner: Floor 3 (base render truth)
+- OHLC candles, volume
+- Context overlays: active zones (OB, FVG, liquidity) from Floor 4
+- Optional: Captain decision annotations
+- NOT trading terminal — chart is analytical context
+
+8.8 NO-TRADE PANEL
+File: side_b_dashboard/src/panels/NoTradePanel.tsx
+First-class visibility for no-trade decisions.
+Classification:
+- Setup Absent
+- Conflict
+- Health Restriction
+- Active Trade Exists
+- Governance Restriction
+- Manual Restriction
+
+8.9 REVIEW WORKSPACE
+File: side_b_dashboard/src/workspaces/ReviewWorkspace.tsx
+- Read-only decision review
+- Trade outcome review
+- Blocked action review
+- Aligned-heads review
+- Decision journal access (via Side C)
+
+8.10 REPLAY WORKSPACE
+File: side_b_dashboard/src/workspaces/ReplayWorkspace.tsx
+- Read-only historical reconstruction
+- Replay reference lookup (via Side C + Floor 2)
+- Strictly no live control authority
+
+8.11 DIAGNOSTICS WORKSPACE
+File: side_b_dashboard/src/workspaces/DiagnosticsWorkspace.tsx
+- System health drill-down
+- Degraded/stale state diagnosis
+- Execution UNKNOWN/reconcile details
+- Source/connectivity diagnostics
+
+8.12 CONTROL SURFACE
+File: side_b_dashboard/src/controls/
+- core_controls: mode status, capital setting, kill-switch,
+  reconnect/sync, critical ack
+- contextual_controls: manual close, emergency flatten,
+  override confirmations, recovery actions
+- State-aware: controls shrink/expand based on system state
+  (HEALTHY/DEGRADED/STALE/UNAVAILABLE/LOCKED/SILENT)
+
+8.13 ALERT SYSTEM
+File: side_b_dashboard/src/alert/AlertSystem.tsx
+Severity: INFO, CAUTION, SEVERE, CRITICAL
+Categories: execution, health, review, risk, governance, operator_attention
+Top-level cockpit warnings + event feed + workspace integration
+
+8.14 STATE-BASED UI MANAGER
+File: side_b_dashboard/src/state/UIStateManager.ts
+- Maps system state to UI behavior
+- HEALTHY → full controls
+- DEGRADED → reduced risky actions
+- STALE → block new entries
+- UNAVAILABLE → only surviving controls
+- LOCKED → diagnostics/review only
+- SILENT → review emphasized, action surfaces reduced
+
+WHAT NOT TO BUILD YET:
+- Any trading intelligence (backend decides)
+- Any execution authority (Side A decides)
+- Any Captain conviction (Floor 5 decides)
+- Any Side C raw store access (query layer only)
+
+ENTRY CRITERIA (conditions to START Phase 8):
+[ ] Phases 1-6 complete — all floors emitting real data
+[ ] Phase 7 complete — Side A emitting execution state + blocked actions
+[ ] Phase 3 (Stage A) complete — Side C stores + query layer operational
+[ ] Side C query contracts defined (what Side B can request)
+[ ] Dashboard tech stack chosen (React + FastAPI + WebSocket)
+[ ] All floor/side output data formats finalized
+
+BUILD CRITERIA (during Phase 8):
+- Build API backend BEFORE frontend (API must exist to serve data)
+- Build cockpit first (most critical), then panels, then workspaces
+- Control surface must be state-aware from day one
+- No-trade panel at same prominence as trade panel (both first-class)
+- Side C data consumed through query layer, NOT raw stores
+- UNKNOWN/PENDING_RECONCILE state visibly surfaced (not hidden in logs)
+
+VALIDATION CRITERIA:
+- Cockpit: all 6 first-glance items visible within 5 seconds of page load
+- CaptainPanel: trade reason AND no-trade reason both displayed at same prominence
+- ExecutionPanel: UNKNOWN/PENDING_RECONCILE state visibly surfaced (not hidden in logs)
+- HealthPanel: per-floor drill-down shows exact failure layer + reason
+- NoTradePanel: classified reason matches backend silence_reason
+- ReviewWorkspace: loads trade history via Side C query layer (NOT raw store)
+- ReplayWorkspace: loads historical data — verify NO save/execute/trade buttons
+- ControlSurface: STALE state → new entry controls hidden; HEALTHY → all visible
+- KillSwitch: SOFT blocks new — verify existing trade continues; CRITICAL flattens
+
+EXIT CRITERIA (Phase 8 complete):
+[ ] Cockpit displays all first-glance items within 5 seconds of load
+[ ] System Health grouped view shows per-layer status correctly
+[ ] Captain Panel shows decision state with layered explainability
+[ ] Heads Panel shows floor summary + expandable head reports
+[ ] Execution Panel shows current state with UNKNOWN visibility
+[ ] Health Panel shows per-floor drill-down
+[ ] No-Trade Panel shows no-trade reasons with classification
+[ ] Review Workspace loads decision history (read-only)
+[ ] Replay Workspace loads historical data (read-only, no control)
+[ ] Control Surface respects state-based visibility
+[ ] Alert System displays severity + category correctly
+[ ] Mode change request blocked during active trade
+[ ] Capital change applies next trade (not mid-trade)
+[ ] Kill switch (soft/critical) works correctly
+[ ] Side C data consumed through query layer, NOT raw stores
+
+FAILURE PREVENTION — WHAT CAN BREAK ARCHITECTURE:
+- Making dashboard a decision layer (it REVEALS, not DECIDES — P0)
+- Making Dashboard a memory store (Side C owns memory — P0)
+- Hiding UNKNOWN/PENDING_RECONCILE execution state (safety risk)
+- Allowing direct operator trade creation (dashboard does NOT create trades)
+- Not implementing state-based UI (showing same controls in all states)
+- Adding trade creation/conviction override buttons (FORBIDDEN)
+- Consuming Side C raw stores instead of query layer
+
+FAILURE PREVENTION — WHAT CREATES REWORK LATER:
+- Building UI before backend data exists (rewrites later)
+- Making no-trade reason secondary to trade reason (operator trust issue)
+- Not implementing state-based UI from start (UI redesign later)
+- Storing historical data inside dashboard (belongs to Side C)
+- Hardcoding floor/side endpoints (contract changes cause UI breaks)
+- Not using WebSocket for live data (polling creates latency issues)
+
+UNIT VALIDATION:
+- API routes: testable with mock floor/side data
+- UI components: testable with mock state
+- Command router: testable with known requests
+- State-based UI manager: testable with all system states
+
+CONTRACT VALIDATION:
+- Side A → Side B: verify execution state fields match
+- Floor 4 → Side B: verify floor summary fields match
+- Floor 5 → Side B: verify Captain state fields match
+- Side C → Side B: verify query layer returns correct projection
+
+REPLAY VALIDATION:
+- Replay workspace: load historical data → verify read-only access
+- No replay execution allowed from dashboard
+
+INTEGRATION VALIDATION:
+- Launch dashboard → verify all panels show real data from all floors
+- Execute PAPER trade → verify execution panel shows full lifecycle
+- Block a trade → verify no-trade panel shows classified reason
+- Simulate Floor 2 STALE → verify health panel update + UI state change
+- Verify Side C history loads via query layer (check API calls — no raw store endpoints)
+- Run `pytest tests/test_side_b_api/ -v` + manual UI validation
+
+READY TO CODE CHECKLIST:
+[ ] Phases 1-7 exit criteria met
+[ ] Side C Stage A complete with query layer
+[ ] All floor/side output data formats finalized
+[ ] Dashboard tech stack chosen and verified
+[ ] API-first approach confirmed (build API before frontend)
+[ ] First module to build: side_b_api/main.py
+[ ] Architecture rule visible: Side B reveals, does NOT decide
+
+CURRENT BUILD PATH:
+- FastAPI backend on localhost (no cloud hosting)
+- React frontend served from local dev server
+- SQLite via Side C query layer for history
+- WebSocket for live data push (local connection)
+- No Docker, no cloud, no external hosting
+
+FUTURE SCALE PATH:
+- Production FastAPI server (gunicorn/uvicorn)
+- Production React build served via CDN
+- PostgreSQL for Side C query layer
+- Authentication/authorization for multi-user access
+- Mobile companion app (future enhancement)
+
+================================================================================
+PHASE 9: FULL INTEGRATION
+================================================================================
+
+WHY THIS PHASE AFTER PHASES 1-8:
+- Integration requires ALL components to exist.
+- You cannot integrate systems that don't exist yet.
+- Each phase tested independently. Now they must work together.
+
+WHY THIS PHASE BEFORE PHASE 10:
+- Testing gates require a fully integrated system to test against.
+- Unit/integration tests can run in earlier phases, but system-wide tests need everything wired.
+- End-to-end data flow verification requires all contracts connected.
+
+WHY NOT EARLIER:
+- Integration with partial components means testing against stubs.
+- Stub testing hides real contract misalignments.
+- Each phase's internal integration is done during that phase.
+- Full system integration is phase 9 because it requires system completeness.
+
+WHY NOT LATER:
+- Integration issues found late are 10x harder to fix.
+- The longer the system runs in pieces, the more assumptions diverge.
+- Phase 10 testing depends on clean integration.
+
+WHAT TO BUILD:
+
+9.1 END-TO-END DATA FLOW VERIFICATION
+- Floor 1 → Floor 2 → Floor 3 → Floor 4 → Floor 5 → Side A
+- Each contract verified at every boundary
+- Data health signal travels through: Floor 2 → metadata side-channel →
+  Floor 4 summary → Captain → Dashboard
+
+9.2 END-TO-END CONTROL FLOW VERIFICATION
+- Dashboard control request → Command Router → Correct Owner → Ack
+- Mode change, capital change, reconnect, kill switch
+
+9.3 END-TO-END MEMORY FLOW VERIFICATION
+- Floor 1 health events → Side C
+- Floor 2 health/replay events → Side C
+- Floor 5 decision journal → Side C
+- Side A execution events, blocked actions, overrides → Side C
+- Side B reads from Side C through query layer (not raw stores)
+
+9.4 REPLAY VERIFICATION
+- Replay a known historical day through Floor 2 → Floor 3 → Floor 4 → Floor 5
+- Verify same decisions produced
+- Workspace operates read-only
+
+9.5 CONTRACT AUDIT
+- Every floor-to-floor and side-to-side contract verified:
+  - All fields present
+  - All types match
+  - Error conditions handled
+  - No extra fields, no missing fields
+
+9.6 ERROR PROPAGATION TEST
+- Simulate failures at each layer:
+  - Floor 1 disconnect → Floor 2 handles → health signal degrades
+  - Floor 2 validation failure → Floor 3 handles gracefully
+  - Floor 3 stale data → Floor 4 head goes STALE → Captain adjusts trust
+  - Floor 5 decision fails → Side A blocks with reason
+  - Side A execution failure → Dashboard alerts operator
+
+WHAT NOT TO BUILD YET:
+- Any new features
+- Any new modules
+- Any new floors/sides
+- Any REAL mode activation (belongs to Phase 11)
+
+ENTRY CRITERIA (conditions to START Phase 9):
+[ ] Phases 1-8 complete — every floor and side independently tested
+[ ] All unit tests for all modules passing
+[ ] All integration tests for adjacent floor/side pairs passing
+[ ] Mock generators removed — all phases produce real inter-floor data
+[ ] Contract tests for every floor-to-floor and side-to-side boundary passing
+
+BUILD CRITERIA (during Phase 9):
+- Test data flow FIRST (most critical)
+- Then test control flow
+- Then test memory flow
+- Then run replay verification
+- Then contract audit
+- Finally, error propagation tests
+
+VALIDATION CRITERIA:
+- F1→F2: feed 100 ticks → verify F2 produces correct candles + side-channel
+- F2→F3: feed 1 day candles → verify F3 produces correct SMC/ICT zones
+- F3→F4: feed domain states → verify F4 heads produce correct reports
+- F4→F5: feed head reports → verify F5 produces correct TRADE/WAIT/BLOCKED
+- F5→SideA: feed decision → verify Side A executes PAPER trade end-to-end
+- Full chain: simulated 6.5hr market day → verify all layers produce expected output
+- All contract boundaries: verify field-by-field against shared/contracts.py
+- Error propagation: inject failure at each layer → verify downstream handles gracefully
+
+EXIT CRITERIA (Phase 9 complete):
+[ ] Full end-to-end data flow produces correct output at each step
+[ ] Full end-to-end control flow executes correctly
+[ ] Full end-to-end memory flow stores and retrieves correctly
+[ ] Replay produces identical decisions for same historical data
+[ ] All contracts audited and verified
+[ ] Error propagation works at every layer
+[ ] No circular dependencies
+[ ] No ownership violations
+
+FAILURE PREVENTION — WHAT CAN BREAK ARCHITECTURE:
+- Integration shortcuts (e.g., wiring Floor 3 directly to Dashboard, bypassing Floor 4/5)
+- Contract drift during integration (fixing one contract breaks another)
+- Error propagation not tested (system fails silently in production)
+
+FAILURE PREVENTION — WHAT CREATES REWORK LATER:
+- Not running contract audit before integration tests (wasted debugging time)
+- Not testing error propagation (hidden bugs surface in production)
+- Skipping replay verification (historical analysis impossible)
+
+UNIT VALIDATION: Already done in phases 1-8
+
+CONTRACT VALIDATION:
+- Every boundary: field-by-field verification against shared/contracts.py
+- No extra fields, no missing fields, no type mismatches
+
+REPLAY VALIDATION:
+- Replay a full trading day → verify identical decisions
+- Replay multiple market types (trend, range, chop, volatile)
+
+INTEGRATION VALIDATION:
+- Run the full system for 1 simulated day
+- Every floor/side logs its input and output
+- Verify log chain: F1 packets → F2 candles → F3 zones → F4 reports →
+  F5 decision → Side A execution
+- No phase proceeds to Phase 10 until this passes
+
+READY TO CODE CHECKLIST:
+[ ] All phases 1-8 exit criteria met
+[ ] All unit tests passing
+[ ] All integration tests for adjacent pairs passing
+[ ] 1 full day of test data prepared
+[ ] Contract audit checklist prepared
+[ ] Error propagation test scenarios documented
+
+CURRENT BUILD PATH:
+- All components running locally on single laptop
+- Test data from Floor 2 replay engine
+- Dashboard on localhost
+- Paper broker for execution
+
+FUTURE SCALE PATH:
+- Distributed integration testing across machines
+- Automated integration test suite
+- Integration monitoring dashboards
+
+================================================================================
+PHASE 10: TESTING GATES
+================================================================================
+
+WHY THIS PHASE AFTER PHASE 9:
+- System-wide testing requires an integrated system.
+- Unit/integration tests were done per phase. This phase is system-wide.
+- Full replay, edge case, performance, and stress testing need everything connected.
+
+WHY THIS PHASE BEFORE PHASE 11:
+- Production readiness requires verified safety.
+- REAL mode cannot be activated without passing all testing gates.
+- Paper mode must prove correctness before real capital is at risk.
+
+WHY NOT EARLIER:
+- Testing in incomplete system misses integration bugs.
+- Performance testing needs the real pipeline (not stubs).
+- Replay testing needs all floors to produce correct outputs.
+
+WHAT TO BUILD:
+
+10.1 UNIT TEST GATE
+- Every module has unit tests with >80% coverage
+- pytest runs ALL unit tests without failure
+- Edge cases covered: empty input, corrupt input, timeout, null values
+- Mock generators for each layer
+
+10.2 INTEGRATION TEST GATE
+- Each adjacent floor/side pair has integration tests
+- Contract verification tests (all fields, types, error states)
+- Data flow tests (known input → expected output)
+- Error propagation tests (upstream failure → downstream handling)
+
+10.3 CONTRACT TEST GATE
+- Every output contract verified against its consumer
+- Field-by-field type and presence check
+- Error contract verified (what happens on invalid input)
+
+10.4 REPLAY TEST GATE
+- Replay 5 different market days (trend, range, chop, volatile, news-event)
+- Verify Floor 3 produces expected zones/states
+- Verify Floor 4 produces expected reports
+- Verify Floor 5 produces expected decisions
+- Compare against manual analysis of same days
+
+10.5 EDGE CASE TEST GATE
+- Holiday detection → system does not trade
+- Expiry day → appropriate behavior
+- Broker disconnect mid-trade → reconciliation
+- 3 consecutive losses → REAL lock activates
+- Psychology block → Captain respects (non-overridable)
+- UNKNOWN state → bounded reconciliation + escalation
+- Duplicate intent → blocked by risk gate
+- Partial fill → position manager adjusts correctly
+
+10.6 PERFORMANCE TEST GATE
+- Tick processing: <1ms per tick through Floor 1-2 pipeline
+- Heavy cycle: completes within 1 candle (before next 1m close)
+- Light cycle: <100μs per tick (ultra-lightweight)
+- Dashboard refresh: <500ms for HOT data
+- Memory queries: <200ms for typical date range
+
+10.7 STRESS TEST GATE
+- High tick volume (fast market day)
+- Multiple rapid armed plan triggers
+- Broker API latency spikes
+- Dashboard with many simultaneous workspace opens
+
+10.8 SECURITY TEST GATE
+- API keys stored in config, not code
+- .env in .gitignore
+- Dashboard authentication (basic at minimum)
+- No sensitive data in logs
+- WebSocket connection validation
+
+WHAT NOT TO BUILD YET:
+- Any production deployment
+- Any REAL mode activation
+- Any operator training
+
+ENTRY CRITERIA (conditions to START Phase 10):
+[ ] Phase 9 complete — full integration verified (1 full simulated day passes)
+[ ] All test suites defined and ready to execute
+[ ] 5 historical market days prepared for replay testing
+[ ] Performance baselines defined (tick <1ms, heavy cycle <60s, light cycle <100μs)
+[ ] Edge case scenarios documented and coded
+[ ] Architecture linting rules added to CI pipeline
+
+VALIDATION CRITERIA:
+- Unit test gate: >80% coverage across ALL modules
+- Integration test gate: every adjacent floor/side pair tested
+- Contract test gate: every boundary verified field-by-field
+- Replay test gate: 5 different market days produce same decisions
+- Edge case gate: holiday, expiry, disconnect, 3-loss lock, UNKNOWN, partial fill, duplicate intent ALL pass
+- Performance gate: tick <1ms, heavy cycle <60s, light cycle <100μs, dashboard <500ms
+- Stress gate: high tick volume, rapid triggers, API latency — no crash
+- Security gate: no secrets in logs, .env in .gitignore, WebSocket validated
+- Architecture gate: automated linting finds zero ownership violations
+
+EXIT CRITERIA (Phase 10 complete):
+[ ] All unit tests pass (coverage >80%)
+[ ] All integration tests pass
+[ ] All contract tests pass
+[ ] All replay tests pass (5 market days)
+[ ] All edge case tests pass
+[ ] Performance within bounds
+[ ] Stress tests pass without crash
+[ ] Security tests pass
+[ ] Zero P0/P1 bugs
+[ ] Zero ownership violations
+
+FAILURE PREVENTION — WHAT CAN BREAK ARCHITECTURE:
+- Skipping performance testing (leads to candle miss in live trading)
+- Only testing happy path (markets are NOT happy path)
+- Not testing with real historical data
+- Not testing error propagation (upstream failure → downstream handling)
+- Adding architecture linting rules after violations already exist
+
+FAILURE PREVENTION — WHAT CREATES REWORK LATER:
+- Letting coverage be the only metric (100% coverage != 100% correctness)
+- Not documenting test scenarios (forgetting what was tested)
+- Skipping edge cases (hidden bugs surface in production)
+
+READY TO CODE CHECKLIST:
+[ ] Phase 9 exit criteria met
+[ ] 5 historical market days prepared
+[ ] Performance baselines defined
+[ ] Edge case scenarios documented
+[ ] Architecture linting rules in CI
+[ ] Test execution order confirmed: unit → integration → contract → replay → edge → performance → stress → security
+
+CURRENT BUILD PATH:
+- pytest for all tests
+- Local execution on single laptop
+- Historical data from Floor 2 replay
+
+FUTURE SCALE PATH:
+- Parallel test execution
+- CI/CD pipeline for automated test runs
+- Performance regression monitoring
+- Security audit automation
+
+================================================================================
+PHASE 11: PRODUCTION READINESS
+================================================================================
+
+WHY THIS PHASE AFTER PHASE 10:
+- Production readiness requires passed testing gates.
+- REAL mode involves actual capital — all safety must be verified first.
+- Every previous phase is a safety gate preventing capital loss.
+- Paper mode is the final safety net before real trading.
+
+WHY THIS PHASE IS LAST:
+- REAL mode is the most risky operating mode.
+- Paper mode must prove correctness over multiple trading days.
+- Loss locks, kill switches, and reconciliation must be verified.
+- Gradual activation minimizes risk.
+
+WHAT TO BUILD:
+
+11.1 PAPER MODE OPERATION (MINIMUM 1 WEEK)
+- Run system in PAPER mode for at least 1 trading week
+- Verify:
+  - Captain decisions are sensible
+  - Paper trades execute correctly
+  - All state machines work
+  - Dashboard displays everything correctly
+  - Side C stores all events correctly
+  - No unexpected behaviors
+
+11.2 PAPER MODE REVIEW
+- Review all PAPER trades from the week
+- Check: skipped opportunities, false positives, conviction accuracy
+- Adjust thresholds in config (NOT in code logic)
+- Verify loss lock behavior (simulate by adjusting config)
+- Verify no-trade reasoning quality
+
+11.3 REAL MODE PREPARATION
+- Verify Angel One REAL API credentials work
+- Verify REAL risk gate stricter than PAPER
+- Verify loss lock configured with correct threshold (3 losses default)
+- Verify override guard configured
+- Lower capital to minimum lot size for REAL
+
+11.4 REAL MODE ACTIVATION (GRADUAL)
+- Enable REAL mode for minimum lot size only
+- Day 1-2: observe only, high caution
+- Week 1: trade with minimum capital
+- Adjust only if PAPER week showed no critical failures
+
+11.5 REAL MODE MONITORING
+- Daily review of REAL trades
+- Verify ALL execution logs
+- Check broker reconciliation
+- Monitor Dashboard 24/7 during first week
+
+11.6 ESCALATION PLAN
+If critical failure occurs in REAL mode:
+1. Kill switch (soft: block new)
+2. Kill switch (critical: flatten)
+3. Stop system, diagnose
+4. Fix in PAPER, verify
+5. Only then resume REAL
+
+WHAT NOT TO BUILD YET:
+- Any new features (first get stable, then enhance)
+- Any complex strategy changes
+- Any additional instruments (NIFTY 50 only — locked)
+
+ENTRY CRITERIA (conditions to START Phase 11):
+[ ] Phase 10 complete — all testing gates passed
+[ ] PAPER mode verified for minimum 1 trading week without critical failures
+[ ] All PAPER trades reviewed — decisions vs manual analysis acceptable
+[ ] REAL API credentials obtained and test-connected
+[ ] Kill switch (soft + critical) tested and confirmed working
+[ ] Recovery/deployment plan documented and accessible
+[ ] Capital limit set to minimum lot size for REAL entry
+[ ] Operator (you) has Dashboard access and understands controls
+
+VALIDATION CRITERIA:
+- PAPER week: minimum 5 trading days, 10+ trades executed, zero state machine failures
+- PAPER review: thresholds adjusted in config only (no code changes), loss lock verified
+- REAL activation: minimum lot size, Day 1-2 observe-only, Week 1 cautious trading
+- REAL trades: every order verified against broker ack, reconciliation checked after each trade
+- Loss lock: configure test threshold → verify REAL blocks at correct count
+- Escalation plan: simulate critical failure → kill switch → flatten → diagnose → fix in PAPER → resume
+
+EXIT CRITERIA (Phase 11 complete):
+[ ] 1 week of PAPER mode without critical failures
+[ ] REAL mode activates safely
+[ ] Real trades execute correctly
+[ ] Loss lock activates at correct threshold
+[ ] Reconciliation works correctly
+[ ] Dashboard monitors correctly in live mode
+[ ] Kill switch works when needed
+
+FAILURE PREVENTION — WHAT CAN BREAK ARCHITECTURE:
+- Rushing to REAL mode before PAPER week completes
+- Adjusting code logic instead of config thresholds during PAPER review
+- Ignoring PAPER mode warnings/errors (assume "it's just paper")
+
+FAILURE PREVENTION — WHAT CREATES REWORK LATER:
+- Not documenting PAPER trade issues (repeat mistakes in REAL)
+- Not calibrating thresholds properly (too aggressive or too conservative)
+- Skipping escalation plan (panic during REAL crisis)
+
+READY TO CODE CHECKLIST:
+[ ] Phase 10 exit criteria met
+[ ] PAPER mode ready (broker, config, dashboard)
+[ ] REAL API credentials test-verified
+[ ] Kill switch tested
+[ ] Recovery plan documented
+[ ] Capital set to minimum lot size
+[ ] Operator Dashboard access confirmed
+
+CURRENT BUILD PATH:
+- Single laptop running PAPER mode
+- SQLite local storage
+- Localhost Dashboard
+- Angel One API for broker connectivity
+
+FUTURE SCALE PATH:
+- Dedicated server/VPS for 24/7 operation
+- Cloud-hosted Dashboard for remote monitoring
+- Database backups and disaster recovery
+- Multi-instrument expansion (post-V1)
+- Mobile alerts and monitoring
+
+================================================================================
+SECTION 20 - PHASE EXIT CRITERIA
+================================================================================
+
+Each phase has non-negotiable exit criteria.
+If these are not met, do NOT proceed to the next phase.
+
+PHASE 0 EXIT:
+[ ] Project skeleton imports cleanly
+[ ] Shared types defined
+[ ] Config loads from file + env
+[ ] Logging works
+[ ] Mock generators produce realistic data
+[ ] pytest discovers and runs tests
+
+PHASE 1 EXIT:
+[ ] Angel One login/WebSocket working
+[ ] Packets enveloped with all required fields
+[ ] Source health states working (simulate all states)
+[ ] Manual ingress lane operational
+[ ] Floor 2 handoff contract verified
+[ ] All Floor 1 tests pass
+
+PHASE 2 EXIT:
+[ ] Floor 1 data flows through validation → cleaning → structuring → storage
+[ ] 1m candles built correctly from ticks
+[ ] Options snapshots generated
+[ ] Metadata side-channel populated with quality facts
+[ ] 4-level health signal correctly generated
+[ ] Raw + structured replay both work
+[ ] Floor 3 handoff contract verified
+[ ] All Floor 2 tests pass
+
+PHASE 3 EXIT:
+[ ] Ingest layer accepts from approved emitters
+[ ] Event Router classifies and routes correctly
+[ ] All 3 stores (event, journal, reference) operational
+[ ] Query layer returns correct events
+[ ] Retention manager works
+[ ] All Side C tests pass
+
+PHASE 4 EXIT:
+[ ] All 6 domains produce states/maps/scores/candidates
+[ ] Structure runs first, SMC + ICT in parallel
+[ ] Active Maps filter correctly from Internal Maps
+[ ] No confidence/conviction in any Floor 3 output
+[ ] Macro produces NO setup candidates
+[ ] Candidates are quality-graded, not trade-approved
+[ ] CMSP produced for all consumers
+[ ] Floor 4 handoff contract verified
+[ ] All Floor 3 tests pass
+
+PHASE 5 EXIT:
+[ ] All 6 heads produce correctly formatted reports
+[ ] Macro and Psychology have NO primary/backup setups
+[ ] SMC/ICT produce context_quality_score
+[ ] ALL heads produce invalidation (non-negotiable)
+[ ] Floor Summary aggregates correctly + detects conflict + stale
+[ ] NO_SETUP intelligence propagated correctly
+[ ] Floor 5 handoff contract verified
+[ ] All Floor 4 tests pass
+
+PHASE 6 EXIT:
+[ ] Captain produces TRADE/WAIT/BLOCKED correctly
+[ ] Permission Gate blocks correctly on all conditions
+[ ] Armed plans created, watched, expired correctly
+[ ] Light cycle watches plans without full recomputation
+[ ] Decision snapshots frozen on every major decision
+[ ] Silence reasons meaningful for all no-trade cases
+[ ] Loss lock activates at 3 losses
+[ ] Intervention is RARE (verified by count in tests)
+[ ] Side A handoff contract verified
+[ ] All Floor 5 tests pass
+
+PHASE 7 EXIT:
+[ ] Mode Router routes to ALERT/PAPER/REAL correctly
+[ ] Risk Gate blocks on all pre-order conditions
+[ ] State machine transitions correctly through all states
+[ ] Paper broker simulates realistic trades
+[ ] Protection established immediately after fill
+[ ] UNKNOWN state handled with bounded reconciliation
+[ ] Blocked actions logged with severity
+[ ] All Side A tests pass
+
+PHASE 8 EXIT:
+[ ] Cockpit displays all first-glance items correctly
+[ ] All panels show real data from backends
+[ ] Controls respect state-based visibility
+[ ] No-trade reason classified and displayed
+[ ] Review/Replay workspaces read-only
+[ ] Kill switch works (soft + critical)
+[ ] All Side B tests pass
+
+PHASE 9 EXIT:
+[ ] End-to-end data flow produces correct output
+[ ] End-to-end control flow executes correctly
+[ ] End-to-end memory flow stores/retrieves correctly
+[ ] Replay produces identical decisions
+[ ] All contracts audited and verified
+[ ] Error propagation works at all layers
+
+PHASE 10 EXIT:
+[ ] All unit/integration/contract/replay/edge case tests pass
+[ ] Performance within bounds
+[ ] Stress tests pass
+[ ] Zero P0/P1 bugs
+[ ] Zero ownership violations
+
+PHASE 11 EXIT:
+[ ] 1 week PAPER mode without critical failures
+[ ] REAL mode activates safely
+[ ] Loss lock works
+[ ] Reconciliation works
+[ ] Kill switch works when needed
+
+================================================================================
+SECTION 21 - CROSS-PHASE RISKS
+================================================================================
+
+RISK 1: CONTRACT DRIFT
+Risk: During Phase 4 (Floor 3), the output contracts change slightly,
+  requiring Floor 4 (not yet built) adjustments.
+Mitigation: Define ALL contracts before Phase 1 starts.
+  Document them in shared/contracts.py.
+  Any change must be reviewed against ALL consumers.
+  Create contract tests that fail if contracts drift.
+
+RISK 2: SCOPE CREEP IN FLOOR 3
+Risk: Building too many indicators/domains in Floor 3 before Floor 4 is ready.
+Mitigation: Build Minimum Viable Domain outputs first.
+  Structure + SMC + ICT baseline → then Technical → then Options → then Macro.
+  Get Floor 4 working with baseline Floor 3 before enhancing Floor 3.
+
+RISK 3: LOCAL-ONLY BLINDNESS
+Risk: Building only for local laptop leads to architecture that can't scale.
+Mitigation: Design contracts for scale even if running locally.
+  SQLite now, but schema designed for PostgreSQL migration.
+  Local logging now, but structured for aggregation later.
+  Principle: build local, design for scale.
+
+RISK 4: TEST DATA QUALITY
+Risk: Tests use clean, perfect data that never occurs in real markets.
+Mitigation: Use recorded real market data for replay tests.
+  Include: gap opens, data gaps, corrupt ticks, duplicate packets.
+
+RISK 5: ARCHITECTURE VIOLATIONS DURING STRESS
+Risk: During deadline pressure, developer puts confidence logic in Floor 3
+  "just to make it work."
+Mitigation: Automated linting in CI. Code review required for all cross-floor changes.
+  If violated, P0 bug. Fix before next commit.
+
+RISK 6: PAPER MODE COMPLACENCY
+Risk: Paper mode works, so REAL mode is activated without thorough verification.
+Mitigation: Paper mode must run minimum 1 week (5 trading days).
+  Paper mode must execute minimum 10 trades.
+  All paper trades must be reviewed before REAL activation.
+
+RISK 7: CAPITAL LOSS PSYCHOLOGY
+Risk: First REAL loss leads to panic → override system → increase risk.
+Mitigation: Loss lock is non-overridable by Captain.
+  Override requires explicit popup confirmation.
+  Override is logged and audited.
+
+RISK 8: SIDE C OVER-ENGINEERING
+Risk: Building complex Side C features before floors emit real events.
+Mitigation: Side C stays simple until floors produce real events.
+  Richness grows WITH floors, not before them.
+
+RISK 9: DASHBOARD REDESIGN FROM BACKEND CHANGES
+Risk: Backend contracts change → Dashboard needs UI redesign.
+Mitigation: Define ALL backend contracts before Phase 8 starts.
+  Dashboard API layer abstracts backend changes from UI.
+  Contract tests catch breaking changes early.
+
+RISK 10: SINGLE DEVELOPER BURNOUT
+Risk: Solo developer trying to build 12 phases sequentially burns out.
+Mitigation: Celebrate each phase exit. Take breaks between major phases.
+  Phase 0 is fast. Phase 3 is fast. Phases 4 and 6 are the hardest.
+  Build in parallel where possible (Phase 3 with 4, Phase 5 with 7 prep).
+
+================================================================================
+SECTION 22 - CRITICAL FAILURE SCENARIOS
+================================================================================
+
+SCENARIO 1 — FLOOR 1 DISCONNECT MID-TRADE
+What happens:
+- Angel One WebSocket disconnects
+- Real-time ticks stop
+- Active trade management loses price updates
+Handling:
+- Floor 1 → DEGRADED → STALE → DISCONNECTED
+- Floor 2 detects source health change → CRITICAL signal
+- Captain data_health_signal → CRITICAL
+- Side A Data Health Policy → safety escalation
+- Existing trade continues under last known protection
+- Kill switch available for emergency flatten
+
+SCENARIO 2 — FLOOR 2 VALIDATION COLLAPSE
+What happens:
+- Corrupt tick data passes all validators
+- Floor 3 computes intelligence on bad data
+- Heads form opinions on false zones
+What prevents this:
+- Multi-layer validation (duplicate, timestamp, continuity, schema, corruption)
+- Tier A validation for critical feeds
+- Metadata side-channel marks data quality for higher floors
+- Review engine detects anomaly bursts
+Recovery: Replay correct data through Floor 2 → verify same/different output
+
+SCENARIO 3 — FLOOR 5 MAKES WRONG DECISION
+What happens:
+- Captain produces TRADE with low conviction that loses money
+- System has no "correctness oracle" for individual trades
+What prevents this:
+- Weighted confluence (SMC > ICT > Technical > Options > Macro)
+- Opposite case engine reduces one-sided conviction
+- Loss lock prevents cascade of bad decisions
+- Psychology block is non-overridable
+- Paper mode catches systematic errors before REAL
+Recovery: Review decision snapshot, adjust thresholds in config, not code
+
+SCENARIO 4 — SIDE A BROKER REJECTION
+What happens:
+- REAL order rejected by broker
+- Reason: insufficient margin, invalid strike, market closed
+Handling:
+- Risk Gate captures rejection
+- Blocked Action Journal records severity
+- Captain notified of rejection reason
+- No automatic retry without Captain re-approval
+Recovery: Fix rejection cause, get new Captain approval, retry
+
+SCENARIO 5 — SIDE A UNKNOWN STATE
+What happens:
+- Order placed → no acknowledgement received (timeout)
+- System does not know if order filled, rejected, or still pending
+Handling:
+- State machine transitions to UNKNOWN/PENDING_RECONCILE
+- Bounded reconciliation attempts
+- If unrecoverable, escalate to CRITICAL
+- Dashboard UNKNOWN state visibly surfaced
+Recovery: Manual inspection of broker account, manual reconciliation action
+
+SCENARIO 6 — MEMORY CORRUPTION (SIDE C)
+What happens:
+- Side C store gets corrupted or inconsistent data
+- Query layer returns wrong history
+What prevents this:
+- Append-first design (no mutation, so corruption is detectable)
+- Approved emitters only (no random writes)
+- Event Router validates before writing
+- Retention manager provides clean/archive boundaries
+Recovery: Replay from Floor 2 raw data, rebuild affected store
+
+SCENARIO 7 — LOCAL LAPTOP FAILURE
+What happens:
+- Laptop crashes, reboots, loses power
+- All in-memory state lost
+What prevents this:
+- Side C stores events durably
+- Floor 2 stores data durably
+- Session can be reconstructed from replay
+- In-memory tables can be rebuilt from stored events
+Recovery: Restart system → Side C provides last known state → Floor 2 provides data → system resumes
+
+SCENARIO 8 — CAPITAL EXCEEDED
+What happens:
+- Multiple partial fills exceed intended capital allocation
+- Position size exceeds comfort level
+What prevents this:
+- Risk Gate checks capital before every order
+- Position Manager tracks filled quantity vs intended
+- One-trade rule prevents second entry
+- Reduce-only safety adjustment available
+Recovery: Immediate flatten if position exceeds safe limits. log and review.
+
+================================================================================
+SECTION 23 - BUILD ORDER JUSTIFICATION
+================================================================================
+
+PHASE 0 (Foundation):
+  WHY BEFORE: Everything depends on project skeleton, types, config, logging.
+  WHY AFTER: Nothing — it's the starting point.
+  WHY NOT EARLIER: It is the earliest phase.
+  WHY NOT LATER: Every module needs shared types. Delaying Foundation blocks everything.
+
+PHASE 1 (Floor 1):
+  WHY BEFORE: Floor 1 is the system's connection to external market data.
+  WHY AFTER: Requires Phase 0 (project skeleton, types, config, logging).
+  WHY NOT EARLIER: Already as early as possible.
+  WHY NOT LATER: Without Floor 1, no real data enters the system. All higher floors are theoretical.
+
+PHASE 2 (Floor 2):
+  WHY BEFORE: Transforms raw data into clean structured truth needed by ALL higher floors.
+  WHY AFTER: Requires Floor 1 data to validate, clean, and structure.
+  WHY NOT EARLIER: No data to process until Floor 1 produces packets.
+  WHY NOT LATER: Delaying Floor 2 delays Floor 3, 4, 5, and every intelligence layer.
+
+PHASE 3 (Side C Base):
+  WHY BEFORE: Memory foundation needed before Floors 3-5 emit events.
+  WHY AFTER: Requires Floor 2 data contracts (event formats, schemas).
+  WHY NOT EARLIER: Data contracts from Floor 2 define what Side C stores.
+  WHY NOT LATER: Events from Phase 4+ would be lost. Retrofitting memory is lossy.
+
+PHASE 4 (Floor 3):
+  WHY BEFORE: Intelligence factory — all higher floors (4, 5) depend on its output.
+  WHY AFTER: Requires Floor 2 structured truth (candles, ticks, snapshots).
+  WHY NOT EARLIER: Cannot compute intelligence without validated data.
+  WHY NOT LATER: Every floor above (4, 5, Side A) waits for Floor 3.
+
+PHASE 5 (Floor 4):
+  WHY BEFORE: Expert interpretation bridge between Floor 3 intelligence and Captain judgment.
+  WHY AFTER: Requires Floor 3 domain outputs (states, maps, scores, candidates).
+  WHY NOT EARLIER: Heads need real Floor 3 data to interpret. Building against hypotheticals causes redesign.
+  WHY NOT LATER: Captain cannot make informed decisions without Head reports.
+
+PHASE 6 (Floor 5):
+  WHY BEFORE: Supreme judge — final decision layer before execution.
+  WHY AFTER: Requires Floor 4 Head reports and Floor Summary.
+  WHY NOT EARLIER: Captain without Heads is a judge without witnesses.
+  WHY NOT LATER: Side A needs Captain decisions. Dashboard needs Captain state.
+
+PHASE 7 (Side A):
+  WHY BEFORE: Action layer — converts decisions into executed trades.
+  WHY AFTER: Requires Captain decisions (Floor 5 output).
+  WHY NOT EARLIER: Building execution before Captain means designing against hypothetical intents.
+  WHY NOT LATER: Side B needs execution state. Full integration needs execution in the loop.
+
+PHASE 8 (Side B):
+  WHY BEFORE: Operator terminal — shows everything the system does.
+  WHY AFTER: Requires ALL floors and sides to emit data.
+  WHY NOT EARLIER: Building UI before backend data exists causes redesign.
+  WHY NOT LATER: Without Dashboard, operator cannot monitor or control the system.
+
+PHASE 9 (Full Integration):
+  WHY BEFORE: Wires all components together and verifies end-to-end.
+  WHY AFTER: Requires all phases 1-8 complete.
+  WHY NOT EARLIER: Cannot integrate components that don't exist.
+  WHY NOT LATER: Integration issues found late cost 10x more to fix.
+
+PHASE 10 (Testing Gates):
+  WHY BEFORE: Proves the system is correct, performant, and safe.
+  WHY AFTER: Requires integrated system from Phase 9.
+  WHY NOT EARLIER: System-wide testing needs everything connected.
+  WHY NOT LATER: Production readiness depends on passing tests.
+
+PHASE 11 (Production Readiness):
+  WHY BEFORE: Activates REAL mode and goes live.
+  WHY AFTER: Requires all tests passed (Phase 10) and Paper mode verified.
+  WHY NOT EARLIER: REAL capital requires maximum safety verification.
+  WHY NOT LATER: Delaying REAL mode delays learning from live trading.
+
+================================================================================
+SECTION 24 - MODULE-BY-MODULE SEQUENCING
+================================================================================
+
+Within each phase, modules should be built in this order:
+
+PHASE 1 (Floor 1):
+1. auth_manager.py (no dependencies, foundational)
+2. source_adapters.py (depends on auth for connection)
+3. feed_adapters.py (depends on source for packets)
+4. packet_envelope.py (independent — can be parallel)
+5. source_health.py (depends on source lifecycle states)
+6. ingress_router.py (depends on feed + envelope)
+7. floor2_handoff.py (depends on ingress + envelope)
+8. manual_ingress.py (independent — can be parallel with 3-7)
+
+PHASE 2 (Floor 2):
+1. datacenter_contracts.py (no dependencies, foundational)
+2. original_raw_store.py (independent storage)
+3. normalized_raw_store.py (depends on raw schema)
+4. duplicate_validator.py → timestamp_validator.py → continuity_validator.py
+   → schema_validator.py → corruption_validator.py (each independent)
+5. validation_router.py (depends on all validators)
+6. tick_cleaner.py → options_cleaner.py → packet_cleaner.py → anomaly_repair.py
+7. cleaned_layer_writer.py (depends on cleaners)
+8. tick_stream_builder.py → candle_stream_builder.py → options_snapshot_builder.py
+   → session_packet_builder.py (each independent)
+9. major_minor_classifier.py (depends on stream builders)
+10. quality_fact_builder.py → source_trace_builder.py → transform_stage_tracker.py
+11. continuous_review_engine.py → event_triggered_review_engine.py
+12. review_signal_builder.py → review_status_router.py
+13. raw_replay_engine.py → cleaned_replay_engine.py → structured_replay_engine.py
+14. floor3_handoff_builder.py (depends on all above)
+
+PHASE 3 (Side C):
+1. c_types.py (no dependencies)
+2. ingest_layer.py (depends on types)
+3. event_router.py (depends on types)
+4. event_store.py → journal_store.py → reference_store.py (each independent)
+5. query_layer.py (depends on all stores)
+6. retention_manager.py (depends on stores)
+
+PHASE 4 (Floor 3):
+1. calc_types.py, calc_packet_schema.py (no dependencies)
+2. market_structure/ (Tier 1 — must be first)
+   a. swing_engine.py
+   b. break_engine.py
+   c. trend_state_engine.py
+   d. structure_scores.py
+   e. structure_engine.py (orchestrator)
+3. smc/ (Tier 1 — parallel safe with ICT)
+   a. ob_engine.py, fvg_engine.py, liquidity_engine.py, sweep_engine.py,
+     mitigation_engine.py (each independent)
+   b. smc_scores.py
+4. ict/ (Tier 1 — parallel safe with SMC)
+   a. premium_discount_engine.py, displacement_engine.py, mss_engine.py,
+     delivery_context_engine.py (each independent)
+   b. ict_scores.py
+5. technical/ (Tier 2)
+   a. ema_engine.py, vwap_engine.py, atr_engine.py, rsi_engine.py,
+     adx_engine.py, mtf_alignment_engine.py, candle_pattern_engine.py
+   b. technical_states.py
+6. options/ (Tier 2)
+   a. oi_engine.py, pcr_engine.py, iv_engine.py, wall_engine.py,
+     max_pain_engine.py, options_pressure_engine.py
+   b. options_states.py
+7. macro/ (Tier 3)
+   a. vix_state_engine.py, fii_dii_engine.py, global_cues_engine.py,
+     calendar_state_engine.py
+   b. macro_states.py
+8. support_metrics/ (independent)
+9. map_lifecycle_manager.py (depends on domain map outputs)
+10. common_market_state_projection.py (depends on domain outputs)
+11. candidate_formatter.py (depends on domain candidates)
+12. floor4_handoff.py (depends on all domain + CMSP)
+
+PHASE 5 (Floor 4):
+1. head_types.py, head_report_schema.py, head_memory_base.py (infrastructure)
+2. head_refresh_policy.py, trigger_formatter.py, invalidation_formatter.py
+3. head_state_manager.py
+4. technical_head.py → smc_head.py → ict_head.py → options_head.py
+   (each independent — heads can be built in parallel)
+5. macro_head.py, psychology_head.py (independent brake/gate heads)
+6. floor_summary_builder.py (depends on all head outputs)
+
+PHASE 6 (Floor 5):
+1. captain_types.py (no dependencies)
+2. permission_gate.py (independent)
+3. market_story_engine.py → narrative_timeline_engine.py (independent)
+4. confluence_engine.py (depends on head report contracts)
+5. opposite_case_engine.py (independent — can be parallel)
+6. conviction_engine.py (depends on confluence + opposite)
+7. personality_engine.py (depends on conviction + session)
+8. trade_class_engine.py (independent)
+9. setup_memory_store.py (independent — can be parallel)
+10. armed_plan_engine.py, setup_expiry_manager.py, confidence_decay_engine.py
+    (depend on each other)
+11. trade_constructor.py (depends on trade_class + armed_plan)
+12. active_trade_supervisor.py (depends on armed_plan)
+13. intervention_engine.py (depends on active_trade_supervisor)
+14. silence_reason_logger.py (independent)
+15. decision_snapshot_writer.py (depends on all above)
+16. loss_lock_manager.py, override_guard.py (independent)
+17. session_policy.py (independent)
+18. captain_engine.py (orchestrator — depends on ALL above)
+
+PHASE 7 (Side A):
+1. mode_router.py (independent — contract-based)
+2. risk_gate.py (independent — contract-based)
+3. execution_core.py (depends on broker adapter)
+4. paper_broker.py (independent — can be built in parallel)
+5. real_broker.py (depends on Angel One API)
+6. order_lifecycle_manager.py (depends on execution_core)
+7. position_manager.py (depends on order_lifecycle_manager)
+8. protection_model.py (depends on position_manager)
+9. reconciliation_engine.py (depends on position_manager + broker)
+10. kill_switch.py (depends on execution state)
+11. execution_state_machine.py (depends on all above)
+12. execution_logging_layer.py (depends on state machine)
+13. blocked_action_journal.py (independent — governed)
+14. data_health_policy.py (independent — config-based)
+15. captain_interface.py (depends on state machine + risk gate)
+
+PHASE 8 (Side B):
+1. API foundation (FastAPI app, WebSocket manager)
+2. Command router
+3. Status routes (reads from all floors/sides)
+4. History routes (reads from Side C query layer)
+5. Control routes (mode, capital, kill, reconnect, override)
+6. Cockpit layout + First-glance components
+7. Captain Panel, Heads Panel, Execution Panel
+8. Health Panel, Chart Panel
+9. No-Trade Panel
+10. Control Surface components
+11. Alert System
+12. Review Workspace, Replay Workspace, Diagnostics Workspace
+13. State-based UI Manager
+
+================================================================================
+SECTION 25 - WHAT MUST NEVER BE BUILT EARLY
+================================================================================
+
+The following must NEVER be built before their designated phase:
+
+1. FLOOR 3 INTELLIGENCE (before Phase 4)
+   If built early: uses raw/unvalidated data, produces wrong intelligence,
+   leads to wrong Heads, wrong Captain decisions.
+   Everything above Floor 3 becomes untrustworthy.
+
+2. FLOOR 4 HEADS (before Phase 5)
+   If built early: interpreting imaginary intelligence.
+   Heads would be built against hypothetical Floor 3 outputs.
+   When real Floor 3 produces different outputs, Heads need redesign.
+
+3. FLOOR 5 CAPTAIN (before Phase 6)
+   If built early: deciding without expert input.
+   Captain would be built with assumptions about Head reports.
+   When real Head reports arrive, Captain logic would be wrong.
+
+4. DASHBOARD TRADE CONTROLS (before Phase 8)
+   If built early: creating UI for execution features that don't exist yet.
+   Results in UI redesign when Side A contracts finalize.
+
+5. REAL BROKER EXECUTION (before Phase 7)
+   If built early: risking real capital without a fully tested execution layer.
+   REAL mode is the LAST thing to enable, not the FIRST.
+
+6. ADVANCED FEATURES (before baseline works)
+   Armed plans? Narrative timeline? Opposite case engine?
+   These enhancements must wait until baseline Captain works.
+   Build minimal Captain first, then enhance.
+
+7. ADDITIONAL INSTRUMENTS (never in V1)
+   NIFTY 50 only. Bank Nifty, stocks, etc. are post-V1 enhancements.
+   Locked rule: first version = NIFTY 50 spot + options only.
+
+8. ML/AI (never — locked)
+   ML is completely removed from architecture.
+   No machine learning in any floor or side.
+   Confluence (rule-based) is the system's intelligence method.
+
+9. TELEGRAM / EXTERNAL NOTIFICATIONS (Phase 7+, optional)
+   ALERT mode can start as dashboard notification + log.
+   Telegram/webhook integration is Phase 7+ enhancement, not core.
+
+10. FULL HISTORICAL BACKFILL (Phase 2+)
+    Don't try to load years of history before the pipeline works.
+    Start with live data. Add historical replay capability when pipeline is stable.
+
+================================================================================
+SECTION 26 - IMPLEMENTATION ANTI-PATTERNS
+================================================================================
+
+ANTI-PATTERN 1: "BIG BANG" INTEGRATION
+Bad: Build everything, then try to connect it all at once.
+Good: Build floor-by-floor, integrate each floor with its consumers immediately.
+Contract tests between each floor/side pair.
+
+ANTI-PATTERN 2: PERFECTION BEFORE FUNCTION
+Bad: Spend weeks optimizing Floor 3 SMC detection before Floor 4 exists.
+Good: Get baseline SMC working, move to Floor 4, enhance SMC later.
+Perfection is the enemy of progress in a 5-floor system.
+
+ANTI-PATTERN 3: GOD MODULE
+Bad: One module in Floor 3 that does SMC + ICT + Technical + Options.
+Good: Each domain is its own module. Orchestrator coordinates, does not compute.
+
+ANTI-PATTERN 4: ARCHITECTURE DRIFT
+Bad: During Phase 4, a developer puts confidence logic in Floor 3.
+Good: Architecture laws are enforced in code review + automated linting.
+"If it's not in the plan, it doesn't belong."
+
+ANTI-PATTERN 5: HARDCODING CONFIGURATION
+Bad: API keys, thresholds, capital limits hardcoded in Python files.
+Good: Everything in config. Config loaded from files + env vars.
+No secrets in code. No magic numbers in logic.
+
+ANTI-PATTERN 6: WRITING WITHOUT READING
+Bad: Writing Floor 3 SMC engine without reading the SMC Head's input contract.
+Good: Before writing any module, read the contracts of ALL its consumers.
+
+ANTI-PATTERN 7: HIDING FAILURE
+Bad: Silently catching exceptions to keep the system running.
+Good: Logging failures, propagating errors, alerting operator.
+Silent failures create untrustworthy systems.
+
+ANTI-PATTERN 8: COPY-PASTE ACROSS FLOORS
+Bad: Copying validation logic from Floor 2 into Floor 3 "just in case."
+Good: Each floor trusts its inputs from the floor below.
+If Floor 2 validates, Floor 3 does not re-validate.
+
+ANTI-PATTERN 9: DASHBOARD BACKEND LOGIC
+Bad: Dashboard API recomputing values that belong in Floors 3-5.
+Good: Dashboard reveals what floors produce. It does not reinterpret.
+
+ANTI-PATTERN 10: IGNORING REPLAY
+Bad: "We'll add replay later." (Said every failed trading system.)
+Good: Replay is first-class from Phase 2.
+If it can't be replayed, it can't be debugged.
+
+ANTI-PATTERN 11: CLOUD-FIRST BUILD
+Bad: Designing for cloud/Docker/PostgreSQL from day one.
+Good: Build local-first. SQLite, local files, localhost.
+Add cloud infrastructure only when scale demands it.
+
+ANTI-PATTERN 12: BOTTOMLESS CONFIGURATION
+Bad: Every behavior needs a config flag. System becomes untunable.
+Good: Config for thresholds and operational settings.
+Logic stays in code. Config does not replace architecture.
+
+================================================================================
+SECTION 27 - REPLAY READINESS REQUIREMENTS
+================================================================================
+
+Replay is NOT optional. It is a first-class system capability.
+
+REQUIREMENT 1: RAW REPLAY
+- Floor 2 must preserve original raw packets
+- Replay must reproduce exact original packets
+- Purpose: source truth inspection, parser/source debugging
+
+REQUIREMENT 2: CLEANED REPLAY
+- Floor 2 must preserve validation-passed + cleaned data
+- Replay must reproduce cleaned stream (with same cleaning applied)
+- Purpose: validation/cleaning verification, anomaly investigation
+
+REQUIREMENT 3: STRUCTURED REPLAY
+- Floor 2 must preserve structured streams (candles, ticks, snapshots)
+- Replay must reproduce exact structured output
+- Purpose: Floor 3+ testing, strategy verification
+
+REQUIREMENT 4: DECISION REPLAY
+- Floor 5 must preserve decision snapshots
+- Replay must reproduce same decisions from same data
+- Purpose: verify Captain consistency, debug bad decisions
+
+REQUIREMENT 5: EXECUTION REPLAY
+- Side A must preserve execution lifecycle events
+- Replay must reproduce execution flow (order, fill, SL, TGT, exit)
+- Purpose: post-trade analysis, broker dispute resolution
+
+REQUIREMENT 6: REPLAY REFERENCES (SIDE C)
+- Side C must store replay_ref linking:
+  - trade_id → replay_ref
+  - decision_id → replay_ref
+  - source lineage → replay_ref
+- Purpose: cross-system navigation during review
+
+REQUIREMENT 7: REPLAY STORAGE ORGANIZATION
+- Floor 2 storage organized by date and session
+- Replay must support: date range queries, session-specific replay
+- Retention: enough for meaningful historical analysis
+
+REQUIREMENT 8: REPLAY METADATA
+- Each replayable artifact must carry: source, timestamp, transform_stage,
+  replay_metadata (what is required to reconstruct this artifact)
+- Purpose: make replay self-describing
+
+REQUIREMENT 9: FULL STAGE REPLAY
+- Raw → Cleaned → Structured → Floor 3 → Floor 4 → Floor 5 → Side A
+- Replay any stage without running earlier stages
+- Purpose: isolate which layer caused an issue
+
+================================================================================
+SECTION 28 - PAPER MODE READINESS REQUIREMENTS
+================================================================================
+
+PAPER mode is the final validation gate before REAL trading.
+
+REQUIREMENT 1: REALISTIC SIMULATION
+- Slippage: configurable (default 0.05-0.1%)
+- Brokerage: realistic NSE rates
+- Spread: bid-ask spread effect
+- Delay: network latency simulation (configurable)
+- Rejection: configurable rejection rate
+- Partial fill: selective simulation mode
+
+REQUIREMENT 2: CAPITAL FIDELITY
+- Paper capital is a finite rolling account (no infinite money)
+- Capital deducted on entry, credited on exit
+- Losses affect available paper capital
+- Optional reset available (not automatic)
+
+REQUIREMENT 3: FULL PIPELINE EXERCISE
+- Paper trades go through complete Captain → Risk Gate → Execution → Management → Close
+- Identical decision flow to REAL mode
+- No shortcuts because "it's just paper"
+
+REQUIREMENT 4: PERFORMANCE VALIDATION
+- Heavy cycle completes within 1 candle
+- Light cycle does not lag
+- Dashboard updates correctly
+- Side C records all paper trade events
+
+REQUIREMENT 5: 1-WEEK MINIMUM
+- At least 5 full trading days in PAPER mode
+- Minimum 10-20 trades (if market conditions allow)
+- Zero critical state machine failures
+- Zero unexpected blocking/unblocking behavior
+
+REQUIREMENT 6: WEEKLY REVIEW
+- Review all PAPER trades
+- Compare Captain decisions against manual analysis of same market
+- Adjust thresholds (not logic)
+- Fix any bugs discovered
+
+================================================================================
+SECTION 29 - REAL MODE READINESS REQUIREMENTS
+================================================================================
+
+REAL mode is activated only after ALL previous requirements are met.
+
+REQUIREMENT 1: PAPER MODE VERIFIED
+- 1 week PAPER mode without critical failures
+- All PAPER trades reviewed
+- No unexpected behaviors
+
+REQUIREMENT 2: REAL API VERIFIED
+- Angel One REAL API credentials obtained
+- REAL API test connection successful
+- Order placement test (small quantity, cancel immediately)
+- Order modification test
+- Order cancellation test
+
+REQUIREMENT 3: REAL RISK GATE VERIFIED
+- Capital check: enforces available < set limit
+- Lot feasibility: correct lot size
+- Margin check: verifies margin requirement
+- One-trade rule: blocks second trade
+- Loss lock: configured (3 losses default)
+- Duplicate intent: blocks accidental resubmissions
+
+REQUIREMENT 4: LOSS LOCK CONFIGURED
+- 3 losing trades → REAL locked
+- ALERT + PAPER remain active
+- Popup override required per trade after lock
+- Counter resets next trading day
+
+REQUIREMENT 5: KILL SWITCH VERIFIED
+- Soft kill: blocks new entries immediately
+- Critical kill: flattens current positions
+- Both logged and alerted
+
+REQUIREMENT 6: RECONCILIATION VERIFIED
+- Local vs broker state comparison works
+- UNKNOWN state bounded reconciliation works
+- Safe action determined correctly
+
+REQUIREMENT 7: OVERRIDE GUARD CONFIGURED
+- Popup for real mode breach override
+- Log every override
+- Override aftereffect caution flag active
+
+REQUIREMENT 8: PRODUCTION DEPLOYMENT CHECKLIST
+[ ] Database backups configured
+[ ] Logging at correct level
+[ ] Alerts configured (at minimum: Dashboard, log, notification)
+[ ] Operator has access to Dashboard
+[ ] Kill switch accessible
+[ ] Recovery plan documented
+[ ] Capital limit set to minimum lot size initially
+
+================================================================================
+SECTION 30 - FINAL CANONICAL BUILD SEQUENCE
+================================================================================
+
+This is the definitive, locked, canonical build order.
+No deviations without documented justification.
+
+PHASE ORDER (STRICT — no phase starts until previous phase exits):
+
+PHASE 0: FOUNDATION (days 1-3)
+  Build: project skeleton, shared types, config, logging, test infra
+  Exit: [ ] Phase 0 exit criteria met
+
+PHASE 1: FLOOR 1 — MARKET CONNECTION (weeks 1-2)
+  Build: auth, source adapters, feed adapters, packet envelope,
+         source health, ingress router, Floor 2 handoff, manual ingress
+  Exit: [ ] Phase 1 exit criteria met
+
+PHASE 2: FLOOR 2 — DATA CENTER (weeks 2-5)
+  Build: contract registry, raw stores, validators, cleaners, structurers,
+         metadata side-channel, review engine, replay engine, Floor 3 handoff
+  Exit: [ ] Phase 2 exit criteria met
+
+PHASE 3: SIDE C — MEMORY BASE (weeks 3-4, parallel with Phase 4+)
+  Build: types, ingest, event router, event/journal/reference stores,
+         query layer, retention manager
+  Exit: [ ] Phase 3 exit criteria met
+
+PHASE 4: FLOOR 3 — CALCULATION ENGINES (weeks 5-9)
+  Build: Market Structure (T1), SMC (T1), ICT (T1), Technical (T2),
+         Options (T2), Macro (T3), support metrics, maps, CMSP,
+         candidates, Floor 4 handoff
+  Exit: [ ] Phase 4 exit criteria met
+
+PHASE 5: FLOOR 4 — DEPARTMENT HEADS (weeks 9-13)
+  Build: head infra, all 6 heads, floor summary builder, Floor 5 handoff
+  Exit: [ ] Phase 5 exit criteria met
+
+PHASE 6: FLOOR 5 — CAPTAIN (weeks 13-17)
+  Build: all 23 captain modules, heavy cycle + light cycle, Side A handoff
+  Exit: [ ] Phase 6 exit criteria met
+
+PHASE 7: SIDE A — EXECUTION (weeks 17-20)
+  Build: mode router, risk gate, execution core, paper broker, real broker,
+         OLM, position manager, protection, reconciliation, kill switch,
+         state machine, logging, blocked action journal, data health policy
+  Exit: [ ] Phase 7 exit criteria met
+
+PHASE 8: SIDE B — DASHBOARD (weeks 20-24)
+  Build: FastAPI backend, cockpit, all panels, control surface,
+         workspaces (review, replay, diagnostics), alert system,
+         state-based UI
+  Exit: [ ] Phase 8 exit criteria met
+
+PHASE 9: FULL INTEGRATION (weeks 24-26)
+  Build: end-to-end wiring, contract audit, error propagation tests
+  Exit: [ ] Phase 9 exit criteria met
+
+PHASE 10: TESTING GATES (weeks 26-28)
+  Build: comprehensive test suite execution, edge cases, performance,
+         stress, security
+  Exit: [ ] Phase 10 exit criteria met
+
+PHASE 11: PRODUCTION READINESS (weeks 28-32)
+  Build: PAPER mode (1 week), review, REAL mode activation (gradual),
+         monitoring
+  Exit: [ ] Phase 11 exit criteria met
+
+-------------------------------------------------------------------------------
+TOTAL ESTIMATED TIME: 24-32 weeks (6-8 months) for solo developer
+                      12-16 weeks (3-4 months) for focused team of 2-3
+-------------------------------------------------------------------------------
+
+================================================================================
+SECTION 31 - SIDE C TIMING VALIDATION
+================================================================================
+
+WHY SIDE C BASE COMES BEFORE FLOOR 3:
+
+This is one of the most questioned build order decisions because it appears
+to violate the strict bottom-up dependency chain. Here is the explicit
+architectural justification.
+
+THE ARGUMENT AGAINST (why it looks wrong):
+- Side C is a "side" — intuitively, sides should come after floors.
+- Floor 2 is the data layer. Floor 3 is the intelligence layer.
+- Side C (Memory) doesn't fit neatly between data and intelligence.
+- It feels like Side C should come after all floors are built.
+
+WHY THIS ARGUMENT IS WRONG:
+
+ARGUMENT 1: DEPENDENCY ANALYSIS
+- Side C depends on: Floor 2 data contracts (event formats, schemas, record families).
+- Floor 3 depends on: Floor 2 structured truth (candles, ticks, snapshots).
+- Side C does NOT depend on Floor 3, 4, 5, or Side A.
+- Floor 3 does NOT depend on Side C.
+- Therefore Side C and Floor 3 have NO mutual dependency.
+- They both depend on Floor 2 (for different reasons).
+- They CAN be built in parallel after Phase 2.
+
+ARGUMENT 2: MEMORY IS CHEAP TO BUILD EARLY
+- Side C base infrastructure is simple: types, ingest layer, event router, 3 stores, query layer.
+- This is approximately 200-400 lines of Python.
+- It can be built in 1-2 weeks of part-time work.
+- The cost of building it early is NEGLIGIBLE.
+- The cost of building it late is ENORMOUS (lost events, retrofitting).
+
+ARGUMENT 3: EVENT LOSS PREVENTION
+- If Side C is deferred until after Floor 5:
+  - Floor 3 testing events are lost
+  - Floor 4 testing events are lost
+  - Floor 5 testing events are lost
+  - Side A testing events are lost
+  - All development debugging events are lost
+- Without Side C, there is NO system memory during the MOST IMPORTANT
+  development period (initial testing and calibration).
+
+ARGUMENT 4: FEEDBACK LOOP
+- Side C enables:
+  - Debugging Floor 3 outputs by storing and comparing them
+  - Debugging Floor 4 reports by storing decision history
+  - Debugging Floor 5 by storing decision snapshots
+  - Calibrating thresholds by reviewing historical decisions
+- Without Side C during development, debugging is blind.
+- Side C acts as the system's debugging memory during the build phase.
+
+ARGUMENT 5: SIDE C DOES NOT BLOCK FLOOR 3
+- Side C is parallel-safe with Floor 3.
+- They can be built by different modules in the same week.
+- Side C does not slow Floor 3 down.
+- Floor 3 does not wait for Side C.
+
+ARGUMENT 6: SIDE C GROWS WITH THE SYSTEM
+- Side C base starts small (types + stores + query layer).
+- As each floor/side is built, it begins emitting events to Side C.
+- Side C's richness grows ORGANICALLY with the system.
+- No retrofitting. No backfilling. No data loss.
+
+CONCLUSION:
+Side C base is built in Phase 3 (after Floor 2 data contracts are finalized)
+because:
+- It has no dependency on Floor 3+
+- It is cheap to build early
+- It prevents event loss during Floors 3-5 development
+- It provides debugging feedback during the build
+- It is parallel-safe with Floor 3
+- It grows organically with the system
+
+This is architecturally correct and economically optimal.
+
+================================================================================
+SECTION 32 - ARCHITECTURE PROTECTION RULES
+================================================================================
+
+DURING BUILD, NEVER:
+
+RULE 1: NEVER MIX FLOOR OWNERSHIP
+- Floor 3 code must NOT go into Floor 2 or Floor 4.
+- Floor 4 code must NOT go into Floor 3 or Floor 5.
+- Floor 5 code must NOT go into Floor 4 or Side A.
+- Each floor/module has a clear file path. If it doesn't fit, it doesn't belong.
+
+Enforcement: Automated linting checks file paths against module types.
+  floor_3_calculations/ should never contain "confidence" or "conviction".
+  floor_4_heads/ should never contain "conviction" or "execution".
+  floor_5_captain/ should never contain "broker" or "order".
+
+RULE 2: NEVER MIX SIDE OWNERSHIP
+- Side A code must NOT go into Side B or Side C.
+- Side B code must NOT go into Side A or Side C.
+- Side C code must NOT go into Side A or Side B.
+- If it's execution logic, it goes in side_a_execution/.
+- If it's display logic, it goes in side_b_dashboard/.
+- If it's memory logic, it goes in side_c_memory/.
+
+RULE 3: DASHBOARD MUST NEVER BECOME A DECISION LAYER
+- Dashboard reveals. Dashboard does NOT decide.
+- Dashboard can request actions. Dashboard does NOT execute.
+- Dashboard routes commands to correct owners.
+- Dashboard MUST NOT contain: trade approval logic, entry logic, conviction logic,
+  confidence logic, setup detection logic, execution logic.
+
+Enforcement: All Dashboard API routes must be prefix with `request_` or `get_`.
+  No `execute_` or `approve_` or `create_trade_` routes in Dashboard.
+  If a route sounds like a decision, it belongs in the backend.
+
+RULE 4: SIDE C MUST NEVER BECOME AN INTELLIGENCE LAYER
+- Side C stores facts. Side C does NOT interpret.
+- Side C MUST NOT contain: scoring methods, ranking methods, recommendation methods,
+  confidence calculation, conviction calculation, trade approval logic.
+- Side C stores memory. It does NOT analyze memory.
+
+Enforcement: Search Side C code for `score`, `rank`, `recommend`, `confidence`,
+  `conviction`, `approve`. Zero occurrences required.
+
+RULE 5: CAPTAIN MUST NEVER BECOME AN EXECUTION ENGINE
+- Captain decides. Captain does NOT execute.
+- Captain MUST NOT contain: broker API calls, order placement logic,
+  order management logic, position management logic.
+- Captain produces intents. Side A executes them.
+
+Enforcement: No `broker`, `order`, `fill`, `position`, `trade_lifecycle`
+  imports in floor_5_captain/ modules (except captain_interface.py which
+  defines the output contract to Side A).
+
+RULE 6: FLOOR 3 MUST NEVER BECOME AN INTERPRETATION LAYER
+- Floor 3 computes. Floor 3 does NOT interpret.
+- Floor 3 MUST NOT contain: confidence creation, conviction creation,
+  trade approval, expert opinion, final bias.
+- Floor 3 produces states, maps, scores (quality only), and candidates.
+- Floor 4 interprets those outputs.
+
+Enforcement: Search Floor 3 for `confidence`, `conviction`, `trade_approval`,
+  `final_bias`. Zero occurrences required. Only `quality_score` allowed.
+
+RULE 7: FLOOR 4 MUST NEVER BECOME A DECISION LAYER
+- Floor 4 interprets. Floor 4 does NOT decide.
+- Floor 4 Heads produce confidence (local domain confidence).
+- Floor 4 MUST NOT produce: conviction, trade approval, final decision.
+- Floor Summary aggregates head states and reports.
+- Floor Summary does NOT make the final decision.
+
+Enforcement: Search Floor 4 for `conviction`, `trade_approval`, `final_decision`.
+  Zero occurrences required. Only `confidence` (local domain confidence) allowed.
+
+RULE 8: REPLAY MUST NEVER MODIFY SYSTEM STATE
+- Replay reads historical data. Replay does NOT execute.
+- Replay workspace is read-only.
+- Replay MUST NOT: place orders, modify positions, change modes, override decisions.
+- Replay is for analysis and debugging, NOT for re-execution.
+
+Enforcement: Replay functions have no write access to execution, broker, or
+  position modules. Replay routes are read-only (GET only).
+
+RULE 9: LOCAL-FIRST, CLOUD-OPTIONAL
+- The system MUST work on a single laptop with zero paid infrastructure.
+- SQLite for dev. PostgreSQL only when scale demands it.
+- Local logging. Cloud logging is future enhancement.
+- No Docker required. No Kubernetes. No cloud accounts.
+- Future cloud upgrades must not break local operation.
+
+Enforcement: Core system must run with `pip install -r requirements.txt`
+  and `python main.py` — no Docker, no cloud, no external services required.
+
+RULE 10: TEST BEFORE INTEGRATE
+- Every module must have unit tests before integration begins.
+- Every floor/side pair must have contract tests before wiring.
+- Replay tests must use real historical data.
+- Edge cases must be tested explicitly.
+- No phase proceeds to next phase until exit criteria are met.
+
+================================================================================
+SECTION 33 - LOCAL-FIRST REALITY CHECK
+================================================================================
+
+TARGET ENVIRONMENT:
+- Single Developer
+- Single Laptop
+- Zero Mandatory Paid Infrastructure
+- Zero Mandatory Cloud Dependency
+- Zero Mandatory Enterprise Stack
+
+CURRENT BUILD PATH (Phase 0-11):
+
+DATABASE:
+- SQLite (file-based, zero setup, zero cost)
+- Single file per data category (raw, clean, structured, memory)
+- No separate database server required
+- No cloud database account required
+
+LOGGING:
+- Local JSON log files per module
+- Rotated by size/date
+- No log aggregation service required
+- No cloud logging account required
+
+BACKEND:
+- Python scripts running on local machine
+- FastAPI for Dashboard API (served from localhost)
+- No web server required
+- No cloud hosting required
+
+FRONTEND:
+- React dev server (localhost)
+- No CDN required
+- No cloud hosting required
+
+STORAGE:
+- Local filesystem for raw data dumps
+- SQLite for structured data
+- No object storage (S3/MinIO) required
+- No cloud storage account required
+
+BROKER:
+- Angel One API (free developer account)
+- Paper trading for testing
+- No broker subscription required beyond basic Angel One account
+
+NETWORK:
+- Standard internet connection to Angel One
+- Localhost for Dashboard
+- No VPN, no private network required
+
+MONITORING:
+- Dashboard displays system state locally
+- Logs for post-hoc analysis
+- No monitoring service (Datadog/Grafana) required
+- No uptime monitoring required
+
+TOTAL MONTHLY COST FOR CORE SYSTEM: ₹0 (beyond Angel One account and electricity)
+
+FUTURE SCALE PATH (when/if needed):
+
+DATABASE:
+- PostgreSQL (when SQLite concurrency limits hit)
+- TimescaleDB (when time-series performance demands it)
+- Managed cloud database (when 24/7 uptime required)
+
+BACKEND:
+- Production server (gunicorn/uvicorn on VPS)
+- Load balancing (when many concurrent users)
+- Cloud hosting (AWS/GCP/Azure — when 24/7 uptime required)
+
+FRONTEND:
+- Production build served via CDN
+- PWA for mobile access
+- Authentication service (when multi-user access needed)
+
+STORAGE:
+- Object storage (S3/MinIO) for raw data archives
+- Cold storage for historical data
+- Backup service
+
+MONITORING:
+- Centralized log aggregation (ELK/Datadog)
+- Uptime monitoring (Pingdom/Statuspage)
+- Alerting (PagerDuty/Slack)
+
+NOTE:
+Future scale paths are OPTIONAL. The system is designed to work WITHOUT them.
+Add cloud/scale infrastructure ONLY when PROVEN necessary, not as a prerequisite.
+The architecture supports scale — it does not require it.
+
+================================================================================
+SECTION 34 - BUILD ORDER JUSTIFICATION (PER-PHASE EXPANDED)
+================================================================================
+
+PHASE 0 (Foundation):
+  Why BEFORE: Every module in every phase depends on shared types, config,
+    logging, and test infrastructure. Without these, no code can be written
+    correctly or tested reliably.
+  Why AFTER: Foundation is the starting point. Nothing precedes it.
+  Why NOT EARLIER: It IS the earliest phase.
+  Why NOT LATER: Delaying Foundation means every phase builds on untyped,
+    unconfigured, untestable code. Rework cost is infinite.
+
+PHASE 1 (Floor 1):
+  Why BEFORE: Floor 1 is the system's connection to the market. Without live
+    data ingress, all higher floors are theoretical.
+  Why AFTER: Requires Phase 0 (types, config, logging) plus external
+    dependencies (Angel One SDK, WebSocket library).
+  Why NOT EARLIER: Already as early as architecturally possible.
+  Why NOT LATER: EVERY floor above (2-5, Sides A-C) needs data from Floor 1.
+    Delaying Floor 1 delays everything.
+
+PHASE 2 (Floor 2):
+  Why BEFORE: Floor 2 is where raw data becomes trusted truth. Without
+    validation, cleaning, and structuring, all intelligence is garbage.
+  Why AFTER: Requires Floor 1 data to process. Floor 2's input contract IS
+    Floor 1's output contract.
+  Why NOT EARLIER: No data to validate until Floor 1 produces packets.
+  Why NOT LATER: Floor 3 cannot compute on raw data. Side C needs data
+    contracts from Floor 2. Both are blocked by Floor 2.
+
+PHASE 3 (Side C Base):
+  Why BEFORE: Memory foundation needed before Floors 3-5 emit events. Without
+    Side C, all testing/development events are lost.
+  Why AFTER: Requires Floor 2 data contracts (event formats, schemas, record
+    families). Side C cannot define event types without knowing data formats.
+  Why NOT EARLIER: Data contracts from Floor 2 define Side C's storage schema.
+  Why NOT LATER: Events from Phase 4+ (Floor 3 testing, Floor 4 testing,
+    Floor 5 testing) are lost without Side C. Retrofitting is lossy.
+    See Section 31 for complete justification.
+
+PHASE 4 (Floor 3):
+  Why BEFORE: Intelligence factory. All higher floors (4, 5) depend on Floor 3's
+    domain outputs (states, maps, scores, candidates).
+  Why AFTER: Requires Floor 2's validated candles, tick streams, options
+    snapshots. Floor 3 cannot compute on unvalidated data.
+  Why NOT EARLIER: Cannot compute intelligence without Floor 2's structured truth.
+  Why NOT LATER: Floor 4 (Heads) and Floor 5 (Captain) are entirely dependent on
+    Floor 3. Delaying Floor 3 blocks the ENTIRE decision chain.
+
+PHASE 5 (Floor 4):
+  Why BEFORE: Expert interpretation. Floor 4 converts Floor 3's calculated
+    intelligence into Captain-readable expert confidence and invalidation.
+  Why AFTER: Requires Floor 3 domain outputs. Heads interpret states/maps/scores/
+    candidates — they don't compute them from scratch.
+  Why NOT EARLIER: Building Heads against hypothetical Floor 3 outputs means
+    redesign when real Floor 3 outputs arrive. 2x-3x rework cost.
+  Why NOT LATER: Captain needs Head reports to make decisions. Without Floor 4,
+    Captain is a judge without expert witnesses.
+
+PHASE 6 (Floor 5):
+  Why BEFORE: Supreme judge. Captain is the culmination of all analysis layers.
+    It produces the final decision that Side A executes.
+  Why AFTER: Requires Floor 4 Head reports and Floor Summary. Captain judges
+    expert interpretation — it doesn't create it.
+  Why NOT EARLIER: Building Captain before Floor 4 means designing against
+    hypothetical Head reports. When real reports arrive, Captain needs redesign.
+    This is the MOST EXPENSIVE module to redesign.
+  Why NOT LATER: Side A needs Captain decisions to execute. Dashboard needs
+    Captain state to display. Full system test needs Captain in the loop.
+
+PHASE 7 (Side A):
+  Why BEFORE: Action layer. Side A converts Captain's decisions into
+    mechanically executed trades with full safety governance.
+  Why AFTER: Requires Captain decision output. Side A's input contract IS
+    Floor 5's output contract.
+  Why NOT EARLIER: Building execution before Captain means designing against
+    hypothetical intent formats. Side A contracts depend on Captain contracts.
+  Why NOT LATER: Side B Dashboard needs execution state to display. Full system
+    integration needs execution in the loop.
+
+PHASE 8 (Side B):
+  Why BEFORE: Operator terminal. Dashboard shows everything the system does
+    and allows operator control within strict governance boundaries.
+  Why AFTER: Requires ALL floors (1-5) and Sides (A, C Stage A) to emit real
+    data. Dashboard consumes from all layers — nothing to show without data.
+  Why NOT EARLIER: Building UI before backend data exists guarantees UI redesign
+    when real data formats arrive. Cost of UI redesign is HIGH (many components).
+  Why NOT LATER: Without Dashboard, the system is a black box. Operator cannot
+    monitor, control, or review system behavior.
+
+PHASE 9 (Full Integration):
+  Why BEFORE: Wires all components together and verifies they work as a system.
+  Why AFTER: Requires all phases 1-8 complete. Cannot integrate components that
+    don't exist yet.
+  Why NOT EARLIER: Integration with stubs hides real contract mismatches.
+    Integration must test REAL component-to-component connections.
+  Why NOT LATER: Integration issues found late cost 10x more to fix.
+    Each week of independent development increases divergence.
+
+PHASE 10 (Testing Gates):
+  Why BEFORE: System-wide validation. Proves correctness, safety, and
+    performance before real capital is at risk.
+  Why AFTER: Requires fully integrated system from Phase 9. Cannot test what
+    hasn't been integrated.
+  Why NOT EARLIER: System-wide testing needs everything connected. Unit tests
+    run per phase. System tests need the full chain.
+  Why NOT LATER: Production readiness depends on passing all testing gates.
+    Delaying testing means discovering safety issues after going live.
+
+PHASE 11 (Production Readiness):
+  Why BEFORE: Goes live with REAL capital. Final safety gate.
+  Why AFTER: Requires all testing gates passed (Phase 10). REAL mode cannot be
+    activated without verified safety.
+  Why NOT EARLIER: REAL capital requires maximum possible safety verification.
+    Paper mode must prove correctness over multiple trading days.
+  Why NOT LATER: Delaying REAL mode delays real-world learning. But safety
+    always comes before speed.
+
+================================================================================
+SECTION 35 - READY TO CODE SUMMARIES
+================================================================================
+
+Each phase has a "Ready To Code Checklist" embedded in its phase section above.
+This section provides quick-reference summaries for daily use.
+
+PHASE 0 CHECKLIST — START CODING WHEN:
+[ ] Python 3.11+ installed
+[ ] Git initialized
+[ ] Project skeleton created
+[ ] Shared types importable
+[ ] Config loads from file + env
+[ ] Logger writes JSON
+[ ] Mock generators produce data
+[ ] pytest discovers tests
+[ ] Architecture plans accessible
+
+PHASE 1 CHECKLIST — START CODING WHEN:
+[ ] Phase 0 exit criteria met
+[ ] Angel One credentials obtained
+[ ] SmartAPI SDK installed
+[ ] WebSocket connectivity verified
+[ ] Floor 1 output contract drafted
+[ ] Mock generator ready
+[ ] Module order known: auth → source → feed → envelope → health → ingress → handoff
+
+PHASE 2 CHECKLIST — START CODING WHEN:
+[ ] Phase 1 exit criteria met
+[ ] Floor 1 handoff verified
+[ ] Storage schema designed (SQLite)
+[ ] Floor 2 → Floor 3 contract drafted
+[ ] Test data set prepared (1 hour)
+[ ] Validator order known: duplicate → timestamp → continuity → schema → corruption
+
+PHASE 3 CHECKLIST — START CODING WHEN:
+[ ] Phase 2 data contracts finalized
+[ ] Storage backend chosen (SQLite)
+[ ] Approved emitter list defined
+[ ] Event families finalized (8 families)
+[ ] Module order known: types → ingest → router → stores → query → retention
+[ ] This phase runs parallel with Phase 4
+
+PHASE 4 CHECKLIST — START CODING WHEN:
+[ ] Phase 2 exit criteria met
+[ ] Floor 2 → Floor 3 handoff verified
+[ ] Test data set prepared (1+ day)
+[ ] Tier 1 order confirmed: Structure → SMC + ICT
+[ ] All 6 domain contracts defined
+[ ] First engine: market_structure/structure_engine.py
+[ ] Manual analysis of test data prepared
+
+PHASE 5 CHECKLIST — START CODING WHEN:
+[ ] Phase 4 exit criteria met
+[ ] Floor 3 → Floor 4 contracts verified
+[ ] Head report schema finalized
+[ ] Mock Floor 3 data ready
+[ ] Build order: infra → 6 heads → floor summary
+[ ] Locked rules printed: no setups in Macro/Psychology, invalidation mandatory
+
+PHASE 6 CHECKLIST — START CODING WHEN:
+[ ] Phase 5 exit criteria met
+[ ] Floor 4 → Floor 5 handoff verified
+[ ] Side C Stage A available
+[ ] All 23 modules listed in build order
+[ ] Mock Floor 4 data ready
+[ ] Heavy vs light cycle defined
+[ ] Q=F3, C=F4, C=F5 law visible
+
+PHASE 7 CHECKLIST — START CODING WHEN:
+[ ] Phase 6 exit criteria met
+[ ] Floor 5 → Side A handoff verified
+[ ] Angel One PAPER credentials obtained
+[ ] Paper broker config defined
+[ ] State machine transition table documented
+[ ] Build order: mode_router → risk_gate → paper_broker → ...
+
+PHASE 8 CHECKLIST — START CODING WHEN:
+[ ] Phases 1-7 exit criteria met
+[ ] Side C Stage A complete
+[ ] All output data formats finalized
+[ ] Tech stack chosen and verified
+[ ] API-first: build backend before frontend
+[ ] Rule visible: Side B reveals, does NOT decide
+
+PHASE 9 CHECKLIST — START CODING WHEN:
+[ ] All phases 1-8 exit criteria met
+[ ] All unit tests passing
+[ ] Integration tests for adjacent pairs passing
+[ ] 1 full day test data prepared
+[ ] Contract audit checklist prepared
+[ ] Error propagation scenarios documented
+
+PHASE 10 CHECKLIST — START CODING WHEN:
+[ ] Phase 9 exit criteria met
+[ ] 5 historical market days prepared
+[ ] Performance baselines defined (tick <1ms, heavy <60s, light <100μs)
+[ ] Edge case scenarios documented
+[ ] Architecture linting rules in CI
+[ ] Test order: unit → integration → contract → replay → edge → performance → stress → security
+
+PHASE 11 CHECKLIST — START CODING WHEN:
+[ ] Phase 10 exit criteria met
+[ ] PAPER mode ready
+[ ] REAL API credentials test-verified
+[ ] Kill switch tested
+[ ] Recovery plan documented
+[ ] Capital set to minimum lot size
+[ ] Operator Dashboard access confirmed
+
+================================================================================
+FINAL NOTE
+================================================================================
+
+This document is the deepest possible sequencing reference for Junior Aladdin.
+It is designed to be opened EVERY DAY during the build phase.
+
+It does not:
+- redesign architecture
+- add floors/sides
+- change ownership
+- change responsibilities
+
+It does:
+- specify exact build order
+- specify what to build and NOT build in each phase
+- specify WHY each phase is in its exact position
+- specify entry, build, validation, and exit criteria for every phase
+- specify architecture protection rules (what must NEVER happen)
+- specify local-first build approach (no cloud required)
+- provide daily-ready checklists (start coding when these are true)
+- provide dependencies, risks, anti-patterns, failure scenarios
+- provide build order justification (why before/after/earlier/later)
+- provide module-by-module sequencing within each phase
+- provide readiness requirements for critical capabilities
+
+HOW TO USE THIS DOCUMENT DAILY:
+
+Each morning:
+1. Open this file
+2. Find your current phase
+3. Check the "READY TO CODE CHECKLIST" — are you ready?
+4. Find which module to build today in Section 24 (Module Sequencing)
+5. Build the module
+6. Run unit validation, contract validation, replay validation, integration validation
+7. When done, check exit criteria
+
+If stuck:
+- Check COMMON MISTAKES for your phase
+- Check WHAT CAN BREAK ARCHITECTURE
+- Check WHAT CREATES REWORK LATER
+- Reread the phase's WHY section
+
+Architecture laws are not guidelines — they are rules.
+Violate them only with explicit documented justification.
+If you violate an architecture law, fix it immediately (P0).
+Do not proceed to the next module with broken architecture.
+
+Build in order. Test each module. Verify each integration.
+Do not skip phases. Do not build early. Do not cut corners.
+
+This system is complex. Follow the sequence. Trust the process.
+
+================================================================================
+END OF IMPLEMENTATION_SEQUENCING_PLAN_V1.1_FINAL
+================================================================================

@@ -1,0 +1,1385 @@
+================================================================================
+ROADMAP SIDE A: EXECUTION LAYER
+================================================================================
+File: ROADMAP_SIDE_A.txt
+Version: 1.0
+Status: Implementation Execution Document
+Depends On: ROADMAP_PHASE_0_FOUNDATION, ROADMAP_FLOOR_05
+            (Floor 5 contracts needed; Angel One API operational from Phase 1)
+Next In Chain: ROADMAP_SIDE_B
+================================================================================
+
+This is NOT an architecture document.
+This is an IMPLEMENTATION EXECUTION DOCUMENT.
+
+DO NOT:
+- Redefine architecture
+- Change ownership
+- Change contracts
+- Change dataflow
+- Change wiring
+- Change sequencing
+
+DO:
+- Define step-by-step build order
+- Define per-module contracts
+- Define per-module validation
+- Define wiring between modules
+- Define integration points
+- Make this coding-ready
+
+================================================================================
+SECTION 1: PURPOSE
+================================================================================
+
+Side A is the tactical execution layer of the Junior Aladdin system. Captain
+decides — Side A executes. Side A receives Captain's approved execution intent,
+runs pre-execution safety checks through the Risk Gate, manages the full order
+lifecycle, communicates with broker/simulator, maintains position truth, and
+enforces capital protection rules.
+
+Side A philosophy (locked): PROTECT FIRST, THEN OPTIMIZE
+
+Meaning in priority order:
+1. Protection first
+2. Risk control second
+3. Execution quality third
+4. Optimization last
+
+Side A is NOT:
+- A decision layer (Captain decides, Side A executes)
+- An intelligence layer (no market interpretation)
+- A strategy layer (no trade invention)
+- A discretionary trade judge
+
+Side A IS:
+- The tactical executor of Captain's strategic decisions
+- The final operational safety net (reduces size for safety, never increases)
+- The protection enforcer (Protect First, Then Optimize)
+- The state machine owner (12 major execution states)
+- The reconciliation authority (local vs broker truth)
+- The auditable truth recorder for every action
+
+CRITICAL ARCHITECTURE RULES:
+
+Rule 1: Side A does NOT create trades — it only receives approved intent.
+Rule 2: Side A does NOT interpret market meaning — no SMC/ICT/technical judgment.
+Rule 3: Side A does NOT create confidence or conviction (belongs to Floors 4-5).
+Rule 4: Side A may reject, delay, shrink, retry, or flatten for safety.
+         It may NEVER "invent" a better trade.
+Rule 5: Side A may REDUCE size for safety. NEVER increase beyond Captain intent.
+Rule 6: After execution start, Captain must NOT override the entry side.
+         Override is limited to exit/risk-side intervention (enforced by Captain).
+Rule 7: ONE active live trade at a time (operationally enforced by Side A).
+Rule 8: UNKNOWN/PENDING_RECONCILE states are explicit and bounded.
+Rule 9: Broker truth = final live authority. Local snapshot = recovery aid.
+Rule 10: Every action must be auditable — blocked actions, overrides, emergencies.
+
+================================================================================
+SECTION 2: COMPONENT ARCHITECTURE
+================================================================================
+
+SIDE A DIRECTORY STRUCTURE:
+
+side_a_execution/
+├── __init__.py                             # Module init, exposes execution orchestrator
+├── captain_interface.py                    # Captain → Side A contract receiver
+├── mode_router.py                          # ALERT always active + PAPER/REAL switch
+├── risk_gate.py                            # 12 pre-order safety checks
+├── execution_core.py                       # Broker/simulator-facing order actor
+├── order_lifecycle_manager.py              # Order state tracking (placed→filled→closed)
+├── position_manager.py                     # Position truth owner (fills, SL, TGT)
+├── paper_broker.py                         # Realistic simulator: slippage, fees, delays
+├── real_broker.py                          # Angel One live broker integration
+├── protection_model.py                     # Entry fill → immediate protection
+├── reconciliation_engine.py                # Detect → classify → compare → reconcile
+├── kill_switch.py                          # SOFT (block new) + CRITICAL (flatten)
+├── execution_state_machine.py              # 12 major states with transition table
+├── execution_logging_layer.py              # Layer 1 normal + Layer 2 critical audit
+├── blocked_action_journal.py               # Severity-taxonomied block records
+├── data_health_policy.py                   # DEGRADED/STALE/CRITICAL behavior mapping
+├── intent_fingerprint.py                   # Duplicate intent detection
+└── execution_orchestrator.py               # Main coordinator (init → run → cleanup)
+└── tests/
+    ├── __init__.py
+    ├── test_captain_interface.py
+    ├── test_mode_router.py
+    ├── test_risk_gate.py
+    ├── test_execution_core.py
+    ├── test_order_lifecycle_manager.py
+    ├── test_position_manager.py
+    ├── test_paper_broker.py
+    ├── test_real_broker.py
+    ├── test_protection_model.py
+    ├── test_reconciliation_engine.py
+    ├── test_kill_switch.py
+    ├── test_execution_state_machine.py
+    ├── test_execution_logging_layer.py
+    ├── test_blocked_action_journal.py
+    ├── test_data_health_policy.py
+    ├── test_intent_fingerprint.py
+    ├── test_contract_validation.py       # Cross-module contract alignment
+    ├── test_risk_gate_comprehensive.py   # All 12 check conditions
+    ├── test_state_machine_transitions.py # Every row in transition table
+    ├── test_paper_real_parity.py         # Core lifecycle parity verification
+    ├── test_replay_validation.py         # Execution log reproducibility
+    └── test_integration.py               # Full Side A end-to-end (paper path)
+
+================================================================================
+SECTION 3: STEP-BY-STEP BUILD ORDER
+================================================================================
+
+BUILD SEQUENCE (must be followed in this order):
+
+PHASE A — FOUNDATION + INTERFACES (Steps 7.1-7.3)
+PHASE B — SAFETY + STATE (Steps 7.4-7.7)
+PHASE C — EXECUTION ENGINES (Steps 7.8-7.12)
+PHASE D — PAPER BROKER FIRST (Step 7.13)
+PHASE E — REAL BROKER (Step 7.14)
+PHASE F — LOGGING + AUDIT (Steps 7.15-7.18)
+PHASE G — ORCHESTRATOR (Step 7.19)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7.1 — side_a_types (+ shared/types additions)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: Phase 0 types (shared/types.py), captain_types.py
+Imports from: types.py, captain_types (DecisionOutput, ExecutionMode)
+
+Define Side A specific dataclasses and enums.
+These should be added to shared/types.py OR a local side_a_types.py:
+
+Enums:
+- ExecutionMode: ALERT, PAPER, REAL (already in shared/types.py)
+- ExecutionMajorState: IDLE, INTENT_RECEIVED, RISK_PASSED, ORDER_PENDING,
+  PARTIAL_FILL, FILLED, PROTECTED, MANAGING, EXITING, CLOSED, FAILED,
+  LOCKED, UNKNOWN_PENDING_RECONCILE
+- OrderState: PLACED, ACKNOWLEDGED, PARTIAL_FILL, FILLED, MODIFIED,
+  CANCELLED, REJECTED, EXPIRED
+- BlockedActionSeverity: INFO, CAUTION, SEVERE, CRITICAL
+- KillSwitchState: NORMAL, SOFT_ACTIVE, CRITICAL_ACTIVE
+- EscalationLevel: NORMAL, CAUTION, SEVERE, EMERGENCY
+- ReconcileOutcome: MATCH, MISMATCH_RESOLVED, MISMATCH_ESCALATED
+- DataHealthExecutionResponse: ALLOW_STRICT, BLOCK_NEW, ESCALATE_FLATTEN
+
+Dataclasses:
+- ExecutionIntent (from Captain): trade_id, action, option_side, strike,
+  trade_class, entry_plan, invalidation_level, sl_plan, target_plan,
+  execution_mode, capital_context, intervention_allowed, intent_fingerprint
+- RiskCheckResult: passed (bool), checks list of (check_name, passed, reason),
+  recommended_action, timestamp
+- OrderRecord: order_id, trade_id, state, side, quantity, filled_qty,
+  price, sl_price, target_price, created_at, updated_at, events list
+- PositionState: trade_id, direction, filled_qty, pending_qty, avg_price,
+  sl_price, target_price, trail_activated, breakeven_activated,
+  partial_exit_qty, pnl, status, updated_at
+- ExecutionSnapshot: state, position, orders list, risk_status,
+  mode, escalation_level, timestamp
+- BlockedActionRecord: timestamp, trade_id, block_reason, mode, severity,
+  details dict
+- ReconciliationRecord: local_state, broker_state, mismatches list,
+  outcome, resolved_action, timestamp
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7.2 — captain_interface.py (Depends on captain_types.py + Step 7.1)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: captain_types.py, side_a_types
+Imports from: captain_types (DecisionOutput), side_a_types
+
+Receives Captain's execution intent and translates into Side A internal format.
+
+Input contract (from Captain):
+- trade_id: string (mandatory)
+- action: BUY/SELL
+- option_side: CE/PE
+- selected_strike: float
+- trade_class: TradeClass enum
+- entry_plan: dict (trigger, zone, confirmation)
+- invalidation_level: float
+- stop_loss_plan: dict (price, type)
+- target_plan: dict (targets list, trailing config)
+- execution_mode: ExecutionMode (ALERT/PAPER/REAL)
+- capital_context: dict (available_capital, max_risk_per_trade)
+- intervention_allowed: bool
+- intent_fingerprint: string (unique execution identity)
+- timestamp: datetime
+
+Methods:
+- receive_intent(decision_output: DecisionOutput) → ExecutionIntent
+  Validates all mandatory fields present. Raises on missing fields.
+- validate_intent_freshness(intent, max_age_seconds=60) → bool
+  Rejects stale intents (configurable timeout).
+- extract_execution_context(intent) → dict
+  Prepares execution context for downstream consumption.
+
+Output: Validated ExecutionIntent → Mode Router
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7.3 — mode_router.py (Depends on Step 7.1)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: side_a_types
+Imports from: side_a_types (ExecutionMode)
+
+Decides where approved execution intent goes. Does NOT judge the trade.
+ALERT path is always active. PAPER/REAL path selected by current mode.
+
+Methods:
+- route_intent(intent: ExecutionIntent) → tuple(mode_path, alert_targets)
+  - ALERT: always fires notification (log, dashboard update)
+  - PAPER: route to paper_broker flow
+  - REAL: route to real_broker flow
+- set_mode(new_mode: ExecutionMode) → bool
+  - Mode transition governance: block switch during active trade
+- get_current_mode() → ExecutionMode
+- is_alert_active() → bool (always True — ALERT is always active)
+
+Output contracts:
+- ALERT path: notification to dashboard + log entry (always fires)
+- PAPER path: forward to risk_gate → paper_broker chain
+- REAL path: forward to risk_gate → real_broker chain
+
+CRITICAL: ALERT notification fires BEFORE PAPER/REAL routing.
+This ensures dashboard ALWAYS sees every intent, even if routed to dead path.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7.4 — intent_fingerprint.py (Depends on Step 7.1)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: side_a_types
+Imports from: side_a_types
+
+Duplicate intent detection using lightweight execution-safe identity.
+
+Methods:
+- generate_fingerprint(intent: ExecutionIntent) → string
+  Based on: trade_id + action + strike + entry_price + timestamp_window
+- register_fingerprint(fingerprint) → bool
+  Stores fingerprint with short expiry (configurable).
+- is_duplicate(fingerprint) → bool
+  Checks if same fingerprint already registered.
+- clear_session() → Reset for new trading day
+
+Output: BlockedActionRecord if duplicate detected (severity: CAUTION min)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7.5 — risk_gate.py (Depends on Steps 7.1, 7.3, 7.4)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: side_a_types, intent_fingerprint.py
+Imports from: side_a_types, intent_fingerprint
+
+THE CRITICAL SAFETY GATE. Asks only: "Can this approved trade be safely and
+validly executed right now?"
+
+12 pre-order checks (BLOCKED if ANY fails):
+
+1. Available capital check: available_capital >= required_capital
+2. Required capital check: margin requirement meets limit
+3. Margin availability: margin check passes
+4. Quantity sanity: lot_size × premium ≤ max_risk_per_trade
+5. Lot feasibility: quantity in standard lot multiples
+6. Max loss limit: pre-defined per-trade and per-day limits
+7. Mode validation: intent mode matches current execution mode
+8. Real lock state: if REAL locked by loss_lock_manager → BLOCK
+9. Duplicate execution prevention: intent_fingerprint.is_duplicate() → BLOCK
+10. One-trade enforcement: no second trade if active position exists
+11. Stale intent detection: intent older than max_age_seconds → REJECT
+12. Data health check: if STALE → block new; if CRITICAL → escalate
+
+Methods:
+- evaluate(intent: ExecutionIntent, context: ExecutionContext) → RiskCheckResult
+  Runs all 12 checks. Returns PASSED or FAILED with detailed reasons.
+- get_failed_checks() → list of failed check names + reasons
+- is_blocked_for_safety() → bool (summary check for dashboard)
+
+SIZE POLICY (locked):
+- Captain size = default truth. Side A NEVER increases size.
+- Reduce-only adjustment allowed for capital/margin/safety reasons.
+- Any reduce-only adjustment must be logged.
+
+Output: RiskCheckResult → if FAILED → blocked_action_journal + WAIT/BLOCKED to Captain
+         if PASSED → forward to execution_core
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7.6 — execution_state_machine.py (Depends on Step 7.1)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: side_a_types
+Imports from: side_a_types (ExecutionMajorState)
+
+The behavioral backbone of Side A. Defines all valid state transitions.
+
+Major states:
+- IDLE: no intent, waiting
+- INTENT_RECEIVED: Captain intent received, awaiting risk gate
+- RISK_PASSED: risk gate passed, proceeding to order placement
+- ORDER_PENDING: order submitted, awaiting acknowledgement
+- PARTIAL_FILL: order partially filled
+- FILLED: order fully filled
+- PROTECTED: SL/TGT protection placed
+- MANAGING: active trade management (trail, breakeven adjustments)
+- EXITING: exit in progress
+- CLOSED: trade fully closed
+- FAILED: order rejected or non-recoverable
+- LOCKED: critical lock triggered
+- UNKNOWN_PENDING_RECONCILE: state unclear, reconciliation needed
+
+State transition table (locked):
+| Current State         | Event/Condition                     | Next State                 |
+|----------------------|-------------------------------------|----------------------------|
+| IDLE                 | Captain intent received             | INTENT_RECEIVED            |
+| INTENT_RECEIVED      | Risk gate passed                    | RISK_PASSED                |
+| INTENT_RECEIVED      | Risk gate failed                    | FAILED                     |
+| RISK_PASSED          | order submitted                     | ORDER_PENDING              |
+| ORDER_PENDING        | partial fill                        | PARTIAL_FILL               |
+| ORDER_PENDING        | full fill                           | FILLED                     |
+| ORDER_PENDING        | reject                              | FAILED                     |
+| ORDER_PENDING        | timeout/unclear                     | UNKNOWN_PENDING_RECONCILE  |
+| PARTIAL_FILL         | protection staged                   | PROTECTED                  |
+| FILLED               | protection placed                   | PROTECTED                  |
+| PROTECTED            | active management begins            | MANAGING                   |
+| MANAGING             | exit condition triggered            | EXITING                    |
+| EXITING              | close complete                      | CLOSED                     |
+| ANY ACTIVE STATE     | critical lock / emergency flatten   | LOCKED or CLOSED           |
+| UNKNOWN              | reconcile success                   | MANAGING / PROTECTED       |
+| UNKNOWN              | unrecoverable / fail-safe           | FAILED / CLOSED            |
+
+Methods:
+- transition(event: str) → new state or raises on invalid transition
+- get_current_state() → ExecutionMajorState
+- is_active() → bool (any state between INTENT_RECEIVED and CLOSED/FAILED)
+- is_safe_to_proceed() → bool
+- can_receive_new_intent() → bool (only IDLE or CLOSED/FAILED)
+- reset() → IDLE
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7.7 — data_health_policy.py (Depends on Step 7.1)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: side_a_types
+Imports from: side_a_types (DataHealthExecutionResponse)
+
+Execution safety reacts to upper-layer operational health facts without
+becoming an intelligence or decision layer.
+
+| Data Health State | Execution Behavior                                    |
+|------------------|-------------------------------------------------------|
+| DEGRADED         | allow execution with stricter caution/risk checks     |
+| STALE            | block new entries; existing protected trades continue |
+| CRITICAL         | safety escalation / lock path / flatten policy        |
+
+CRITICAL: These states do NOT become trade intelligence.
+They are operational safety facts that influence execution caution behavior.
+
+Methods:
+- evaluate(health_signal: DataHealth) → DataHealthExecutionResponse
+- get_execution_strictness(response) → modifier for risk gate
+- is_entry_blocked(response) → bool
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7.8 — execution_core.py (Depends on Steps 7.1, 7.5, 7.6, 7.7)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: side_a_types, risk_gate, execution_state_machine, data_health_policy
+Imports from: above modules + paper_broker / real_broker (injected)
+
+Broker/simulator-facing actor. Responsible for operational order actions.
+
+Responsibilities:
+- order_submit(broker_or_simulator)
+- broker_communication management
+- acknowledgement_tracking (order → ack received)
+- rejection_capture (broker rejection reason)
+- retry_invocation_on_recoverable_failure
+- fill_event_handling
+- forward to Order Lifecycle Manager + Position Manager
+
+Methods:
+- submit_order(order_details, broker) → order_id + state update
+- handle_acknowledgement(order_id, ack_data) → state update
+- handle_rejection(order_id, reason) → retry or fail
+- handle_fill(order_id, fill_data) → forward to OLM + PM
+- retry_order(order_id) → resubmit if recoverable
+- cancel_order(order_id) → attempt cancellation
+
+Output contracts:
+- To OrderLifecycleManager: state transition events
+- To PositionManager: fill quantity, price updates
+- To blocked_action_journal: rejection records
+- To execution_logging_layer: all events
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7.9 — order_lifecycle_manager.py (Depends on Steps 7.1, 7.6, 7.8)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: side_a_types, execution_state_machine, execution_core
+Imports from: above modules
+
+Track and manage order states through their lifecycle.
+
+Managed lifecycle states:
+- PLACED → ACKNOWLEDGED → PARTIAL_FILL → FILLED
+- → MODIFIED → CANCELLED → REJECTED → EXPIRED
+
+Responsibilities:
+- track order state transitions
+- coordinate SL/TGT linkage (OCO-style logical + quantity sync)
+- track modify/cancel events
+- support retry/reprice path
+- maintain order-chain references
+- support partial-fill aware transitions
+
+SL/TGT linkage (locked): OCO-style logical linkage + position quantity sync.
+NOT independent — both linked to position quantity.
+
+Methods:
+- register_order(order: OrderRecord) → order_id
+- update_state(order_id, new_state, event_data) → updated record
+- get_order(order_id) → OrderRecord
+- get_trade_orders(trade_id) → list of OrderRecord
+- link_sl_tgt(order_id, sl_order_id, tgt_order_id) → linkage record
+- handle_partial_fill(order_id, filled_qty, price) → updated record
+- get_active_orders() → list of non-terminal orders
+
+Output: OrderRecord updates → PositionManager, Logging
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7.10 — position_manager.py (Depends on Steps 7.1, 7.6, 7.9)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: side_a_types, execution_state_machine, order_lifecycle_manager
+Imports from: above modules
+
+PRIMARY OWNER of open trade management state.
+
+Ownership split:
+- Position Manager = position truth owner
+- Order Lifecycle Manager = execution-state owner
+- Execution Core = broker interaction owner
+- Captain = rare strategic override authority
+
+Responsibilities:
+- active positions tracking
+- filled quantity truth
+- pending quantity awareness
+- SL state management
+- target state management
+- trail state (trailing stop)
+- breakeven state (once price moves N ticks)
+- partial-exit state
+- time-exit state
+- exposure tracking
+- position consistency view
+
+Methods:
+- open_position(trade_id, direction, qty, price) → PositionState
+- update_fill(qty, price) → updated position
+- set_sl(price) → updated sl_state
+- set_target(price) → updated target_state
+- activate_trail(activation_price, trail_distance) → trail activated
+- activate_breakeven(activation_ticks) → sl moved to breakeven
+- partial_exit(qty, price) → reduce position, record partial
+- close_position(qty, price) → finalize P&L
+- get_position(trade_id) → PositionState
+- get_active_positions() → list (max 1, but API supports future)
+- get_exposure() → total exposure value
+- get_pnl(trade_id) → current P&L
+- get_consistency_view() → dict for reconciliation
+
+Output: PositionState updates → Logging, Dashboard, Reconciliation
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7.11 — protection_model.py (Depends on Steps 7.1, 7.9, 7.10)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: side_a_types, order_lifecycle_manager, position_manager
+Imports from: above modules
+
+Protect First, Then Optimize.
+
+Entry fill → immediate protection intent. Protection is the first tactical duty.
+
+Methods:
+- stage_protection(position: PositionState) → sl_order + tgt_order
+  Creates SL and TGT orders based on position.
+- adjust_for_partial_fill(position, filled_qty) → adjusted SL/TGT
+- adjust_for_reconcile(position, reconcile_data) → adjusted protection
+- get_protection_status(position) → dict (SL placed, TGT placed, etc.)
+- is_protected(position) → bool
+
+Output: SL/TGT orders → OrderLifecycleManager for placement
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7.12 — reconciliation_engine.py (Depends on Steps 7.1, 7.6, 7.10)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: side_a_types, execution_state_machine, position_manager
+Imports from: above modules
+
+Detect → Classify → Compare local vs broker truth → Reconcile → Safe Action.
+
+Key principle: Local snapshot = recovery aid / audit layer.
+               Broker truth = final live authority.
+
+Methods:
+- detect_mismatch(local_state, broker_state) → bool + mismatches list
+- classify_mismatch(mismatches) → ReconcileOutcome
+  Types: position_qty, price, state, order presence, SL/TGT drift
+- compare(local_snapshot, broker_data) → dict of differences
+- reconcile(mismatches, broker_truth) → resolved_state + actions list
+- safe_action(reconcile_result) → updated state or escalate
+- handle_reconnect(broker_data) → full reconcile flow
+- handle_unclear_ack(order_id) → bounded reconcile attempts → escalate if unresolved
+
+UNKNOWN/PENDING_RECONCILE policy:
+- Short bounded window (configurable, e.g., 30 seconds)
+- Reconcile attempts (3 attempts, backoff)
+- If unresolved → escalate (SEVERE) → flatten / fail-safe
+- No optimistic assumption of success
+
+Output: ReconciliationRecord → Logging, Dashboard, Side C (memory)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7.13 — paper_broker.py (FIRST broker — build before real_broker.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: side_a_types
+Imports from: side_a_types
+
+Realistic simulator. Paper mode must NOT give perfect fills — that's unrealistic
+and dangerous (creates false confidence).
+
+Simulation features:
+- slippage: configurable (default 0.05-0.1% of price)
+- brokerage/charges: realistic NSE rates
+- spread effect: bid-ask spread simulation
+- delay: simulate network latency (50-500ms)
+- rejection possibility: configurable rate (1-5%)
+- selective partial fill simulation (configurable probability)
+
+Capital model:
+- Default rolling paper account (starts with configured capital)
+- Optional reset available (operator can reset account balance)
+
+Methods:
+- place_order(order) → simulated ack + fill (with configured realism)
+- cancel_order(order_id) → simulated cancel with possible delay
+- modify_order(order_id, updates) → simulated modify
+- get_account_summary() → balance, positions, pnl
+- reset_account() → reset balance to initial
+- get_slippage(order) → applied slippage amount for logging
+
+Output: Same interface as real_broker (parity contract).
+        Always returns simulated ack/fill/rejection with realism factors.
+
+PAPER/REAL parity policy:
+- HIGH parity on core lifecycle behavior (order → ack → fill → manage)
+- Selected advanced realism can remain lighter in paper where justified
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7.14 — real_broker.py (Depends on Phase 1 Angel One connectivity)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: side_a_types, Phase 1 (Angel One auth + source health)
+Imports from: side_a_types, smartapi-python SDK
+
+Strict live safety. REAL mode uses conservative order practices.
+
+Order discipline (locked):
+- Primary order: LIMIT (never MARKET in REAL without extreme justification)
+- Protection: SL-LIMIT
+
+Methods:
+- place_order(order) → real broker ack
+- cancel_order(order_id) → broker cancel
+- modify_order(order_id, updates) → broker modify
+- get_order_status(order_id) → broker status
+- get_positions() → broker positions
+- get_account_summary() → broker account data
+- handle_disconnect() → reconnect + reconcile
+- handle_rejection(response) → classify + log + retry or escalate
+
+Output: Same interface as paper_broker (parity contract for core lifecycle).
+
+PAPER → REAL transition requirement:
+- Real broker integration tested ONLY after paper_broker has 100+ simulated trades
+- No critical failures in state machine during paper testing
+- Verified risk gate behavior for all 12 checks
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7.15 — kill_switch.py
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: side_a_types, execution_state_machine
+Imports from: side_a_types, execution_state_machine
+
+Hybrid kill-switch behavior (locked).
+
+SOFT Kill Switch:
+- Block new entries
+- Existing trades continue under management
+- Used for: degraded data, caution conditions, operator caution
+
+CRITICAL Kill Switch:
+- Flatten path (close all positions)
+- Freeze execution
+- Used for: emergency conditions, critical data failure, operator emergency
+
+Methods:
+- activate_soft(reason) → blocks new entries, records reason
+- activate_critical(reason) → flatten + freeze, emergency log
+- deactivate() → restore normal operation
+- is_soft_active() → bool
+- is_critical_active() → bool
+- get_active_switch() → KillSwitchState
+- get_reason() → activation reason
+
+Output: State change to execution_state_machine + logging + dashboard alert
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7.16 — execution_logging_layer.py
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: side_a_types
+Imports from: side_a_types + shared/logging.py
+
+Hybrid logging model (locked).
+
+Layer 1 — Normal Detailed Operational Log:
+- entry, exit, pnl, timestamps, mode
+- order lifecycle events
+- fills, slippage, capital context
+- execution reason, exit reason
+
+Layer 2 — Critical Audit-Depth Log (for critical events only):
+- Captain override
+- emergency exit
+- risk block events
+- execution rejection
+- broker error
+- stale data warning
+- degraded health state
+- unexpected execution path
+- reconcile events
+
+Methods:
+- log_normal(event_type, data) → structured log entry (Layer 1)
+- log_critical(event_type, data) → structured log entry with full context (Layer 2)
+- get_session_logs(layer=1) → list of log entries
+- get_critical_events() → list of critical events
+- export_for_audit(trade_id) → full execution trail for given trade
+
+Why hybrid: Every event does not need full forensic depth,
+but critical events must remain richly visible.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7.17 — blocked_action_journal.py
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: side_a_types
+Imports from: side_a_types
+
+Records every action that Side A blocked for safety/rule reasons.
+
+Severity taxonomy:
+- INFO: routine informational block (e.g., no intent to process)
+- CAUTION: notable block (e.g., duplicate intent, mode mismatch)
+- SEVERE: significant block (e.g., risk gate failure, stale intent)
+- CRITICAL: emergency block (e.g., kill switch active, reconcile failure)
+
+Records preserve:
+- timestamp: when block occurred
+- trade_id: which trade was blocked
+- block_reason: why blocked
+- mode: execution mode at time of block
+- severity: INFO/CAUTION/SEVERE/CRITICAL
+- details: additional context dict
+
+Methods:
+- record(block: BlockedActionRecord) → stored record
+- get_by_trade(trade_id) → list of blocked actions for trade
+- get_by_severity(min_severity) → filtered list
+- get_session_blocks() → all blocks for current session
+- get_recent(count=10) → most recent blocks
+
+Output: BlockedActionRecord → Side C (memory), Side B (dashboard)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7.18 — __init__.py
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Module initialization. Exposes execution_orchestrator as primary public API.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7.19 — execution_orchestrator.py (MUST be built LAST)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: ALL modules above
+Imports from: ALL modules
+
+Main Side A coordinator. Initializes all sub-modules, manages lifecycle,
+and coordinates the full execution flow.
+
+FLOW:
+1. Initialize: broker (paper or real), state machine, risk gate,
+   position manager, logging, blocked action journal
+2. captain_interface receives intent → validate → forward
+3. mode_router routes (ALERT always fires)
+4. risk_gate evaluates 12 checks
+5. If FAILED → blocked_action_journal.record() → WAIT to Captain
+6. If PASSED → execution_core.submit_order() → state machine transition
+7. order_lifecycle_manager tracks all order state changes
+8. position_manager maintains position truth
+9. protection_model stages SL/TGT immediately after fill
+10. reconciliation_engine monitors for mismatches (on events + periodic)
+11. kill_switch: operator can activate SOFT/CRITICAL
+12. logging_layer records everything (Layer 1 normal, Layer 2 critical)
+
+Methods:
+- start(mode: ExecutionMode) → initialize all subsystems
+- process_intent(decision: DecisionOutput) → full execution flow
+- get_state() → ExecutionSnapshot (current state for dashboard)
+- shutdown() → graceful cleanup
+- emergency_stop() → critical kill switch path
+
+================================================================================
+SECTION 4: INPUT/OUTPUT CONTRACTS
+================================================================================
+
+INPUTS:
+
+| Input Source       | Format             | Key Fields                                    |
+|-------------------|--------------------|-----------------------------------------------|
+| Captain (Floor 5) | DecisionOutput     | trade_id, action, option_side, strike,        |
+|                   |                    | trade_class, entry_plan, invalidation,        |
+|                   |                    | stop_loss_plan, target_plan, mode,            |
+|                   |                    | capital_context, intervention_allowed,        |
+|                   |                    | intent_fingerprint, timestamp                 |
+| Operator          | Command            | mode_change, kill_switch, override_grant,     |
+| (Side B)         |                    | capital_update, account_reset                 |
+| Data Health       | DataHealth enum    | GOOD / CAUTION / DEGRADED / STALE / CRITICAL  |
+| (Floor 2 meta)    |                    |                                               |
+
+OUTPUTS:
+
+| Output              | Destination | Format                | Key Fields                              |
+|--------------------|-------------|-----------------------|-----------------------------------------|
+| Execution State    | Side B      | ExecutionSnapshot     | state, position, orders, risk, mode,    |
+|                    | (Dashboard) |                       | escalation, blocked_actions             |
+| Trade Journal      | Side C      | MemoryEvent            | trade_id, events, fills, pnl, slippage  |
+|                    | (Memory)    | family=TRADE_JOURNAL  |                                          |
+| Execution Events   | Side C      | MemoryEvent            | order lifecycle, state transitions,     |
+|                    | (Memory)    | family=EXECUTION_EVENT | ack/reject, fill events                |
+| Blocked Actions    | Side C      | MemoryEvent            | timestamp, trade_id, reason, severity   |
+|                    | (Memory)    | family=BLOCKED_ACTION  |                                          |
+| Override Events    | Side C      | MemoryEvent            | override_type, reason, before/after     |
+|                    | (Memory)    | family=OVERRIDE        |                                          |
+| Health Events      | Side C      | MemoryEvent            | state changes, errors, kill switch      |
+|                    | (Memory)    | family=HEALTH_EVENT    |                                          |
+| Reconcile Events   | Side C      | MemoryEvent            | local_state, broker_state, outcome      |
+|                    | (Memory)    | family=REPLAY_REF      |                                          |
+
+CONTRACT VIOLATIONS THAT MUST REJECT:
+
+1. DecisionOutput without intent_fingerprint → CAUTION + ACCEPT (graceful degrade)
+2. Risk gate passed with capital=0 → HALT (logic error)
+3. State machine transition not in table → HALT (undefined behavior)
+4. Execution core placing order before risk gate passed → HALT (safety violation)
+5. Position quantity negative after fill → HALT (accounting error)
+6. Two active positions simultaneously → HALT (one-trade violation)
+7. Broker truth overridden by local state → HALT (broker truth authority)
+
+================================================================================
+SECTION 5: DEPENDENCY MAP
+================================================================================
+
+INTERNAL DEPENDENCIES (Side A):
+
+Module                              Depends On                              Depended By
+──────────────────────────────────  ──────────────────────────────────────  ──────────────────────
+side_a_types (or shared/types)      types.py (Phase 0), captain_types      ALL modules
+captain_interface.py                side_a_types, captain_types             execution_orchestrator
+mode_router.py                      side_a_types                           execution_orchestrator
+intent_fingerprint.py               side_a_types                           risk_gate
+risk_gate.py                        side_a_types, intent_fingerprint       execution_orchestrator
+execution_state_machine.py          side_a_types                           ALL execution modules
+execution_core.py                   types, state_machine, risk_gate        execution_orchestrator
+order_lifecycle_manager.py          types, state_machine                   execution_core, protection
+position_manager.py                 types, state_machine                   protection, reconciliation
+protection_model.py                 types, olm, position_manager           execution_orchestrator
+reconciliation_engine.py            types, state_machine, position_manager execution_orchestrator
+paper_broker.py                     side_a_types                           execution_core
+real_broker.py                      side_a_types, Phase 1 auth             execution_core
+kill_switch.py                      side_a_types, state_machine            execution_orchestrator
+execution_logging_layer.py          side_a_types, shared/logging           execution_orchestrator
+blocked_action_journal.py           side_a_types                           risk_gate, execution
+data_health_policy.py               side_a_types                           risk_gate
+execution_orchestrator.py           ALL modules                            __init__
+
+EXTERNAL DEPENDENCIES:
+
+Side A Depends On:
+- Phase 0: types.py, config.py, logging.py, errors.py
+- Floor 5: DecisionOutput (Captain → Side A contract)
+- Phase 1: Angel One auth (for real_broker only)
+- Side C: HEALTH_EVENT + TRADE_JOURNAL + EXECUTION_EVENT emitter capability
+
+Side A Depended By:
+- Side B (Dashboard): receives ExecutionSnapshot
+- Side C (Memory): receives trade journal, execution events, blocked actions
+
+Side A does NOT depend on:
+- Floor 3 directly (all intelligence consumed through Floor 4 → Floor 5)
+- Floor 4 directly (all interpretation consumed through Floor 5)
+- Floor 5 internal logic (only the DecisionOutput contract)
+
+================================================================================
+SECTION 6: WIRING DIAGRAM
+================================================================================
+
+FLOOR 5 OUTPUT (DecisionOutput)
+        │
+        ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  EXECUTION ORCHESTRATOR                                                     │
+│                                                                             │
+│  1. captain_interface.receive_intent(decision) → ExecutionIntent           │
+│  2. mode_router.route_intent(intent)                                       │
+│     ├── ALERT notification (ALWAYS fires)                                  │
+│     └── PAPER/REAL routing                                                  │
+│  3. intent_fingerprint.is_duplicate()                                       │
+│  4. risk_gate.evaluate(intent, context) → RiskCheckResult                  │
+│     ├── FAILED → blocked_action_journal.record() → WAIT to Captain         │
+│     └── PASSED → continue                                                   │
+│  5. execution_state_machine.transition("INTENT_RECEIVED")                   │
+│  6. execution_core.submit_order(order, broker)                             │
+│     ├── paper_broker OR real_broker                                         │
+│     └── state_machine.transition("ORDER_PENDING")                           │
+│  7. order_lifecycle_manager.register_order()                               │
+│  8. On fill → execution_core.handle_fill()                                 │
+│     ├── state_machine → FILLED                                              │
+│     ├── position_manager.update_fill()                                      │
+│     └── protection_model.stage_protection()                                 │
+│  9. protection_model → SL/TGT placed                                       │
+│     └── state_machine → PROTECTED                                           │
+│ 10. position_manager → active management                                   │
+│     └── state_machine → MANAGING                                            │
+│ 11. reconciliation_engine (periodic + event-driven)                         │
+│ 12. On exit trigger → state_machine → EXITING → CLOSED                     │
+│ 13. kill_switch (operator or automated activation)                          │
+│ 14. execution_logging_layer (all events)                                    │
+│     └── Layer 1 every event, Layer 2 critical events only                  │
+│                                                                             │
+│  OUTPUTS:                                                                   │
+│  ├─ ExecutionSnapshot → Side B (Dashboard)                                 │
+│  ├─ MemoryEvent[] → Side C (Memory)                                        │
+│  └─ BlockedActionRecord → Side C (Memory) + Side B                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+SECTION 7: DATA FLOW
+================================================================================
+
+COMPLETE EXECUTION FLOW (PAPER mode shown — REAL mode identical flow):
+
+Note: In REAL mode, replace paper_broker with real_broker at Step 7.
+All other steps — validation, routing, risk gate, state machine, lifecycle
+management, protection, reconciliation, logging — are IDENTICAL.
+This is the PAPER/REAL parity contract: same interface, same flow,
+same safety guarantees.
+
+1. Captain produces DecisionOutput (TRADE approved)
+2. captain_interface receives DecisionOutput → validates all fields
+3. mode_router receives ExecutionIntent
+   → ALERT notification fires (dashboard + log)
+   → Routes to PAPER path (since mode=PAPER)
+4. intent_fingerprint checks for duplicates
+   → If duplicate: risk gate blocks, journal records, flow ends
+5. risk_gate evaluates 12 checks against intent + current context
+   → If any check fails: blocked_action_journal records → return WAIT/BLOCKED
+   → If all pass: RiskCheckResult.passed = True
+6. execution_state_machine transitions IDLE → INTENT_RECEIVED → RISK_PASSED
+7. execution_core receives RISK_PASSED → constructs order from intent
+8. execution_core.submit_order() to paper_broker
+   → paper_broker applies: slippage, delay, possible rejection
+   → Returns simulated ack with order_id
+9. execution_state_machine → ORDER_PENDING
+10. paper_broker simulates fill (with delay, possible partial)
+    → Returns fill data: filled_qty, price, timestamp
+11. execution_core.handle_fill() →
+    - state_machine → FILLED (or PARTIAL_FILL)
+    - order_lifecycle_manager.update_state()
+    - position_manager.update_fill(filled_qty, price)
+12. protection_model.stage_protection(position)
+    → Creates SL + TGT orders via order_lifecycle_manager
+    → state_machine → PROTECTED
+13. state_machine → MANAGING (active trade management)
+14. position_manager handles: trail, breakeven, partial exits
+15. On exit trigger (SL hit / TGT hit / time exit / intervention):
+    → state_machine → EXITING
+    → execution_core closes position
+    → state_machine → CLOSED
+16. reconciliation_engine checks periodically + on events:
+    → Detect → Classify → Compare → Reconcile → Safe Action
+17. kill_switch can activate at ANY time:
+    → SOFT: blocks new entries, existing trade continues
+    → CRITICAL: flatten + freeze immediately
+18. execution_logging_layer records EVERY step:
+    → Layer 1: all steps above
+    → Layer 2: critical events (risk blocks, rejects, emergencies, overrides)
+19. blocked_action_journal records every safety block
+
+================================================================================
+SECTION 8: VALIDATION MATRIX
+================================================================================
+
+UNIT VALIDATION (per module, before integration):
+
+| Module                        | Unit Tests                           | Validates                                    |
+|------------------------------|--------------------------------------|----------------------------------------------|
+| captain_interface.py         | test_captain_interface.py            | Intent received, validated, parsed           |
+| mode_router.py               | test_mode_router.py                  | ALERT always fires, PAPER/REAL routing       |
+| intent_fingerprint.py        | test_intent_fingerprint.py           | Fingerprint generation, duplicate detection  |
+| risk_gate.py                 | test_risk_gate.py                    | All 12 checks individually testable          |
+|                              | test_risk_gate_comprehensive.py      | All check combinations                       |
+| execution_core.py            | test_execution_core.py               | Order submit, ack, reject, retry, fill       |
+| order_lifecycle_manager.py   | test_order_lifecycle_manager.py      | State transitions, SL/TGT linkage            |
+| position_manager.py          | test_position_manager.py             | Fill, SL, trail, breakeven, partial exit     |
+| protection_model.py          | test_protection_model.py             | SL/TGT staging, partial adjust               |
+| reconciliation_engine.py     | test_reconciliation_engine.py        | Detect, classify, compare, reconcile         |
+| kill_switch.py               | test_kill_switch.py                  | SOFT blocks new, CRITICAL flattens           |
+| execution_state_machine.py   | test_execution_state_machine.py      | All valid transitions                        |
+|                              | test_state_machine_transitions.py    | Every row in transition table tested         |
+| paper_broker.py              | test_paper_broker.py                 | Slippage applied, rejection possible         |
+| real_broker.py               | test_real_broker.py                  | LIMIT orders, broker interaction (mock)      |
+| execution_logging_layer.py   | test_execution_logging_layer.py      | Layer 1 normal, Layer 2 critical             |
+| blocked_action_journal.py    | test_blocked_action_journal.py       | Record, retrieve, severity filter            |
+| data_health_policy.py        | test_data_health_policy.py           | DEGRADED/STALE/CRITICAL mapping              |
+
+CONTRACT VALIDATION (cross-module):
+
+| Test File                    | Validates                                        |
+|------------------------------|--------------------------------------------------|
+| test_contract_validation.py  | Floor 5 → Side A input fields consumed correctly |
+|                              | All output fields to Side B + Side C present     |
+|                              | No execution logic imports from other domains    |
+|                              | No trade creation logic outside Side A           |
+
+STATE MACHINE VALIDATION:
+
+| Test File                    | Validates                                        |
+|------------------------------|--------------------------------------------------|
+| test_state_machine_transitions.py | Every row in transition table → correct next state|
+|                              | Invalid transitions → raises/errors               |
+|                              | LOCKED and UNKNOWN states reachable               |
+|                              | Emergency flatten path works from any state       |
+
+PAPER/REAL PARITY VALIDATION:
+
+| Test File                    | Validates                                        |
+|------------------------------|--------------------------------------------------|
+| test_paper_real_parity.py    | Paper and Real share same interface              |
+|                              | Core lifecycle: order → ack → fill same          |
+|                              | Paper applies slippage, Real does not            |
+|                              | Paper simulates rejection, Real raises broker err|
+
+REPLAY VALIDATION:
+
+| Test File                    | Validates                                        |
+|------------------------------|--------------------------------------------------|
+| test_replay_validation.py    | Execution logs reproducible from stored data      |
+|                              | Replay produces identical state transitions       |
+|                              | Timing differences acceptable, outcomes identical |
+
+INTEGRATION VALIDATION (end-to-end Side A):
+
+| Test File                    | Validates                                        |
+|------------------------------|--------------------------------------------------|
+| test_integration.py          | Full paper flow: intent → risk → order → fill    |
+|                              |  → protect → manage → exit → close               |
+|                              | Risk gate blocks on all 12 conditions             |
+|                              | State machine transitions correct                 |
+|                              | Kill switch SOFT: blocks new, existing continues  |
+|                              | Kill switch CRITICAL: flattens + freezes          |
+|                              | Reconciliation detects mismatch                   |
+|                              | ALERT fires for every intent                      |
+|                              | All outputs to Side B + Side C generated          |
+
+================================================================================
+SECTION 9: CROSS-COMPONENT IMPACTS
+================================================================================
+
+IMPACT ON REPLAY:
+
+Side A execution logs are replay-compatible but serve a different purpose
+than Floor 2 replay:
+
+- Floor 2 replay: reproduce market data to get identical decisions
+- Side A replay: reproduce execution trail for audit/forensic review
+
+Key constraints:
+- Execution logs must be sufficient to reconstruct what happened
+- Brokers cannot be replayed (paper broker can simulate)
+- Side A states and transitions are logged for analysis
+- Timing is approximate in replay (not microsecond-accurate)
+
+IMPACT ON DASHBOARD (Side B):
+
+Side A is one of the most important visibility sources for Side B:
+
+- Mode state: ALERT/PAPER/REAL
+- Execution state: IDLE → INTENT_RECEIVED → ... → CLOSED
+- Order lifecycle: current order states
+- Active position: filled_qty, avg_price, SL, TGT, P&L
+- Blocked actions: recent blocks with reasons and severity
+- Override events: when Captain or operator overrode safety
+- Escalation level: NORMAL/CAUTION/SEVERE/EMERGENCY
+- Realtime lock / caution state
+- Execution logs summaries
+- Unknown/reconcile state visibility (CRITICAL for operator)
+
+Dashboard displays execution state; it does NOT control execution directly.
+
+IMPACT ON MEMORY (Side C):
+
+Side A contributes to Side C memory:
+
+- TRADE_JOURNAL: trade_id-linked lifecycle events, fills, P&L, slippage
+- EXECUTION_EVENT: order lifecycle, ack/reject, state transitions
+- BLOCKED_ACTION: all blocked actions with reasons and severity
+- OVERRIDE: override events (Captain override, operator override)
+- HEALTH_EVENT: state changes, errors, kill switch events
+- REPLAY_REF: reconcile events linking local to broker truth
+
+Each memory event carries:
+- trade_id (mandatory for all trade-linked events)
+- order chain references (for order lifecycle traceability)
+- Override references (when override triggered)
+- Reconcile references (when reconcile occurred)
+
+IMPACT ON EXECUTION (Side A self):
+
+Captain provides strategic direction; Side A handles tactical execution:
+- Captain decides TRADE/WAIT/BLOCKED, provides trade plan
+- Side A runs risk gate, manages order lifecycle, handles broker
+- Captain may intervene rarely (exit/risk-side only)
+- Side A manages position, Captain monitors thesis
+- Side A enforces one-trade discipline operationally
+
+================================================================================
+SECTION 10: COMMON MISTAKES + ANTI-PATTERNS
+================================================================================
+
+ARCHITECTURE-BREAKING MISTAKES:
+
+MISTAKE 1: Side A creating trades instead of receiving them
+  - WRONG: Side A module generates its own trade ideas
+  - RIGHT: Side A only receives and executes Captain's approved intent
+  - PREVENTION: CI check: no trade decision logic in side_a_execution/
+  - DETECTION: Module produces trade generation output → P0 violation
+
+MISTAKE 2: Side A becoming an intelligence layer
+  - WRONG: risk_gate evaluates market conditions, not just safety
+  - RIGHT: risk_gate asks "can we execute safely?" not "should we execute?"
+  - PREVENTION: No Floor 3/4 calculation imports in side_a_execution/
+  - DETECTION: risk_gate logic references SMC/ICT/technical → P0 violation
+
+MISTAKE 3: Perfect paper fills
+  - WRONG: paper_broker returns perfect fills at exact price, no delay
+  - RIGHT: paper_broker applies slippage, delay, possible rejection
+  - PREVENTION: Paper broker must have configurable realism factors
+  - DETECTION: Integration test shows 0 slippage applied → test failure
+
+MISTAKE 4: Ignoring broker truth during reconciliation
+  - WRONG: reconciliation always prefers local state over broker truth
+  - RIGHT: Broker truth = final live authority. Local = recovery aid.
+  - PREVENTION: reconciliation_engine always defers to broker truth
+  - DETECTION: Test shows local state overriding broker state → P0 violation
+
+MISTAKE 5: Allowing two active trades simultaneously
+  - WRONG: position_manager allows second position while one exists
+  - RIGHT: One-trade enforcement at risk gate + position manager
+  - PREVENTION: risk_gate check 10 enforces one-trade rule
+  - DETECTION: Integration test shows dual positions → test failure
+
+MISTAKE 6: Captain override creating uncontrolled actions
+  - WRONG: Override allows any action (including new entries after execution)
+  - RIGHT: Override limited to exit/risk-side after execution start
+  - PREVENTION: captain_interface validates override scope
+  - DETECTION: Override creates new trade entry → P0 violation
+
+MISTAKE 7: Not logging blocked actions
+  - WRONG: Risk gate blocks silently, no record created
+  - RIGHT: Every block recorded in blocked_action_journal with severity
+  - PREVENTION: blocked_action_journal.record() called on every risk gate block
+  - DETECTION: Blocked action count is zero when risk gate blocked → test fail
+
+MISTAKE 8: Using MARKET orders in REAL mode without extreme justification
+  - WRONG: real_broker uses MARKET orders by default
+  - RIGHT: LIMIT primary, SL-LIMIT protection (conservative by design)
+  - PREVENTION: real_broker rejects MARKET orders unless explicitly allowed
+  - DETECTION: Test shows MARKET order placed in REAL mode → test failure
+
+MISTAKE 9: Handling UNKNOWN state as success
+  - WRONG: UNKNOWN/PENDING_RECONCILE state treated as filled/success
+  - RIGHT: UNKNOWN requires bounded reconciliation → escalate if unresolved
+  - PREVENTION: state_machine enforces UNKNOWN → reconcile → resolved or escalate
+  - DETECTION: Test shows UNKNOWN → CLOSED without reconcile → test failure
+
+WHAT CREATES REWORK LATER:
+
+1. Building real_broker before paper_broker is solid
+   → Fix: paper_broker first with realistic simulation
+   → Why: paper proves state machine, risk gate, lifecycle before live capital
+
+2. Not testing risk gate with all 12 check combinations
+   → Fix: test_risk_gate_comprehensive.py with every check variation
+   → Why: missed check combination can let unsafe trade through
+
+3. Skipping blocked action journal
+   → Fix: blocked_action_journal built in same sprint as risk_gate
+   → Why: missing blocked actions = losing safety audit trail
+
+4. Not integrating data_health_policy early
+   → Fix: data_health_policy wired to risk_gate from day one
+   → Why: degraded/stale handling is safety-critical, not optional
+
+5. Making logging too verbose or too sparse
+   → Fix: Layer 1 for all events, Layer 2 only for critical events
+   → Why: too verbose = noise, too sparse = missing audit data
+
+6. Not maintaining paper/real interface parity
+   → Fix: paper_broker and real_broker share same interface
+   → Why: breaking parity means testing one doesn't help the other
+
+7. Overriding state machine transitions
+   → WRONG: execution_core changes state without going through state machine
+   → RIGHT: ALL state changes go through execution_state_machine
+   → Why: orphan state changes create unrecoverable positions
+
+================================================================================
+SECTION 11: READY-TO-CODE CHECKLIST
+================================================================================
+
+ENTRY CRITERIA (before you write any Side A code):
+
+[ ] Phase 0 foundation complete (types.py, config.py, logging.py, errors.py)
+[ ] Phase 1 complete (Angel One connectivity — needed for real_broker later)
+[ ] Phase 6 complete — Floor 5 producing DecisionOutput with all mandatory fields
+[ ] Floor 5 → Side A contract verified (trade_id, action, strike, SL, target, etc.)
+[ ] All Side A type definitions finalized in shared/types.py
+[ ] Mock Captain data generator producing realistic DecisionOutput
+[ ] State machine transition table reviewed and agreed
+[ ] Risk gate 12 checks listed and prioritized
+[ ] Paper broker realism parameters defined (slippage %, brokerage, delay, rejection)
+[ ] Execution logging model (Layer 1 vs Layer 2) defined
+[ ] Blocked action severity taxonomy agreed
+[ ] Test data set prepared (mock Captain intents, mock broker responses)
+
+BUILD CRITERIA (verify during each step):
+
+Per-file checklist (fill as you build each .py file):
+
+File: side_a_types (or additions to shared/types.py)
+[ ] ExecutionMajorState enum — all 13 states
+[ ] OrderState enum — all 8 states
+[ ] BlockedActionSeverity — 4 levels
+[ ] KillSwitchState — 3 states
+[ ] EscalationLevel — 4 levels
+[ ] ReconcileOutcome — 3 outcomes
+[ ] DataHealthExecutionResponse — 3 responses
+[ ] ExecutionIntent dataclass — all mandatory fields
+[ ] RiskCheckResult dataclass — passed, checks list, recommended_action
+[ ] OrderRecord dataclass — all order lifecycle fields
+[ ] PositionState dataclass — all position management fields
+[ ] ExecutionSnapshot dataclass — state, position, orders, risk, mode
+[ ] BlockedActionRecord dataclass — timestamp, trade_id, reason, severity
+[ ] No imports beyond shared/types.py and Python std library
+[ ] Unit tests passing (test_side_a_types.py)
+
+File: captain_interface.py
+[ ] DecisionOutput → ExecutionIntent translation works
+[ ] All mandatory fields validated
+[ ] Missing field raises error
+[ ] Intent freshness check (stale > 60s rejected)
+[ ] Unit tests passing (test_captain_interface.py)
+
+File: mode_router.py
+[ ] ALERT path always fires (regardless of mode)
+[ ] PAPER mode routes to paper path
+[ ] REAL mode routes to real path
+[ ] Mode transition blocks during active trade
+[ ] get_current_mode() returns correct mode
+[ ] Unit tests passing (test_mode_router.py)
+
+File: intent_fingerprint.py
+[ ] Fingerprint generated from trade_id + action + strike + entry + timestamp
+[ ] Duplicate detection works within time window
+[ ] False positive rate low (different intents = different fingerprints)
+[ ] Short expiry prevents stale fingerprint accumulation
+[ ] Unit tests passing (test_intent_fingerprint.py)
+
+File: risk_gate.py
+[ ] Available capital check works
+[ ] Required capital check works
+[ ] Margin availability check works
+[ ] Quantity sanity check works
+[ ] Lot feasibility check works
+[ ] Max loss limit check works
+[ ] Mode validation check works
+[ ] Real lock state check works
+[ ] Duplicate prevention check works
+[ ] One-trade enforcement check works
+[ ] Stale intent detection works
+[ ] Data health check works
+[ ] Returns RiskCheckResult with passed + checks
+[ ] Unit tests passing (test_risk_gate.py + test_risk_gate_comprehensive.py)
+
+File: execution_state_machine.py
+[ ] All 13 states defined
+[ ] Transition table has every valid entry
+[ ] Invalid transitions raise proper error
+[ ] can_receive_new_intent() correct
+[ ] is_active() correct
+[ ] reset() returns to IDLE
+[ ] Unit tests passing (test_execution_state_machine.py)
+[ ] Every transition table row tested (test_state_machine_transitions.py)
+
+File: execution_core.py
+[ ] Order submit works with injected broker
+[ ] Acknowledgement tracked
+[ ] Rejection captured and returned
+[ ] Retry on recoverable failure (configurable max retries)
+[ ] Fill event handled and forwarded
+[ ] Cancel order works
+[ ] Unit tests passing (test_execution_core.py)
+
+File: order_lifecycle_manager.py
+[ ] Order registered with all fields
+[ ] State transitions tracked correctly
+[ ] SL/TGT linkage established (OCO-style)
+[ ] Partial fill tracked (qty adjustment, remainder tracking)
+[ ] Order retrieval by trade_id works
+[ ] Active orders query works
+[ ] Unit tests passing (test_order_lifecycle_manager.py)
+
+File: position_manager.py
+[ ] Position opened with correct fields
+[ ] Fill updates tracked correctly (total filled, pending)
+[ ] SL set and updated
+[ ] Target set and updated
+[ ] Trail activated at correct price distance
+[ ] Breakeven activated at correct tick distance
+[ ] Partial exit works (qty reduction, P&L record)
+[ ] Position closed → P&L finalized
+[ ] get_active_positions() returns max 1
+[ ] get_consistency_view() returns complete state
+[ ] get_pnl() matches expected P&L
+[ ] Unit tests passing (test_position_manager.py)
+
+File: protection_model.py
+[ ] SL order created from position
+[ ] Target order created from position
+[ ] Partial fill adjusts SL/target quantities
+[ ] Protection status checkable
+[ ] is_protected() returns correct bool
+[ ] Unit tests passing (test_protection_model.py)
+
+File: reconciliation_engine.py
+[ ] Mismatch detection works for quantity, price, state
+[ ] Mismatch classification correct
+[ ] Comparison produces differences dict
+[ ] Reconcile action correct (match, resolve, escalate)
+[ ] Reconnect triggers full reconcile
+[ ] Unclear ack triggers bounded reconcile attempts
+[ ] Escalation on unresolved state
+[ ] Unit tests passing (test_reconciliation_engine.py)
+
+File: paper_broker.py
+[ ] Slippage applied to fill price (configurable %)
+[ ] Brokerage/charges applied (NSE realistic rates)
+[ ] Spread effect simulated
+[ ] Network delay simulated (50-500ms)
+[ ] Rejection possible (configurable 1-5%)
+[ ] Partial fill possible (configurable)
+[ ] Rolling account balance tracked
+[ ] Account reset works
+[ ] Same interface as real_broker
+[ ] Unit tests passing (test_paper_broker.py)
+
+File: real_broker.py
+[ ] LIMIT orders placed (verify against Angel One API)
+[ ] SL-LIMIT placed correctly
+[ ] Acknowledgement from broker processed
+[ ] Rejection handled and classified
+[ ] Disconnect → reconnect + reconcile flow
+[ ] Same interface as paper_broker (parity)
+[ ] Unit tests passing (test_real_broker.py)
+[ ] REAL mode only tested after 100+ paper trades (separate test suite)
+
+File: kill_switch.py
+[ ] SOFT: blocks new entries only
+[ ] CRITICAL: flatten + freeze
+[ ] is_soft_active() and is_critical_active() correct
+[ ] Deactivation restores normal operation
+[ ] Reason for activation recorded
+[ ] Unit tests passing (test_kill_switch.py)
+
+File: execution_logging_layer.py
+[ ] Layer 1: normal events logged with sufficient detail
+[ ] Layer 2: critical events logged with full context
+[ ] Session logs retrievable by layer
+[ ] Critical events filterable
+[ ] Export for audit works (full trade trail)
+[ ] Unit tests passing (test_execution_logging_layer.py)
+
+File: blocked_action_journal.py
+[ ] Record stored with all fields
+[ ] Trade-level retrieval works
+[ ] Severity filter works
+[ ] Session blocks retrievable
+[ ] Most recent blocks queryable
+[ ] Unit tests passing (test_blocked_action_journal.py)
+
+File: data_health_policy.py
+[ ] DEGRADED → ALLOW_STRICT (stricter risk checks)
+[ ] STALE → BLOCK_NEW (existing trades continue)
+[ ] CRITICAL → ESCALATE_FLATTEN
+[ ] get_execution_strictness() returns correct modifier
+[ ] is_entry_blocked() correct
+[ ] Unit tests passing (test_data_health_policy.py)
+
+File: execution_orchestrator.py
+[ ] start(mode) initializes all subsystems
+[ ] process_intent() completes full flow
+[ ] get_state() returns ExecutionSnapshot with all fields
+[ ] shutdown() graceful cleanup
+[ ] emergency_stop() triggers critical kill switch
+[ ] Unit tests passing (test_execution_orchestrator.py)
+
+VERIFICATION TESTS:
+
+[ ] Each unit test file has ≥5 test cases covering edge cases
+[ ] Risk gate: all 12 checks tested individually + in combination → pass
+[ ] State machine: every transition table row tested → pass
+[ ] Paper broker: slippage applied, rejection possible, delay realistic → pass
+[ ] Paper/real interface parity: same methods, same return types → pass
+[ ] Kill switch: SOFT blocks new, CRITICAL flattens → pass
+[ ] One-trade enforcement: second intent blocked → pass
+[ ] UNKNOWN state: bounded reconcile → escalate if unresolved → pass
+[ ] Broker truth: reconcile prefers broker truth → pass
+[ ] ALERT always fires: test shows notification on every mode → pass
+[ ] Replay: execution logs reproducible from stored data → pass
+[ ] Integration: full paper flow from intent to closed → pass
+[ ] No trade creation logic in side_a → CI check passes
+[ ] No market intelligence imports in side_a → CI check passes
+
+EXIT CRITERIA (Phase 7 complete):
+
+[ ] All unit tests pass (18+ test files)
+[ ] Contract validation tests pass
+[ ] State machine transition tests pass (every row validated)
+[ ] Paper broker verified: slippage, delay, rejection, partial fill
+[ ] Paper/real parity verified (core lifecycle behavior)
+[ ] Risk gate: all 12 checks verified
+[ ] Protection model: SL/TGT staged immediately after fill
+[ ] Reconciliation engine: detect → classify → compare → reconcile verified
+[ ] Kill switch: SOFT blocks new, CRITICAL flattens verified
+[ ] ALERT always active: verified for every execution mode
+[ ] One-trade enforcement: operational in risk gate + position manager
+[ ] UNKNOWN state handling: bounded reconcile → escalate verified
+[ ] Broker truth authority: reconcile prefers broker verified
+[ ] Integration tests: full paper flow end-to-end → pass
+[ ] No architecture violations (no trade creation, no intelligence logic)
+[ ] All outputs to Side B (ExecutionSnapshot) generated correctly
+[ ] All outputs to Side C (MemoryEvents) generated correctly
+[ ] Blocked action journal: every block recorded with severity
+[ ] PAPER mode ready for 100+ simulated trade testing
+[ ] Side A documentation updated (operator commands, state reference)
+
+================================================================================
+END OF ROADMAP SIDE A
+================================================================================

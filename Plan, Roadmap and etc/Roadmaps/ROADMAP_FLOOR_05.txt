@@ -1,0 +1,1293 @@
+================================================================================
+ROADMAP FLOOR 05: CAPTAIN
+================================================================================
+File: ROADMAP_FLOOR_05.txt
+Version: 1.0
+Status: Implementation Execution Document
+Depends On: ROADMAP_PHASE_0_FOUNDATION, ROADMAP_FLOOR_01, ROADMAP_FLOOR_02,
+            ROADMAP_SIDE_C (Stage A), ROADMAP_FLOOR_03, ROADMAP_FLOOR_04
+Next In Chain: ROADMAP_SIDE_A
+================================================================================
+
+This is NOT an architecture document.
+This is an IMPLEMENTATION EXECUTION DOCUMENT.
+
+DO NOT:
+- Redefine architecture
+- Change ownership
+- Change contracts
+- Change dataflow
+- Change wiring
+- Change sequencing
+
+DO:
+- Define step-by-step build order
+- Define per-module contracts
+- Define per-module validation
+- Define wiring between modules
+- Define integration points
+- Make this coding-ready
+
+================================================================================
+SECTION 1: PURPOSE
+================================================================================
+
+Floor 5 is the supreme decision brain of the Junior Aladdin system. Captain
+consumes interpreted expert intelligence from Floor 4 (Floor Summary + 6 Head
+Reports), applies weighted confluence, checks opposite case, builds conviction,
+creates armed conditional plans, and outputs TRADE/WAIT/BLOCKED decisions.
+
+Captain is NOT:
+- A raw data collector, data cleaner, or indicator calculator
+- An SMC/ICT/Options math engine
+- A generic rule-bot that fires on simple signals
+- An execution engine (Side A owns execution)
+
+Captain IS:
+- Final judge and trade permission authority
+- Final confluence evaluator and conviction creator
+- Final trade constructor and capital-discipline enforcer
+- Strategic battlefield supervisor during active trades
+- Final intervention authority in exceptional situations (RARE)
+
+GOLDEN CHAIN (MUST NEVER BE VIOLATED):
+QUALITY = FLOOR 3 (calculations, scores, maps)
+CONFIDENCE = FLOOR 4 (Heads interpret, create confidence)
+CONVICTION = FLOOR 5 (Captain judges, creates conviction)
+
+Captain uses a TWO-SPEED BRAIN:
+- HEAVY CYCLE (1m candle close): full decision analysis (23 steps)
+- LIGHT CYCLE (tick level): watch armed plans, monitor active trade thesis
+
+CRITICAL ARCHITECTURE RULES:
+Rule 1: Captain owns CONVICTION, NOT confidence (confidence = Floor 4)
+Rule 2: Captain does NOT recalculate quality or confidence — it judges them
+Rule 3: Captain does NOT consume Floor 3 packets as routine input (via Floor 4 only)
+Rule 4: Two-speed brain: heavy cycle on candle close, light cycle on tick
+Rule 5: One active trade at a time (locked)
+Rule 6: Psychology block is NON-OVERRIDABLE (locked)
+Rule 7: 3 losing trades → REAL mode LOCK (locked)
+Rule 8: Summary-first workflow: read Floor Summary first, drill-down if needed
+Rule 9: Armed plans created after heavy cycle, watched by light cycle
+Rule 10: Intervention is RARE, not routine
+Rule 11: Captain decides, Side A executes
+Rule 12: Silence (WAIT/BLOCKED) is a valid, actively reasoned output
+
+================================================================================
+SECTION 2: COMPONENT ARCHITECTURE
+================================================================================
+
+FLOOR 5 DIRECTORY STRUCTURE:
+
+floor_5_captain/
+├── __init__.py                     # Module init, exposes captain_engine
+├── captain_engine.py               # Main orchestrator (heavy + light cycle)
+├── captain_types.py                # Shared dataclasses, enums, schemas
+├── permission_gate.py              # 8 checks: market, psych, trade, health, lock
+├── market_story_engine.py          # Current market story builder
+├── narrative_timeline_engine.py    # Timestamped intraday event-chain memory
+├── confluence_engine.py            # Weighted head alignment (SMC>ICT>Tech>Opt>Macro)
+├── opposite_case_engine.py         # Pre-mortem failure analysis
+├── conviction_engine.py            # Permission + conviction + no-trade scores
+├── personality_engine.py           # Captain mood: OBSERVER/PATIENT/AGGRESSIVE/DEFENSIVE/SILENT
+├── setup_memory_store.py           # Active/rejected/failed setup memory
+├── armed_plan_engine.py            # Conditional plan creation + lifecycle
+├── setup_expiry_manager.py         # Setup validity windows by trade class
+├── confidence_decay_engine.py      # Gradual conviction decay over time
+├── trade_class_engine.py           # Trade class: scalp/continuation/reversal/liquidity/options
+├── trade_constructor.py            # Direction, strike, entry, SL, targets
+├── active_trade_supervisor.py      # Thesis integrity tracking during active trade
+├── intervention_engine.py          # Rare strategic override during active trade
+├── silence_reason_logger.py        # Structured WAIT/BLOCKED/REJECT reasons
+├── decision_snapshot_writer.py     # Freeze decision state for audit/calibration
+├── loss_lock_manager.py            # 3 losses → REAL mode lock
+├── override_guard.py               # Popup confirmation for lock breach
+└── session_policy.py               # Session-adaptive aggression/permission
+└── tests/
+    ├── __init__.py
+    ├── test_captain_types.py
+    ├── test_permission_gate.py
+    ├── test_market_story_engine.py
+    ├── test_narrative_timeline_engine.py
+    ├── test_confluence_engine.py
+    ├── test_opposite_case_engine.py
+    ├── test_conviction_engine.py
+    ├── test_personality_engine.py
+    ├── test_setup_memory_store.py
+    ├── test_armed_plan_engine.py
+    ├── test_setup_expiry_manager.py
+    ├── test_confidence_decay_engine.py
+    ├── test_trade_class_engine.py
+    ├── test_trade_constructor.py
+    ├── test_active_trade_supervisor.py
+    ├── test_intervention_engine.py
+    ├── test_silence_reason_logger.py
+    ├── test_decision_snapshot_writer.py
+    ├── test_loss_lock_manager.py
+    ├── test_override_guard.py
+    ├── test_session_policy.py
+    ├── test_captain_engine.py
+    ├── test_contract_validation.py     # Cross-module contract alignment
+    ├── test_heavy_cycle.py             # Full heavy cycle integration
+    ├── test_light_cycle.py             # Light cycle without recomputation
+    ├── test_replay_validation.py       # Deterministic decisions on replay
+    └── test_integration.py             # Full Floor 5 end-to-end
+
+================================================================================
+SECTION 3: STEP-BY-STEP BUILD ORDER
+================================================================================
+
+BUILD SEQUENCE (must be followed in this order):
+
+PHASE A — CORE TYPES + FOUNDATION (Steps 5.1-5.3)
+PHASE B — THINKING ENGINES (Steps 5.4-5.15)
+PHASE C — TRADE CONSTRUCTION + SUPERVISION (Steps 5.16-5.21)
+PHASE D — ORCHESTRATOR (Steps 5.22-5.23)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5.1 — captain_types.py (Zero external Floor 5 imports)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: Phase 0 types (types.py)
+Imports from: types.py (BiasType, HeadState, DecisionType, TradeClass,
+              ExecutionMode, CaptainMood, FreshnessTag, DataHealth)
+
+Define all Floor 5 specific enums and dataclasses:
+
+Enums:
+- DecisionState: TRADE, WAIT, BLOCKED, PREPARED
+- ConvictionBand: REJECT (0-39), WEAK (40-59), TRADABLE (60-74), STRONG (75-89), ELITE (90+)
+- CaptainMood: OBSERVER, PATIENT, AGGRESSIVE, DEFENSIVE, SILENT
+- ArmedPlanState: WATCHING, TRIGGERED, EXPIRED, INVALIDATED, CANCELLED
+- SilenceReason: INSUFFICIENT_CONFLUENCE, PSYCHOLOGY_BLOCK, ACTIVE_TRADE_EXISTS,
+  DEAD_MARKET, TRAP_RISK_HIGH, STALE_SETUP, PLAN_EXPIRED, NARRATIVE_SHIFT,
+  CAPITAL_MISMATCH, REAL_MODE_LOCK, WEAK_CONVICTION
+- InterventionSeverity: NORMAL, CAUTION, EMERGENCY_OVERRIDE
+- SessionPhase: OPENING, GOLDEN_MORNING, LUNCH, CLOSING
+- ReportTrustTier: FULL, REDUCED, MINIMAL
+
+Dataclasses:
+- CaptainInput: floor_summary, head_reports list, system_context
+- PermissionResult: allowed (bool), block_reason, blocked_by list, timestamp
+- MarketStory: regime, session_phase, premium_discount_location,
+  key_levels_interaction, bias, summary, timestamp
+- NarrativeTimeline: events list, last_update, event_count
+- ConfluenceResult: confluence_quality (float), conflict_present (bool),
+  aligned_heads list, opposing_heads list, dominant_direction, timestamp
+- OppositeCase: exists (bool), strength, reasons list, mitigating_factors list
+- ConvictionScore: permission_score (0-100), conviction_score (0-100),
+  no_trade_score (0-100), conviction_band, timestamp
+- ArmedPlan: plan_id (UUID), direction, setup_class, trigger_condition,
+  expiry_condition, invalidation_level, originating_heads list,
+  readiness (ArmedPlanState), created_at, triggered_at, timestamp
+- DecisionOutput: decision, action, option_side, selected_strike, trade_class,
+  permission_score, conviction_score, no_trade_score, entry_plan,
+  invalidation_level, stop_loss_plan, target_plan, intervention_allowed,
+  reason_summary, silence_reason, session_context, capital_context,
+  snapshot_id, timestamp
+- DecisionSnapshot: market_story_summary, narrative_timeline_excerpt,
+  heads_summary, armed_plan_reference, conviction_score, invalidation,
+  reason, session_context, capital_context, mood, timestamp
+- CaptainState: mood, active_trade (bool), decision_state, conviction_band,
+  market_story_summary, silence_reason, session_phase, real_mode_locked
+
+Output contract (this module):
+- All enums and dataclasses exported from captain_types
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5.2 — session_policy.py (Depends on captain_types.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: captain_types.py
+Imports from: captain_types
+
+Define session-dependent behaviour rules:
+
+Session phases with aggression modifiers:
+- OPENING (9:15-9:45 IST): observe/cautious, less aggressive, context building
+  → permission_strictness: HIGH, aggression_modifier: -0.2
+- GOLDEN_MORNING (9:45-11:00 IST): strongest permission window
+  → permission_strictness: NORMAL, aggression_modifier: +0.1
+- LUNCH (11:00-13:00 IST): defensive/selective, lower volume period
+  → permission_strictness: HIGH, aggression_modifier: -0.1
+- CLOSING (13:00-15:30 IST): cautious/risk-aware, avoid overnight risk
+  → permission_strictness: VERY_HIGH, aggression_modifier: -0.2
+
+Methods:
+- get_session_phase(timestamp) → SessionPhase
+- get_permission_strictness(phase) → strictness level
+- get_aggression_modifier(phase) → float modifier for conviction threshold
+- get_preferred_trade_classes(phase) → list of recommended trade classes
+- is_opening_window(timestamp) → bool
+- is_closing_window(timestamp) → bool
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5.3 — loss_lock_manager.py + override_guard.py (Depends on Step 5.1)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+loss_lock_manager.py:
+- Track real mode losing trades count
+- 3 losses → REAL mode locked (ALERT + PAPER remain active)
+- Counter resets next trading day
+- Methods: record_loss(), is_locked(), get_loss_count(), reset_counter()
+
+override_guard.py:
+- Popup confirmation required for each next REAL trade after lock
+- Minimum confirmation requirement (operator must explicitly acknowledge)
+- Log every override event
+- Methods: require_override(), is_override_granted(), log_override()
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5.4 — permission_gate.py (Depends on Steps 5.1-5.3)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: captain_types.py, session_policy.py, loss_lock_manager.py
+Imports from: captain_types, session_policy, loss_lock_manager
+
+FIRST module in heavy cycle. If permission fails, Captain goes to WAIT/BLOCKED.
+
+8 checks (BLOCKED if ANY fails):
+1. Market open check: not holiday, not after hours, not closed session
+2. Psychology block check: trade_allowed from Psychology Head (NON-OVERRIDABLE)
+3. Active trade check: no second trade if one exists (one-trade rule)
+4. Data health check: data_health_signal not CRITICAL
+5. Real mode lock check: if REAL mode and loss_lock_manager.is_locked() → block
+6. Mode validation: valid mode selected
+7. Session policy check: opening/closing window restrictions
+8. Capital availability: capital available > 0
+
+Locked rules:
+- Psychology block CANNOT be overridden by Captain (non-negotiable)
+- Active trade block CANNOT be overridden (one-trade rule)
+
+Output: PermissionResult(allowed, block_reason, blocked_by list)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5.5 — market_story_engine.py (Depends on captain_types.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: captain_types.py
+Imports from: captain_types
+
+Build the current market story from Floor 4 inputs:
+- Floor Summary overall bias and confidence
+- Key level interactions (PDH, PDL, OR high/low, VWAP, previous day close)
+- Session context (opening, golden morning, lunch, closing)
+- Regime identification (trend/range/chop/volatile)
+- Premium/discount location
+- Morning structure evolution
+
+Output: MarketStory dataclass with structured narrative
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5.6 — narrative_timeline_engine.py (Depends on captain_types.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: captain_types.py
+Imports from: captain_types
+
+Maintain timestamped event-chain memory through the trading day.
+
+Events tracked:
+- gap_up/down, PDH/PDL touch or sweep
+- liquidity sweep, displacement, FVG creation
+- consolidation phase, BOS/CHOCH, structure break
+- regime shift, options wall interaction
+- armed plan creation/expiry, trade execution
+
+Responsibilities:
+- add_event(event_type, details) → appends to timeline
+- get_timeline() → full event chain
+- get_recent_events(count) → last N events
+- get_events_since(timestamp) → events after given time
+- get_excerpt() → compact summary for decision snapshots
+- clear_session() → reset for new trading day
+
+NOT raw data logging — significant event memory only.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5.7 — confluence_engine.py (Depends on captain_types.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: captain_types.py
+Imports from: captain_types
+
+Combine directional head reports with weighted alignment logic.
+
+Head priority (locked):
+1. SMC (highest weight for structural truth)
+2. ICT (next highest for institutional context)
+3. Technical (support/confirmation)
+4. Options (derivatives confirmation)
+5. Macro (light context gate — lowest directional weight)
+
+Trust weighting depends on 5 factors:
+1. Head type priority (SMC > ICT > Technical > Options > Macro)
+2. Head state: READY (normal), UNCERTAIN (reduced), STALE (minimal)
+3. Freshness: freshness_score + freshness_tag
+4. Context quality (SMC/ICT only): context_quality_score (HIGH/MEDIUM/LOW)
+5. Invalidation clarity: clear vs ambiguous
+
+Minimum meaningful alignment: ~60% OR 3 of 5 heads aligned
+But NOT simple democracy — weighted (SMC+ICT opposing = stronger veto).
+
+Output: ConfluenceResult(confluence_quality, conflict_present,
+       aligned_heads, opposing_heads, dominant_direction)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5.8 — opposite_case_engine.py (Depends on captain_types.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: captain_types.py
+Imports from: captain_types
+
+Pre-mortem failure analysis. Checks strongest opposite argument before
+committing to a trade.
+
+Checks:
+- Nearby resistance/support that invalidates thesis
+- Weak volume or unconfirmed move
+- Fake sweep risk
+- Options wall opposition (strong wall against direction)
+- Contradictory macro context
+- Same-zone trap history (from setup_memory_store)
+- Opposite structure case strength
+
+If opposite case is too strong:
+- Conviction reduces (>10% reduction)
+- Trade can downgrade to WAIT or REJECT
+
+Output: OppositeCase(exists, strength, reasons, mitigating_factors)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5.9 — conviction_engine.py (Depends on Steps 5.1-5.8)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: captain_types.py, confluence_engine.py, opposite_case_engine.py,
+              permission_gate.py, session_policy.py
+Imports from: captain_types, confluence, opposite_case, permission_gate, session_policy
+
+Builds three internal scores:
+- permission_score (0-100): how permissive is the current environment
+- conviction_score (0-100): how confident is Captain in this trade
+- no_trade_score (0-100): how strong is the case for NOT trading
+
+Inputs:
+- PermissionResult (from permission_gate)
+- MarketStory (from market_story_engine)
+- ConfluenceResult (from confluence_engine)
+- OppositeCase (from opposite_case_engine)
+- Psychology report (trade_allowed, caution_level)
+- Session policy (aggression_modifier)
+- Setup memory (trap_count, same_zone_failures)
+
+Conviction bands (locked):
+- 0-39  = REJECT (no trade)
+- 40-59 = WEAK / WATCH (monitor but no action)
+- 60-74 = TRADABLE BUT PATIENT (trade possible, wait for confirmation)
+- 75-89 = STRONG (high confidence, good to proceed)
+- 90+   = ELITE (exceptional confluence, rare)
+
+Output: ConvictionScore(permission_score, conviction_score,
+       no_trade_score, conviction_band)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5.10 — personality_engine.py (Depends on captain_types.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: captain_types.py
+Imports from: captain_types, conviction_engine (conviction_band)
+
+Determines Captain mood from current context:
+- OBSERVER: low confidence, range market, no clear edge
+- PATIENT: moderate confidence, waiting for better entry
+- AGGRESSIVE: high confidence, strong confluence, good session
+- DEFENSIVE: active trade exists, market choppy, recent loss
+- SILENT: no permission, no setups, healthy no-trade
+
+Adaptive factors: session phase, regime, conviction_band,
+  battlefield condition (active trade health)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5.11 — trade_class_engine.py (Depends on captain_types.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: captain_types.py
+Imports from: captain_types
+
+Assigns one of 5 trade classes to approved trade idea:
+- SCALP: quick 1:1, tight SL, 1-2 candle target
+- CONTINUATION: trend following, trail stop
+- REVERSAL: structure break, counter-trend with confirmation
+- LIQUIDITY_RECLAIM: sweep + reclaim trade
+- OPTIONS_PRESSURE: wall bounce, pressure continuation
+
+Trade class affects: expiry window, cooldown period, management style,
+  conviction threshold required
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5.12 — setup_memory_store.py (Depends on captain_types.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: captain_types.py
+Imports from: captain_types
+
+Remembers:
+- ACTIVE setups: currently being evaluated or armed
+- REJECTED setups: why rejected, so same mistake not repeated
+- FAILED zones: zones where traps occurred — avoid re-entry
+- Same-zone trap count: how many times a zone has been a trap
+
+Methods:
+- store_setup(setup) → store new setup
+- mark_rejected(setup_id, reason) → mark as rejected
+- mark_failed_zone(zone) → add to failed zone list
+- get_trap_count(zone) → how many times zone was a trap
+- is_failed_zone(zone) → bool
+- get_active_setups() → list
+- clear_session() → reset for new day
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5.13 — armed_plan_engine.py (Depends on Steps 5.1-5.12)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: captain_types.py, setup_memory_store.py
+Imports from: captain_types, setup_memory_store
+
+THE KEY FEATURE. Built after heavy cycle. Creates prepared conditional plans
+that the light cycle can watch without heavy recomputation.
+
+Armed Plan structure:
+- plan_id (UUID)
+- direction (BUY/SELL)
+- setup_class (scalp/continuation/reversal/liquidity/options)
+- trigger_condition: price hits zone + confirmation
+- expiry_condition: plan expires after N candles / market shift
+- invalidation_level: if this breaks, plan is invalid
+- originating_heads: which heads support this plan
+- readiness: WATCHING / TRIGGERED / EXPIRED / INVALIDATED / CANCELLED
+
+Methods:
+- create_plan(params) → ArmedPlan
+- watch_plans(market_data) → check all active plans
+- trigger_plan(plan_id) → mark as TRIGGERED, forward to execution
+- expire_plan(plan_id) → mark as EXPIRED
+- invalidate_plan(plan_id, reason) → mark as INVALIDATED
+- get_active_plans() → list of WATCHING plans
+- get_triggered_plan() → triggered plan if any
+
+Light cycle only calls watch_plans() — no heavy computation.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5.14 — setup_expiry_manager.py (Depends on captain_types.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: captain_types.py
+Imports from: captain_types
+
+Setup validity by trade class:
+- SCALP: 1-2 candles
+- CONTINUATION: 2-4 candles
+- REVERSAL: 2-3 candles
+- LIQUIDITY_RECLAIM: until sweep reclaimed or fail
+- OPTIONS_PRESSURE: until wall tested or pressure collapses
+
+Methods:
+- get_expiry_candles(trade_class) → candle count
+- is_expired(setup, current_candle_index) → bool
+- purge_expired(active_plans) → removes expired plans
+- get_expiry_reason(plan) → str reason for expiry
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5.15 — confidence_decay_engine.py (Depends on captain_types.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: captain_types.py
+Imports from: captain_types
+
+Differs from expiry: setup still technically valid, but freshness weakens.
+Conviction gradually decays as time passes without trigger.
+Different decay rates by trade class.
+
+Methods:
+- calculate_decay(plan, candles_since_creation) → decay_factor (0.0-1.0)
+- apply_decay(conviction_score, decay_factor) → adjusted score
+- get_decay_rate(trade_class) → float per candle
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5.16 — trade_constructor.py (Depends on Steps 5.1-5.15)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: captain_types.py
+Imports from: captain_types
+
+Only called if TRADE state is approved.
+
+Steps:
+1. Direction (from confluence) → CE or PE
+2. Capital feasibility (within operator-set limit)
+3. Strike selection hierarchy: ATM → slight ITM → near OTM (must be justified)
+4. Deep OTM rejected (lottery behavior)
+5. Entry logic (zone + trigger condition + confirmation)
+6. Invalidation level (from heads)
+7. Stop loss structure
+8. Target structure (1:1, 1:2, trail)
+9. Trade class assignment
+10. Capital fit verification (lot_size × premium ≤ capital_limit)
+
+Output: structured trade plan for Side A execution
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5.17 — silence_reason_logger.py (Depends on captain_types.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: captain_types.py
+Imports from: captain_types
+
+Structured reasons for WAIT/BLOCKED/REJECT decisions:
+- insufficient_confluence, psychology_block, active_trade_exists
+- dead_market, trap_risk_high, stale_setup, plan_expired
+- narrative_shift, capital_mismatch, real_mode_lock, weak_conviction
+
+Methods:
+- log_reason(decision, reason, details) → SilenceReason record
+- get_session_reasons() → all reasons for current session
+- get_primary_reason() → most significant reason
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5.18 — decision_snapshot_writer.py (Depends on Steps 5.1-5.17)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: captain_types.py
+Imports from: captain_types
+
+Every major decision freezes a structured snapshot for audit/calibration/review.
+
+Snapshot includes:
+- market_story_summary
+- narrative_timeline_excerpt
+- heads_summary (which heads supported, which opposed)
+- armed_plan_reference
+- conviction_score + conviction_band
+- invalidation details
+- reason for trade / no trade
+- session_context, capital_context
+- mood/personality
+- timestamp
+
+Methods:
+- write_snapshot(context) → DecisionSnapshot (also emit to Side C)
+- get_snapshot(snapshot_id) → retrieve
+- get_session_snapshots() → all snapshots for current session
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5.19 — active_trade_supervisor.py (Depends on Steps 5.1-5.18)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: captain_types.py
+Imports from: captain_types
+
+While a trade is active — thesis integrity tracking.
+
+Questions tracked:
+- Is original OB/FVG/zone still valid?
+- Is options support still alive?
+- Did macro context shift?
+- Does market story still support thesis?
+- Has opposite case strengthened?
+
+Methods:
+- review_thesis(active_trade, market_data) → thesis_intact (bool), concerns list
+- get_supervision_state() → current thesis health summary
+- should_intervene() → bool (only if strong opposite confluence)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5.20 — intervention_engine.py (Depends on Steps 5.1-5.19)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: captain_types.py, active_trade_supervisor.py
+Imports from: captain_types, active_trade_supervisor
+
+RARE Captain override during active trade. NOT for routine management.
+
+Intervention scenarios:
+- thesis break: original trading thesis structurally invalidated
+- regime flip: market regime changes fundamentally
+- strong opposite confluence: opposite case now dominates
+- options support collapse: key options support disappears
+- risk emergency: unexpected risk event
+
+Intervention severity tags: NORMAL, CAUTION, EMERGENCY_OVERRIDE
+
+Key rule: Intervention is RARE. Not on ordinary pullbacks/noise.
+Routine position management belongs to Execution / Position Manager.
+
+Output: InterventionDecision(intervene (bool), severity, action, reason)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5.21 — __init__.py (Depends on ALL Steps 5.1-5.20)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Module initialization. Exposes captain_engine as primary public API.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5.22 — captain_engine.py (Depends on ALL Steps 5.1-5.21)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: ALL modules above
+Imports from: ALL modules
+
+Main orchestrator. MUST be built LAST.
+
+HEAVY CYCLE (on 1m candle close) — 23 steps:
+
+1. permission_gate → PermissionResult
+2. If BLOCKED: log silence_reason, output BLOCKED/WAIT, skip to step 23
+3. market_story_engine → MarketStory
+4. narrative_timeline_engine.update() — add event for this candle
+5. Read Floor Summary FIRST (summary-first workflow)
+6. Decide drill-down necessity:
+   - conflict_present? → drill-down
+   - stale core head (SMC/ICT)? → drill-down
+   - high conviction candidate? → drill-down
+   - else → continue with summary only
+7. If drill-down needed: read individual head reports
+8. Apply report trust weighting (head type × state × freshness × context_quality)
+9. Apply stale core head logic (SMC/ICT stale = stricter)
+10. Evaluate NO_SETUP intelligence (healthy silence vs uncertain vs stale)
+11. confluence_engine → ConfluenceResult
+12. opposite_case_engine → OppositeCase
+13. conviction_engine → ConvictionScore
+14. personality_engine → mood
+15. trade_class_engine → trade class (if TRADE)
+16. setup_memory_store.update()
+17. armed_plan_engine.build/update → ArmedPlan list
+18. setup_expiry_manager.purge_expired()
+19. confidence_decay_engine.apply_decay()
+20. active_trade_supervisor.review_thesis() (if active trade)
+21. trade_constructor() only if TRADE state approved
+22. decision_snapshot_writer.write_snapshot()
+23. silence_reason_logger.log_reason() (if no trade)
+24. OUTPUT to execution + dashboard
+
+LIGHT CYCLE (on every tick) — ultra lightweight:
+
+1. armed_plan_engine.watch_plans(market_data)
+2. active_trade_supervisor.review_thesis()
+3. intervention_engine review (if active trade existing)
+4. If armed plan triggered → output to execution
+5. If intervention needed → output intervention decision
+
+CRITICAL: Light cycle does NOT call any heavy module.
+Light cycle does NOT import from: confluence_engine, conviction_engine,
+  personality_engine, trade_class_engine, trade_constructor, market_story_engine,
+  narrative_timeline_engine (no updates on tick), permission_gate
+
+================================================================================
+SECTION 4: INPUT/OUTPUT CONTRACTS
+================================================================================
+
+INPUTS (from Floor 4):
+
+| Input Layer     | Format             | Source                  | Key Fields                              |
+|-----------------|--------------------|-------------------------|-----------------------------------------|
+| Floor Summary   | FloorSummary       | floor_summary_builder   | bias, confidence, setup_count,          |
+|                 |                    |                         | head_health, core_health, conflict,     |
+|                 |                    |                         | stale, strongest signals, witness       |
+| Technical Report| HeadReport[Tech]   | technical_head          | bias, confidence, invalidation,         |
+|                 |                    |                         | primary/backup setup, active_zones      |
+| SMC Report      | SMCHeadReport      | smc_head                | bias, confidence, context_quality_score,|
+|                 |                    |                         | invalidation, primary/backup setup      |
+| ICT Report      | ICTHeadReport      | ict_head                | bias, confidence, context_quality_score,|
+|                 |                    |                         | invalidation, primary/backup setup      |
+| Options Report  | OptionsHeadReport  | options_head            | bias, confidence, invalidation,         |
+|                 |                    |                         | primary/backup setup, active_walls      |
+| Macro Report    | MacroHeadReport    | macro_head              | bias_leaning, caution_level,            |
+|                 |                    |                         | event_risk_flag, invalidation           |
+| Psychology Report| PsychologyHeadRpt | psychology_head         | trade_allowed, caution_level,           |
+|                 |                    |                         | cooldown, trap_pressure, block_reason   |
+
+OUTPUTS:
+
+| Output            | Destination | Format              | Key Fields                                   |
+|-------------------|-------------|---------------------|----------------------------------------------|
+| Decision          | Side A      | DecisionOutput      | decision, action, option_side, strike,       |
+|                   |             |                     | trade_class, conviction, entry_plan, SL,     |
+|                   |             |                     | target, invalidation, reason                 |
+| Captain State     | Side B      | CaptainState        | mood, decision, conviction_band,             |
+|                   |             |                     | market_story, silence_reason, session        |
+| Decision Snapshot | Side C      | DecisionSnapshot    | story, timeline, heads, conviction, reason,  |
+|                   |             |                     | mood, capital, timestamp                     |
+
+CONTRACT VIOLATIONS THAT MUST REJECT:
+1. DecisionOutput without conviction_score → HALT
+2. DecisionOutput with TRADE but no trade_constructor output → HALT
+3. CaptainEngine heavy cycle called during light cycle context → HALT
+4. Light cycle importing heavy modules → HALT (CI check)
+5. DecisionOutput with BLOCKED but no silence_reason → HALT
+
+================================================================================
+SECTION 5: DEPENDENCY MAP
+================================================================================
+
+INTERNAL DEPENDENCIES (Floor 5):
+
+Module                          Depends On                                         Depended By
+──────────────────────────────  ────────────────────────────────────────────────  ──────────────────────
+captain_types.py                types.py (Phase 0)                                ALL modules
+session_policy.py               captain_types.py                                  permission_gate, captain_engine
+loss_lock_manager.py            captain_types.py                                  permission_gate
+override_guard.py               captain_types.py                                  captain_engine
+permission_gate.py              types, session_policy, loss_lock                  captain_engine
+market_story_engine.py          captain_types                                     captain_engine
+narrative_timeline_engine.py    captain_types                                     captain_engine
+confluence_engine.py            captain_types                                     conviction_engine, captain_engine
+opposite_case_engine.py         captain_types                                     conviction_engine, captain_engine
+conviction_engine.py            types, confluence, opposite, permission, session  captain_engine
+personality_engine.py           captain_types, conviction_engine                  captain_engine
+trade_class_engine.py           captain_types                                     captain_engine
+setup_memory_store.py           captain_types                                     armed_plan, opposite, captain_engine
+armed_plan_engine.py            types, setup_memory                               captain_engine (light)
+setup_expiry_manager.py         captain_types                                     captain_engine
+confidence_decay_engine.py      captain_types                                     captain_engine
+trade_constructor.py            captain_types                                     captain_engine
+silence_reason_logger.py        captain_types                                     captain_engine
+decision_snapshot_writer.py     captain_types                                     captain_engine
+active_trade_supervisor.py      captain_types                                     intervention, captain_engine (light)
+intervention_engine.py          types, active_trade_supervisor                    captain_engine (light)
+captain_engine.py               ALL modules                                       __init__
+
+EXTERNAL DEPENDENCIES:
+
+Floor 5 Depends On:
+- Phase 0: types.py, config.py, logging.py, errors.py
+- Floor 4: FloorSummary + 6 HeadReports
+- Side C: HEALTH_EVENT + decision snapshot emission capability
+
+Floor 5 is Depended By:
+- Side A (Execution): receives DecisionOutput
+- Side B (Dashboard): receives CaptainState
+- Side C (Memory): receives DecisionSnapshot
+
+Floor 5 does NOT depend on:
+- Floor 3 directly (all Floor 3 data consumed through Floor 4)
+- Floor 1 or Floor 2 directly
+- Side A, Side B (outputs to them, doesn't depend on them)
+
+================================================================================
+SECTION 6: WIRING DIAGRAM
+================================================================================
+
+FLOOR 4 OUTPUT (FloorSummary + 6 HeadReports)
+        │
+        ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  CAPTAIN ENGINE (HEAVY CYCLE — 1m candle close)                             │
+│                                                                             │
+│  1. permission_gate ──── BLOCKED? → silence_reason_logger → output WAIT    │
+│  2. market_story_engine                                                      │
+│  3. narrative_timeline_engine.update()                                       │
+│  4. READ Floor Summary FIRST (summary-first workflow)                        │
+│  5. DECIDE drill-down necessity                                              │
+│  6. IF NEEDED: read individual head reports                                  │
+│  7. apply report trust weighting                                             │
+│  8. apply stale core head logic                                              │
+│  9. evaluate NO_SETUP intelligence                                           │
+│ 10. confluence_engine                                                         │
+│ 11. opposite_case_engine                                                      │
+│ 12. conviction_engine → ConvictionScore                                      │
+│ 13. personality_engine → mood                                                 │
+│ 14. trade_class_engine                                                        │
+│ 15. setup_memory_store.update()                                               │
+│ 16. armed_plan_engine.build/update → ArmedPlans                               │
+│ 17. setup_expiry_manager                                                      │
+│ 18. confidence_decay_engine                                                   │
+│ 19. active_trade_supervisor (if active trade)                                 │
+│ 20. trade_constructor (if TRADE approved)                                     │
+│ 21. decision_snapshot_writer                                                  │
+│ 22. silence_reason_logger (if no trade)                                       │
+│ 23. OUTPUT to Side A + Side B + Side C                                        │
+└─────────────────────────────────────────────────────────────────────────────┘
+        │
+        ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  OUTPUT DISPATCH                                                            │
+│                                                                             │
+│  DecisionOutput ────────► Side A (Execution)                               │
+│  CaptainState ──────────► Side B (Dashboard)                               │
+│  DecisionSnapshot ──────► Side C (Memory)                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+        ▲
+        │ TICK
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  CAPTAIN LIGHT CYCLE (tick level)                                           │
+│                                                                             │
+│  1. armed_plan_engine.watch_plans(market_data)                              │
+│  2. active_trade_supervisor.review_thesis()                                 │
+│  3. intervention_engine review (if active trade)                            │
+│  4. OUTPUT if trigger/intervention justified                                │
+│                                                                             │
+│  CRITICAL: NO heavy computation on tick                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+SECTION 7: DATA FLOW
+================================================================================
+
+HEAVY CYCLE FLOW:
+
+1. Market produces new 1m candle
+2. Floor 3 calculates intelligence from new candle
+3. Floor 4 interprets into Head Reports + Floor Summary
+4. Captain engine receives Floor 4 outputs
+5. permission_gate checks 8 conditions
+6. If BLOCKED → silence_reason_logger → output WAIT/BLOCKED → END
+7. market_story_engine builds current market story
+8. narrative_timeline_engine records significant events
+9. Floor Summary read FIRST (summary-first workflow)
+10. Drill-down decision: conflict? stale core head? high conviction?
+11. If needed: read individual head reports for deeper context
+12. Report trust weighting applied per head
+13. Stale core head (SMC/ICT) logic applied
+14. NO_SETUP intelligence evaluated
+15. confluence_engine computes weighted alignment
+16. opposite_case_engine checks strongest failure scenario
+17. conviction_engine computes 3 scores + conviction band
+18. personality_engine determines Captain mood
+19. trade_class_engine assigns trade class
+20. setup_memory_store updated with current state
+21. armed_plan_engine builds/updates conditional plans
+22. Expired plans purged, confidence decay applied
+23. If active trade exists → thesis integrity review
+24. If TRADE approved → trade_constructor builds execution plan
+25. decision_snapshot freezes state for audit
+26. silence_reason logged if no trade
+27. Output dispatched to Side A (execution), Side B (dashboard), Side C (memory)
+
+LIGHT CYCLE FLOW:
+
+1. New tick arrives
+2. armed_plan_engine.watch_plans() — check triggers on active armed plans
+3. active_trade_supervisor.review_thesis() — quick thesis check
+4. intervention_engine — review if conditions warrant rare intervention
+5. If armed plan triggered → trigger execution output
+6. If intervention justified → output intervention decision
+7. NO heavy analysis, NO full cycle recomputation
+
+================================================================================
+SECTION 8: VALIDATION MATRIX
+================================================================================
+
+UNIT VALIDATION (per module, before integration):
+
+| Module                    | Unit Tests                           | Validates                                       |
+|---------------------------|--------------------------------------|-------------------------------------------------|
+| captain_types.py          | test_captain_types.py                | All enums/dataclasses instantiate correctly     |
+| permission_gate.py        | test_permission_gate.py              | All 8 block conditions verified                 |
+| market_story_engine.py    | test_market_story_engine.py          | Story built from valid Floor Summary            |
+| narrative_timeline.py     | test_narrative_timeline_engine.py    | Events stored and retrieved in order            |
+| confluence_engine.py      | test_confluence_engine.py            | Weighted alignment, conflict detection          |
+| opposite_case_engine.py   | test_opposite_case_engine.py         | Opposite case identified correctly              |
+| conviction_engine.py      | test_conviction_engine.py            | Scores computed, bands map correctly            |
+| personality_engine.py     | test_personality_engine.py           | Mood determined from context                    |
+| setup_memory_store.py     | test_setup_memory_store.py           | Store/reject/fail zone tracking                 |
+| armed_plan_engine.py      | test_armed_plan_engine.py            | Create → watch → trigger/expire cycle           |
+| setup_expiry_manager.py   | test_setup_expiry_manager.py         | Expiry by trade class correct                   |
+| confidence_decay_engine   | test_confidence_decay_engine.py      | Decay factor computed correctly                 |
+| trade_class_engine.py     | test_trade_class_engine.py           | Trade class assignment correct                  |
+| trade_constructor.py      | test_trade_constructor.py            | Strike selection, SL/target construction        |
+| active_trade_supervisor   | test_active_trade_supervisor.py      | Thesis integrity detected correctly             |
+| intervention_engine.py    | test_intervention_engine.py          | Rare intervention logic correct                 |
+| silence_reason_logger.py  | test_silence_reason_logger.py        | All reasons logged with context                 |
+| decision_snapshot_writer  | test_decision_snapshot_writer.py     | Snapshot contains all mandatory fields          |
+| loss_lock_manager.py      | test_loss_lock_manager.py            | 3 losses → lock, counter resets                 |
+| override_guard.py         | test_override_guard.py               | Override confirmation required                  |
+| session_policy.py         | test_session_policy.py               | Session phases, aggression modifiers correct    |
+| captain_engine.py         | test_captain_engine.py               | Heavy + light cycle orchestration               |
+
+CONTRACT VALIDATION (cross-module):
+
+| Test File                         | Validates                                         |
+|-----------------------------------|---------------------------------------------------|
+| test_contract_validation.py       | Floor 4 → Floor 5 input fields consumed correctly |
+|                                   | Floor 5 → Side A output fields all present        |
+|                                   | Floor 5 → Side B output fields all present        |
+|                                   | DecisionSnapshot has all mandatory fields         |
+|                                   | No Floor 3/4 types in Floor 5 output              |
+|                                   | No execution types in Floor 5 decision            |
+
+HEAVY CYCLE VALIDATION:
+
+| Test File                         | Validates                                         |
+|-----------------------------------|---------------------------------------------------|
+| test_heavy_cycle.py               | Permission gate blocks on psychology = BLOCKED    |
+|                                   | Confluence: 4/5 heads bullish → high quality      |
+|                                   | Opposite case: strong counter → conviction reduce  |
+|                                   | Conviction: 0-39 = REJECT, 75-89 = STRONG          |
+|                                   | Armed plan: created after heavy cycle              |
+|                                   | Summary-first: drill-down on stale core head      |
+|                                   | NO_SETUP: healthy silence vs stale silence         |
+
+LIGHT CYCLE VALIDATION:
+
+| Test File                         | Validates                                         |
+|-----------------------------------|---------------------------------------------------|
+| test_light_cycle.py               | Light cycle watches plans without recomputation   |
+|                                   | Light cycle does NOT call heavy module code       |
+|                                   | Armed plan trigger works without full cycle       |
+|                                   | Intervention review without full cycle            |
+
+REPLAY VALIDATION:
+
+| Test File                         | Validates                                         |
+|-----------------------------------|---------------------------------------------------|
+| test_replay_validation.py         | Same Floor 4 data → identical decisions           |
+|                                   | Same data → identical conviction scores           |
+|                                   | Same data → identical armed plans                 |
+|                                   | Decision snapshots identical on replay            |
+
+INTEGRATION VALIDATION (end-to-end Floor 5):
+
+| Test File                         | Validates                                         |
+|-----------------------------------|---------------------------------------------------|
+| test_integration.py               | Full heavy cycle produces valid DecisionOutput   |
+|                                   | Permission gate blocks on all 8 conditions        |
+|                                   | Armed plans created + watched + expired correctly |
+|                                   | Light cycle lightweight (verify no heavy imports) |
+|                                   | Decision snapshots frozen on every major decision |
+|                                   | Silence reasons meaningful for all no-trade cases |
+|                                   | Loss lock activates at 3 losses                   |
+|                                   | Intervention is RARE (verify count in tests)      |
+|                                   | Side A handoff contract verified                  |
+
+================================================================================
+SECTION 9: CROSS-COMPONENT IMPACTS
+================================================================================
+
+IMPACT ON REPLAY:
+
+Floor 5 is NOT a replay owner, but decisions must be replay-compatible:
+- Same Floor 4 data → identical Captain decisions
+- Same data → identical conviction scores and armed plans
+- Decision snapshots must be identical on replay
+- Time-sensitive logic (session_phase, confidence_decay) must use
+  injected timestamps in replay mode
+
+Key constraint: Floor 5 replay depends entirely on Floor 4 producing valid
+replay data. Without Floor 4 replay, Captain decisions cannot be verified.
+
+IMPACT ON DASHBOARD (Side B):
+
+Captain is the most important explainability source for Side B:
+- CaptainState: mood, conviction_band, decision, market story
+- Trade/no-trade reasoning with structured silence reasons
+- Active trade supervision notes
+- Intervention notes (when triggered)
+- Real mode lock / override requirement status
+- Decision timeline (from decision snapshots)
+
+Dashboard displays Captain state, NOT raw Floor 4 data.
+
+IMPACT ON MEMORY (Side C):
+
+Captain contributes:
+- DECISION_JOURNAL: every decision snapshot
+- HEALTH_EVENT: state changes, errors, mode transitions
+- DECISION_JOURNAL entries for: conviction bands, no-trade reasons,
+  armed plan creations, intervention events
+
+Captain does NOT store raw data — only decision-level memory.
+
+IMPACT ON EXECUTION (Side A):
+
+Captain provides strategic direction; Side A handles tactical execution:
+- Captain: decides TRADE/WAIT/BLOCKED, constructs trade plan
+- Side A: runs risk gate, manages order lifecycle, handles broker
+- Captain may intervene RARELY (not routine management)
+- Side A manages position, Captain monitors thesis
+
+================================================================================
+SECTION 10: COMMON MISTAKES + ANTI-PATTERNS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ARCHITECTURE-BREAKING MISTAKES:
+
+MISTAKE 1: Captain recalculating quality or confidence
+  - WRONG: captain_engine recomputes smc_quality_score or head confidence
+  - RIGHT: Captain consumes quality from Floor 3 via Floor 4, confidence from Floor 4
+  - PREVENTION: CI check: no Floor 3/4 calculation imports in floor_5_captain/
+  - DETECTION: conviction used where quality/confidence belong → P0 violation
+
+MISTAKE 2: Captain consuming Floor 3 packets as routine input
+  - WRONG: captain_engine reads raw Floor 3 domain packets directly
+  - RIGHT: Captain consumes ALL Floor 3 data through Floor 4 only
+  - PREVENTION: Architecture rule: Floor 4 is the ONLY bridge from Floor 3 to Capt.
+  - DETECTION: CI check: no direct floor_3_calculations imports in floor_5_captain/
+
+MISTAKE 3: Light cycle becoming heavy
+  - WRONG: light cycle calls confluence_engine, conviction_engine on every tick
+  - RIGHT: light cycle only watches armed plans + active trade + intervention
+  - PREVENTION: CI check: light_cycle module does NOT import heavy modules
+  - DETECTION: Performance test shows tick-time computation > 10ms
+
+MISTAKE 4: Intervention becoming routine
+  - WRONG: intervention_engine triggers on ordinary pullbacks
+  - RIGHT: intervention is RARE, only for structural thesis breaks
+  - PREVENTION: Intervention count tracked in tests (must be < 5% of cycles)
+  - DETECTION: Integration test shows intervention count vs total cycles
+
+MISTAKE 5: Captain doing execution work
+  - WRONG: captain_engine places orders directly via broker API
+  - RIGHT: Captain outputs DecisionOutput, Side A handles execution
+  - PREVENTION: CI check: no broker/Side A execution imports in floor_5_captain/
+
+MISTAKE 6: Not respecting non-overridable psychology block
+  - WRONG: Captain overrides psychology_head.trade_allowed=False
+  - RIGHT: Psychology block is ABSOLUTE — cannot be overridden
+  - PREVENTION: permission_gate blocks before any further analysis
+  - DETECTION: Test verifies psych block = BLOCKED always
+
+MISTAKE 7: Allowing re-entry without fresh trigger + cooldown
+  - WRONG: Captain allows same-direction trade immediately after exit
+  - RIGHT: Fresh trigger + cooldown required before re-entry
+  - PREVENTION: setup_memory_store tracks recent exits + cooldown
+
+MISTAKE 8: Over-engineering conviction engine
+  - WRONG: 50+ conditions, complex formulas, decision paralysis
+  - RIGHT: Few things deeply, not everything lightly
+  - PREVENTION: Conviction engine limited to known factors
+
+MISTAKE 9: Not handling NO_SETUP intelligence properly
+  - WRONG: Captain treats all "no setup" the same
+  - RIGHT: Distinguishes healthy silence from uncertain/stale silence
+  - PREVENTION: NO_SETUP + state evaluation before silence logging
+
+WHAT CREATES REWORK LATER:
+
+1. Building armed_plan_engine before basic Captain works
+   → Fix: get heavy cycle producing TRADE/WAIT/BLOCKED first, then add armed plans
+   → Why: armed plans depend on working confluence + conviction
+
+2. Making conviction engine too complex to calibrate later
+   → Fix: keep conviction logic simple, parameterized in config
+   → Why: tuning weights is normal; rewriting formula is not
+
+3. Not wiring decision snapshots from day one
+   → Fix: decision_snapshot_writer built DURING Phase 6, not deferred
+   → Why: losing historical decisions = losing calibration data
+
+4. Not testing with real historical market data
+   → Fix: replay 1+ days of data through Floor 5, verify decisions make sense
+   → Why: synthetic data hides edge cases
+
+5. Forgetting SMC/ICT priority in weighted confluence
+   → Fix: head priority list visible and enforced in tests
+   → Why: ignoring structure heads undermines Captain's best intelligence
+
+6. Light cycle importing heavy modules accidentally
+   → Fix: CI check enforce light_cycle module whitelist
+   → Why: one wrong import tanks performance on every tick
+
+7. Not separating silence reasons meaningfully
+   → Fix: all 12 silence reasons distinct and tested
+   → Why: "no trade" without context is useless for operator
+
+================================================================================
+SECTION 11: READY-TO-CODE CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ENTRY CRITERIA (before you write any Floor 5 code):
+
+[ ] Phase 0 foundation complete (types.py, config.py, logging.py, errors.py)
+[ ] Floor 1 complete (Angel One connection produces PacketEnvelope)
+[ ] Floor 2 complete (validated structured data stream available)
+[ ] Side C Stage A complete (event store base, HEALTH_EVENT emitter)
+[ ] Floor 3 complete (all 6 domains produce states/maps/scores/candidates)
+[ ] Floor 4 complete (Floor Summary + 6 HeadReports produced correctly)
+[ ] Floor 4 → Floor 5 contracts verified (Floor Summary + Head Report fields)
+[ ] All Captain module contracts defined in shared/types.py
+[ ] Mock Floor 4 data generator producing realistic head reports + summaries
+[ ] Supreme architecture law visible: Q=F3, C=F4, C=F5
+[ ] Heavy cycle vs light cycle module lists defined (no overlap)
+[ ] Test data set prepared (1+ day of mock Floor 4 data for replay)
+
+BUILD CRITERIA (verify during each step):
+
+Per-file checklist (fill as you build each .py file):
+
+File: captain_types.py
+[ ] All enums defined (DecisionState, ConvictionBand, CaptainMood,
+    ArmedPlanState, SilenceReason, InterventionSeverity, SessionPhase)
+[ ] All dataclasses defined (CaptainInput, PermissionResult, MarketStory,
+    NarrativeTimeline, ConfluenceResult, OppositeCase, ConvictionScore,
+    ArmedPlan, DecisionOutput, DecisionSnapshot, CaptainState)
+[ ] No imports beyond types.py (Phase 0) and Python std library
+[ ] Unit tests passing (test_captain_types.py)
+
+File: session_policy.py
+[ ] 4 session phases defined with correct IST timings
+[ ] aggression modifiers correct per phase
+[ ] permission_strictness correct per phase
+[ ] is_opening_window, is_closing_window work correctly
+[ ] Unit tests passing (test_session_policy.py)
+
+File: permission_gate.py
+[ ] Market open check works
+[ ] Psychology block = BLOCKED (non-overridable, verify in test)
+[ ] Active trade = BLOCKED (one-trade rule)
+[ ] Data health CRITICAL = BLOCKED
+[ ] Real mode lock = BLOCKED in REAL mode
+[ ] Session policy restrictions applied
+[ ] All blocks return PermissionResult with reason
+[ ] Unit tests passing (test_permission_gate.py)
+
+File: market_story_engine.py
+[ ] Builds MarketStory from valid Floor Summary
+[ ] Regime identification correct (trend/range/chop)
+[ ] Session phase correctly identified
+[ ] Key level interactions recorded
+[ ] Unit tests passing (test_market_story_engine.py)
+
+File: confluence_engine.py
+[ ] SMC > ICT > Technical > Options > Macro priority enforced
+[ ] Weighted confluence (not simple vote counting)
+[ ] Minimum 60% / 3 of 5 alignment required
+[ ] Head state + freshness + context_quality affect weighting
+[ ] SMC + ICT opposing = stronger veto
+[ ] conflict_present detected correctly
+[ ] Unit tests passing (test_confluence_engine.py)
+
+File: opposite_case_engine.py
+[ ] Opposite case identified from available data
+[ ] Strength assessment correct
+[ ] Multiple failure scenarios checked
+[ ] Mitigating factors considered
+[ ] Unit tests passing (test_opposite_case_engine.py)
+
+File: conviction_engine.py
+[ ] permission_score (0-100) computed
+[ ] conviction_score (0-100) computed
+[ ] no_trade_score (0-100) computed
+[ ] Conviction bands: 0-39 REJECT, 40-59 WEAK, 60-74 TRADABLE,
+    75-89 STRONG, 90+ ELITE
+[ ] Session policy aggression modifier applied
+[ ] Opposite case strength reduces conviction (>10%)
+[ ] Unit tests passing (test_conviction_engine.py)
+
+File: personality_engine.py
+[ ] OBSERVER: low confidence, range market
+[ ] PATIENT: moderate confidence, waiting
+[ ] AGGRESSIVE: high confidence, strong confluence
+[ ] DEFENSIVE: active trade, choppy market
+[ ] SILENT: no permission, healthy no-trade
+[ ] Adaptive by session + regime + conviction
+[ ] Unit tests passing (test_personality_engine.py)
+
+File: trade_class_engine.py
+[ ] 5 trade classes assignable
+[ ] SCALP, CONTINUATION, REVERSAL, LIQUIDITY_RECLAIM, OPTIONS_PRESSURE
+[ ] Class affects expiry window + cooldown
+[ ] Unit tests passing (test_trade_class_engine.py)
+
+File: armed_plan_engine.py
+[ ] Plans created with all mandatory fields
+[ ] Plans stored in WATCHING state
+[ ] watch_plans() checks triggers without heavy computation
+[ ] Plan lifecycle: WATCHING → TRIGGERED/EXPIRED/INVALIDATED
+[ ] Triggered plan forwarded to execution
+[ ] Unit tests passing (test_armed_plan_engine.py)
+
+File: setup_expiry_manager.py
+[ ] SCALP = 1-2 candles
+[ ] CONTINUATION = 2-4 candles
+[ ] REVERSAL = 2-3 candles
+[ ] LIQUIDITY_RECLAIM = until sweep reclaimed or fail
+[ ] OPTIONS_PRESSURE = until wall tested or pressure collapses
+[ ] Expired plans purged correctly
+[ ] Unit tests passing (test_setup_expiry_manager.py)
+
+File: trade_constructor.py
+[ ] Direction → CE/PE mapping correct
+[ ] Capital feasibility check enforced
+[ ] Strike hierarchy: ATM → slight ITM → near OTM (justified)
+[ ] Deep OTM rejected
+[ ] Entry logic with zone + trigger + confirmation
+[ ] Stop loss and target structures built
+[ ] Capital fit verified
+[ ] Unit tests passing (test_trade_constructor.py)
+
+File: silence_reason_logger.py
+[ ] All 12 silence reasons supported
+[ ] Each reason logged with context
+[ ] Primary reason identifiable
+[ ] Unit tests passing (test_silence_reason_logger.py)
+
+File: loss_lock_manager.py
+[ ] 3 losses → REAL mode locked
+[ ] Counter resets next trading day
+[ ] ALERT + PAPER remain active when locked
+[ ] Unit tests passing (test_loss_lock_manager.py)
+
+File: override_guard.py
+[ ] Popup confirmation required
+[ ] Every override event logged
+[ ] Unit tests passing (test_override_guard.py)
+
+File: decision_snapshot_writer.py
+[ ] Snapshot contains ALL mandatory fields
+[ ] Market story, timeline, heads, conviction all present
+[ ] Write to Side C works
+[ ] Session snapshots retrievable
+[ ] Unit tests passing (test_decision_snapshot_writer.py)
+
+File: active_trade_supervisor.py
+[ ] Thesis integrity tracked correctly
+[ ] Original OB/FVG/zone validity checked
+[ ] Options support checked
+[ ] Macro context shift detected
+[ ] should_intervene() returns correct value
+[ ] Unit tests passing (test_active_trade_supervisor.py)
+
+File: intervention_engine.py
+[ ] Intervention scenarios correct
+[ ] NORMAL/CAUTION/EMERGENCY_OVERRIDE severity levels
+[ ] Intervention is RARE (verify in tests)
+[ ] Not triggered on ordinary pullbacks/noise
+[ ] Unit tests passing (test_intervention_engine.py)
+
+File: captain_engine.py
+[ ] Heavy cycle runs all 23 steps in correct order
+[ ] Light cycle only runs 4 steps (no heavy computation)
+[ ] Light cycle does NOT import heavy modules (CI check)
+[ ] Permission gate failure → early exit to silence logger
+[ ] Drill-down decision logic correct
+[ ] Summary-first workflow: read summary → decide drill-down
+[ ] Report trust weighting applied
+[ ] Stale core head logic applied
+[ ] NO_SETUP intelligence evaluated
+[ ] Output dispatched to Side A + Side B + Side C
+[ ] Unit tests passing (test_captain_engine.py)
+
+VERIFICATION TESTS:
+
+[ ] Each unit test file has ≥5 test cases covering edge cases
+[ ] Permission gate: all 8 block conditions tested → pass
+[ ] Confluence engine: SMC+ICT opposing = stronger veto → pass
+[ ] Conviction bands: 0-39→REJECT, 75-89→STRONG → pass
+[ ] Armed plan: create → watch → expire cycle → pass
+[ ] Light cycle: NO heavy modules imported → CI check passes
+[ ] Intervention: verify intervention count < 5% of cycles → pass
+[ ] Loss lock: 3 losses → locked → pass
+[ ] Psychology block: non-overridable → pass
+[ ] Replay: same data → identical decisions → pass
+[ ] Integration: full heavy cycle produces valid output → pass
+[ ] No Floor 3/4 calculation imports in floor_5 → CI check passes
+[ ] No broker/execution imports in floor_5 → CI check passes
+
+EXIT CRITERIA (Phase 6 complete):
+
+[ ] All unit tests pass (22 test files)
+[ ] Contract validation tests pass
+[ ] Heavy cycle tests pass (23-step flow verified)
+[ ] Light cycle tests pass (lightweight, no heavy imports)
+[ ] Replay validation tests pass
+[ ] Integration tests pass
+[ ] Captain produces TRADE/WAIT/BLOCKED correctly
+[ ] Permission Gate blocks correctly on all 8 conditions
+[ ] Armed plans created, watched, expired correctly
+[ ] Light cycle watches plans without full recomputation
+[ ] Decision snapshots frozen on every major decision
+[ ] Silence reasons meaningful for all no-trade cases
+[ ] Loss lock activates at 3 losses
+[ ] Intervention is RARE (verified by count in tests)
+[ ] Side A handoff contract verified (DecisionOutput)
+[ ] Side B handoff contract verified (CaptainState)
+[ ] Side C handoff contract verified (DecisionSnapshot)
+[ ] 0 architecture violations (no Floor 3/4 calculation code)
+[ ] No heavy code in light cycle path
+[ ] Summary-first workflow working (read summary → drill-down if needed)
+
+================================================================================
+END OF ROADMAP FLOOR 05
+================================================================================

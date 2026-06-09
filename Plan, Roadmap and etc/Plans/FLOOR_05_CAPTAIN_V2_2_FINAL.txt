@@ -1,0 +1,2518 @@
+================================================================================
+ JUNIOR ALADDIN - FLOOR 5 CAPTAIN PLAN (IMPROVED VERSION)
+ Fully Updated Deep Planning Draft
+================================================================================
+
+PURPOSE OF THIS FILE
+-------------------------------------------------------------------------------
+This is the improved rewrite version of the Captain floor planning file.
+
+Important points:
+- this is a NEW file
+- old Captain file remains untouched
+- this file exists so that the Captain floor can be re-written cleanly
+  with stronger wiring, stronger structure, and fully integrated approved ideas
+- this file is still a planning document, not implementation code
+
+This version specifically improves:
+- Armed Plans System wiring
+- Market Narrative Timeline wiring
+- file/module separation
+- heavy-cycle vs light-cycle responsibilities
+- strategic supervision and intervention clarity
+- output contracts for execution and dashboard
+
+This file is the current strongest planning draft for FLOOR 5 only.
+
+================================================================================
+SECTION 1 - CAPTAIN IDENTITY
+================================================================================
+
+Captain is the supreme decision brain of Junior Aladdin.
+
+Captain is NOT:
+- a raw data collector
+- a data cleaner
+- an indicator calculator
+- an SMC detector
+- an ICT detector
+- an options math engine
+- a chart renderer
+- a generic rule-bot that fires on simple signals
+
+Captain IS:
+- final judge
+- final trade permission authority
+- final confluence evaluator
+- final trade constructor
+- final battlefield supervisor
+- final capital-discipline enforcer
+- final intervention authority in exceptional situations
+
+Shortest correct definition:
+Captain = the top-floor decision brain that listens to expert heads,
+understands the day’s market story, and decides whether to trade, wait, or block.
+
+
+================================================================================
+SECTION 2 - CAPTAIN'S PLACE IN THE FULL SYSTEM
+================================================================================
+
+Top-to-bottom architecture placement:
+
+FLOOR 5  -> CAPTAIN
+FLOOR 4  -> DEPARTMENT HEADS
+FLOOR 3  -> CALCULATION ENGINES
+FLOOR 2  -> DATA CENTER
+FLOOR 1  -> MARKET CONNECTION
+SIDE A   -> EXECUTION
+SIDE B   -> DASHBOARD
+
+Captain sits above all analysis layers.
+Captain receives structured expert truth, not noisy raw truth.
+Captain commands execution but does not replace execution.
+Captain informs dashboard but does not become dashboard.
+
+
+================================================================================
+SECTION 3 - CAPTAIN PHILOSOPHY
+================================================================================
+
+The Captain must behave like a disciplined institutional decision brain.
+Its strength is not in looking at everything.
+Its strength is in judging the right things in the right order.
+
+Core philosophy:
+1. Context before action
+2. Confluence before conviction
+3. Failure before greed
+4. Discipline before aggression
+5. One battle at a time
+6. Silence is a valid output
+7. Intervention is rare, not emotional
+
+Strong Captain does NOT mean:
+- over-intelligent chaos
+- too many conditions
+- decision paralysis
+- reacting to every tick
+- overtrading because data is available
+
+Strong Captain means:
+- few things deeply
+- not everything lightly
+
+This is a design law.
+Captain must avoid the Over-Intelligence Trap.
+
+
+================================================================================
+SECTION 4 - CAPTAIN FLOOR FOLDER STRUCTURE (IMPROVED)
+================================================================================
+
+Proposed rebuilt Captain floor structure:
+
+floor_5_captain/
+│
+├── __init__.py
+├── captain_engine.py
+├── captain_types.py
+├── permission_gate.py
+├── market_story_engine.py
+├── narrative_timeline_engine.py
+├── confluence_engine.py
+├── opposite_case_engine.py
+├── conviction_engine.py
+├── personality_engine.py
+├── setup_memory_store.py
+├── armed_plan_engine.py
+├── setup_expiry_manager.py
+├── confidence_decay_engine.py
+├── trade_class_engine.py
+├── trade_constructor.py
+├── active_trade_supervisor.py
+├── intervention_engine.py
+├── silence_reason_logger.py
+├── decision_snapshot_writer.py
+├── loss_lock_manager.py
+├── override_guard.py
+└── session_policy.py
+
+Why this improved structure is stronger:
+- Armed Plans System is now its own module
+- Market Narrative Timeline is now its own module
+- Captain does not become one monster file
+- every strong responsibility has a clear module
+
+Module responsibilities:
+
+captain_engine.py
+- main orchestrator of Captain floor
+- runs heavy cycle on candle close
+- runs light cycle on tick updates
+- calls all sub-engines in correct order
+
+captain_types.py
+- shared dataclasses / schemas / enums
+- DecisionState, Mood, TradeClass, ArmedPlan, Snapshot, InterventionReason, etc.
+
+permission_gate.py
+- verifies whether new trade consideration is even allowed
+- checks market state, psychology block, active trade rule, mode lock, health
+
+market_story_engine.py
+- builds current market story summary
+- interprets context: trend/range/chop, session, key levels, structure meaning
+
+narrative_timeline_engine.py
+- stores timestamped intraday event-chain memory
+- keeps market narrative progression through the day
+- supports story continuity, thesis review, snapshots, and supervision
+
+confluence_engine.py
+- combines directional head reports
+- applies weighted alignment logic
+- produces confluence quality and conflict signal
+
+opposite_case_engine.py
+- checks strongest opposite-side argument
+- reduces one-sided conviction
+- supports pre-mortem realism
+
+conviction_engine.py
+- creates permission score, conviction score, no-trade score
+- turns confluence + context + trap + opposite-case into quality judgment
+
+personality_engine.py
+- decides mood/state of Captain
+- observer / patient / aggressive / defensive / silent
+- adaptive by session, regime, quality, and battlefield conditions
+
+setup_memory_store.py
+- stores active/rejected/failed setup memory
+- stores same-mistake avoidance memory
+- stores important zones remembered by Captain
+
+armed_plan_engine.py
+- builds, arms, updates, expires, and selects prepared plans
+- provides lightweight tick-watchable plans after heavy cycle
+- central prepared-action system of Captain
+
+setup_expiry_manager.py
+- manages setup validity windows by setup class
+- removes stale or invalid plans
+
+confidence_decay_engine.py
+- gradually lowers conviction when setup freshness weakens over time
+- different from full expiry
+
+trade_class_engine.py
+- assigns trade class to approved trade idea
+- scalp / continuation / reversal / liquidity reclaim / options pressure move
+
+trade_constructor.py
+- converts approved decision into executable structured trade plan
+- direction, option side, strike, invalidation, targets, etc.
+
+active_trade_supervisor.py
+- keeps strategic observation on currently open trade
+- tracks thesis integrity and battlefield evolution
+
+intervention_engine.py
+- handles rare Captain overrides during active trade
+- only on strong justification
+
+silence_reason_logger.py
+- structured logging of WAIT / BLOCKED / REJECT reasons
+
+decision_snapshot_writer.py
+- freezes decision snapshot every major final state
+- supports audit, review, shadow logging, calibration, dashboard explanation
+
+loss_lock_manager.py
+- tracks losing-trade count in real mode
+- triggers real-mode lock after configured threshold
+
+override_guard.py
+- manages popup / confirmation / override permission for real-mode rule breach
+
+session_policy.py
+- session start behavior, session aggression windows, session behavior modifiers
+
+
+================================================================================
+SECTION 5 - CAPTAIN INPUT CONTRACT
+================================================================================
+
+Captain receives input from FLOOR 4 heads and system context channels.
+
+Directional heads:
+- Technical Head
+- SMC Head
+- ICT Head
+- Options Head
+- Macro Head
+
+Non-directional brake head:
+- Psychology Head
+
+Directional Head report structure (conceptual):
+- bias
+- confidence
+- reasons
+- timeframe_view
+- active_zones
+- armed_triggers
+- invalidation
+- confluence_note
+- setup_labels / setup_candidates
+- timestamp
+
+Psychology Head report structure:
+- trade_allowed
+- caution_level
+- cooldown_active
+- repeated_mistake_flag
+- trap_pressure
+- block_reason
+- timestamp
+
+Additional contextual inputs Captain can access:
+- session phase
+- day type
+- regime state
+- regime confidence
+- active trade state
+- data quality state
+- mode state
+- manual capital limit
+- real-mode lock state
+- previous decision snapshot references
+
+Captain must not depend on raw tick chaos.
+Captain must depend on interpreted structured intelligence.
+
+
+================================================================================
+SECTION 6 - CAPTAIN OUTPUT CONTRACT
+================================================================================
+
+Captain sends structured output to Execution.
+Captain also sends explanatory state to Dashboard.
+
+Execution-facing output object:
+- decision = TRADE / WAIT / BLOCKED
+- action = BUY / SELL
+- option_side = CE / PE
+- strike_type = ATM / slight_ITM / near_OTM
+- selected_strike
+- trade_class
+- permission_score
+- conviction_score
+- no_trade_score
+- entry_plan
+- invalidation_level
+- stop_loss_plan
+- target_plan
+- intervention_allowed
+- reason_summary
+- silence_reason (if no trade)
+- session_context
+- capital_context
+- snapshot_id
+- timestamp
+
+Dashboard-facing explanation layer:
+- current market story summary
+- latest narrative timeline excerpt
+- heads summary
+- mood / personality
+- why trade / why no trade
+- active trade supervision state
+- intervention note if any
+- real mode lock / override requirement status
+
+
+================================================================================
+SECTION 7 - CAPTAIN'S TWO-SPEED OPERATING MODEL
+================================================================================
+
+Captain uses a two-speed brain model.
+This is a locked architectural principle.
+
+A. HEAVY THINKING CYCLE
+-------------------------------------------------------------------------------
+Method: update_plan_on_candle_close()
+Trigger: 1-minute candle close
+
+Why 1-minute candle close?
+- fast enough for intraday reaction
+- disciplined enough to avoid tick-chaos analysis
+- still able to use 3m / 5m / 15m context for decision quality
+
+Heavy cycle responsibilities:
+1. run permission gate
+2. refresh market story
+3. update narrative timeline
+4. read latest head reports
+5. compute weighted confluence
+6. check opposite case
+7. run pre-mortem logic
+8. compute conviction state
+9. determine personality / mood
+10. assign trade class if needed
+11. update setup memory
+12. build prepared armed plans
+13. apply setup expiry logic
+14. apply confidence decay logic
+15. if active trade exists, review thesis integrity
+16. write decision snapshot
+17. output state: TRADE / WAIT / BLOCKED / PREPARED
+
+This is the main thinking cycle of Captain.
+
+B. LIGHT OBSERVATION CYCLE
+-------------------------------------------------------------------------------
+Method: observe_active_trigger_on_tick()
+Trigger: every tick
+
+Light cycle responsibilities:
+1. do NOT recompute heavy analysis
+2. do NOT recalculate full structure
+3. watch currently armed plans only
+4. watch active trade thesis integrity only
+5. detect dangerous battlefield changes
+6. check intervention threshold if active trade exists
+7. trigger execution quickly if valid prepared plan condition is hit
+
+Heavy cycle = thinking.
+Light cycle = watching and reacting.
+
+
+================================================================================
+SECTION 8 - CAPTAIN'S 6 THINKING LAYERS
+================================================================================
+
+LAYER 1 - PERMISSION LAYER
+-------------------------------------------------------------------------------
+Question:
+"Is trading permission available right now?"
+
+Checks include:
+- market open or closed
+- holiday block
+- major event restriction
+- active trade already open
+- psychology block
+- poor data quality
+- unhealthy system state
+- real mode lock active
+
+If failed:
+- decision = BLOCKED or WAIT
+- no further trade construction
+
+Locked point:
+Psychology block cannot be overridden by Captain.
+(Q1 locked = A)
+
+
+LAYER 2 - MARKET STORY LAYER
+-------------------------------------------------------------------------------
+Question:
+"What is today’s market story?"
+
+This layer understands:
+- today’s regime (trend/range/chop/volatile)
+- previous day interaction zones
+- OR / IB / key day levels
+- current session context
+- premium/discount location
+- morning structure evolution
+- session memory summary
+
+Captain must not think in isolated candles.
+Captain must think in evolving day-structure.
+
+
+LAYER 3 - CONFLUENCE LAYER
+-------------------------------------------------------------------------------
+Question:
+"Do the experts align meaningfully?"
+
+Directional heads:
+- Technical
+- SMC
+- ICT
+- Options
+- Macro
+
+Locked confluence logic:
+- threshold quality approx. 60%
+- practical minimum meaningful alignment = 3 of 5
+- but not simple democracy
+- weighted confluence is mandatory
+
+Base head priority:
+1. SMC
+2. ICT
+3. Technical
+4. Options
+5. Macro
+
+Meaning:
+- if SMC + ICT strongly oppose, weaker alignment cannot force trade
+- Captain is a weighted judge, not a vote counter
+
+
+LAYER 4 - OPPOSITE CASE + PRE-MORTEM LAYER
+-------------------------------------------------------------------------------
+Question:
+"How does this trade fail?"
+"What is the strongest opposite argument?"
+
+Checks include:
+- nearby resistance/support danger
+- weak or unconfirmed volume
+- fake sweep risk
+- options wall opposition
+- contradictory macro context
+- same-zone trap history
+- opposite structure case strength
+
+This layer stops one-sided overconfidence.
+
+
+LAYER 5 - CONVICTION + PERSONALITY LAYER
+-------------------------------------------------------------------------------
+Question:
+"How strong is this trade?"
+"What mood should Captain be in right now?"
+
+Locked internal scores:
+- permission_score
+- conviction_score
+- no_trade_score
+
+Locked decision:
+Permission score and conviction score remain separate.
+
+Conviction bands:
+- 0-39   = reject
+- 40-59  = weak / watch
+- 60-74  = tradable but patient
+- 75-89  = strong
+- 90+    = elite
+
+Captain moods:
+- OBSERVER
+- PATIENT
+- AGGRESSIVE
+- DEFENSIVE
+- SILENT
+
+Locked answer:
+Base personality = adaptive
+(session + regime + conviction + battlefield condition based)
+
+
+LAYER 6 - TRADE CONSTRUCTION LAYER
+-------------------------------------------------------------------------------
+Question:
+"If this must become a real trade, how exactly should it be built?"
+
+Construction decisions:
+- direction
+- CE / PE
+- strike preference
+- selected strike
+- entry logic
+- invalidation reference
+- stop loss structure
+- target structure
+- trade class
+- capital fit
+- lot feasibility
+
+Captain constructs trade only after prior layers approve.
+
+
+================================================================================
+SECTION 9 - SESSION START WINDOW AND AGGRESSION POLICY
+================================================================================
+
+Locked answer:
+Captain trade start window = dynamic by session.
+
+Meaning:
+- opening session is not full attack mode by default
+- observe / context build phase exists
+- session quality modifies permission and aggression
+
+Session-wise indicative aggression:
+- opening -> observe / cautious
+- golden morning -> strongest permission window
+- lunch -> defensive / selective
+- closing -> cautious / risk-aware
+
+This logic belongs in session_policy.py.
+
+
+================================================================================
+SECTION 10 - ONE ACTIVE TRADE RULE
+================================================================================
+
+Locked answer:
+One active trade at a time.
+
+Meaning:
+- if one trade is active, no second trade opens
+- battlefield focus remains on current trade
+- capital fragmentation is avoided
+- strategic supervision remains concentrated
+
+This rule is shared by Captain and Execution.
+
+
+================================================================================
+SECTION 11 - TRADE CLASS SYSTEM (APPROVED)
+================================================================================
+
+Approved trade classes:
+- scalp
+- structure continuation
+- reversal
+- liquidity reclaim
+- options pressure move
+
+Locked answer:
+These 5 trade classes are sufficient.
+
+Why trade class matters:
+- cooldown logic
+- expiry logic
+- management expectations
+- review clarity
+- future calibration
+
+
+================================================================================
+SECTION 12 - STRATEGIES AS HEAD-LEVEL SETUPS
+================================================================================
+
+Locked architecture:
+Strategies are not a separate top-level floor.
+They live as setup recipes inside the relevant heads.
+
+Examples:
+Technical Head setups:
+- VWAP pullback
+- trend continuation
+
+SMC Head setups:
+- FVG retest
+- liquidity sweep reclaim
+- order block bounce
+- stop hunt reclaim
+
+ICT Head setups:
+- premium/discount response
+- displacement reclaim
+
+Options Head setups:
+- OI wall bounce
+- options pressure continuation
+
+Captain receives setup candidates from heads.
+Captain judges them; it does not discover them directly.
+
+
+================================================================================
+SECTION 13 - INSTRUMENT SELECTION LOGIC
+================================================================================
+
+Locked answer:
+Captain chooses the instrument.
+Operator does not manually choose strike.
+
+Decision hierarchy:
+1. direction -> bullish = CE, bearish = PE
+2. capital feasibility check
+3. liquidity/spread quality check
+4. strike preference hierarchy
+
+Strike preference hierarchy:
+1. ATM
+2. slight ITM
+3. near OTM only if justified
+
+Deep OTM lottery behavior is rejected.
+
+Captain must choose a practical strike:
+- inside capital limit
+- liquid enough
+- acceptable spread
+- aligned with trade class and conviction
+
+
+================================================================================
+SECTION 14 - CAPITAL, PAPER, REAL, AND REAL-MODE LOSS LOCK
+================================================================================
+
+Locked answer:
+Capital is manually set by operator on dashboard.
+
+Modes:
+- ALERT -> always conceptually active
+- PAPER -> uses operator-defined paper capital
+- REAL -> uses operator-defined usable real capital
+
+Captain does not invent capital.
+Captain must respect the provided limit.
+
+REAL mode special lock logic:
+- no fixed hard total trade count
+- paper mode may continue freely
+- real mode discipline is based on losing trades
+
+Locked real-mode discipline rule:
+- 3 losing trades -> REAL mode becomes locked/off
+- ALERT + PAPER remain active
+- if REAL is attempted again after lock, popup appears every time
+- operator must explicitly confirm override for each next REAL trade
+- losing trade counter resets next trading day
+
+Locked interpretation:
+- any losing trade counts
+- not only strict stop-loss hit
+
+Responsible modules:
+- loss_lock_manager.py
+- override_guard.py
+
+
+================================================================================
+SECTION 15 - SETUP EXPIRY + CONFIDENCE DECAY
+================================================================================
+
+Locked answer:
+Setup validity is setup-specific and dynamic.
+
+Examples:
+- scalp = 1-2 candles
+- structure continuation = 2-4 candles
+- stronger HTF setup = until invalidation/session logic
+
+Approved extra idea:
+Confidence Decay
+
+Meaning:
+- setup may still exist technically
+- but freshness weakens over time
+- conviction should gradually decay
+
+Difference:
+- expiry = setup dead
+- confidence decay = setup still alive but weakening
+
+Responsible modules:
+- setup_expiry_manager.py
+- confidence_decay_engine.py
+
+
+================================================================================
+SECTION 16 - WAIT STATE HANDLING
+================================================================================
+
+Locked answer:
+WAIT state does not keep a generic armed trigger active.
+
+But:
+- setup can remain in memory
+- next heavy cycle may re-evaluate it
+
+Meaning:
+WAIT = remembered but not actively armed by default.
+
+This avoids stale reactive behavior.
+
+
+================================================================================
+SECTION 17 - COOLDOWN + RE-ENTRY RULES
+================================================================================
+
+Cooldown locked answer:
+- dynamic by trade class
+- but always = minimum time + fresh structure
+
+Re-entry locked answer:
+- same direction re-entry only after fresh trigger + cooldown
+- no immediate revenge re-entry
+
+Meaning:
+after failed trade, Captain requires fresh evidence.
+
+
+================================================================================
+SECTION 18 - EARLY EXIT RULE
+================================================================================
+
+Locked interpretation:
+Random emotional early exit is forbidden.
+
+Early exit allowed only if:
+- thesis is structurally invalidated
+- important head support collapses
+- battlefield becomes dangerous
+- intervention becomes justified
+
+Captain must not exit simply because floating loss appears.
+Captain may exit because thesis has died.
+
+
+================================================================================
+SECTION 19 - ACTIVE TRADE SUPERVISION + INTERVENTION
+================================================================================
+
+Base rule:
+Routine position management belongs to Execution / Position Manager.
+
+Execution handles:
+- order placement
+- fills
+- stop-loss orders
+- target orders
+- trail logic
+- routine position supervision
+
+Captain special role:
+- no second trade planning while active trade exists
+- supreme strategic observation remains on the active trade
+- exceptional conditions may trigger Captain intervention
+
+Locked intervention answer:
+Intervention allowed when strong opposite confluence emerges.
+
+Captain may review/intervene if:
+- thesis break
+- regime flip
+- strong opposite confluence
+- options support collapse
+- risk emergency
+
+But:
+- not every time
+- too much intervention can itself increase losses
+- no intervention on ordinary pullbacks/noise
+
+Locked Q9 interpretation:
+Routine = Execution
+Exception = Captain
+
+War analogy lock:
+- Captain gives command
+- Execution fights battlefield
+- while war is active, Captain does not open another war
+- but if battlefield changes drastically, Captain may intervene
+
+Intervention severity tags:
+- normal
+- caution
+- emergency_override
+
+
+================================================================================
+SECTION 20 - REVERSE SIGNAL DURING ACTIVE TRADE
+================================================================================
+
+Locked answer = B + C
+
+Meaning:
+- reverse signal does not mean immediate reverse trade
+- active thesis integrity is reviewed
+- safe exit may happen if justified
+- first become flat
+- only then reassess later
+
+So:
+reverse signal = review trigger
+reverse signal != immediate reverse trade
+
+
+================================================================================
+SECTION 21 - THESIS INTEGRITY TRACKER (APPROVED)
+================================================================================
+
+Captain observes whether active trade thesis is still alive.
+
+Questions tracked:
+- is original structure still intact?
+- is OB/FVG/zone still valid?
+- is options support still alive?
+- did macro context violently shift?
+- does market story still support the thesis?
+
+This is the backbone of strategic intervention logic.
+
+
+================================================================================
+SECTION 22 - ARMED PLANS SYSTEM (APPROVED + FULLY WIRED)
+================================================================================
+
+This is one of the two newly approved strong ideas.
+It is now a core part of Captain architecture.
+
+Captain should not spend the whole day desperately hunting for trades.
+Captain should become prepared.
+
+Meaning:
+- after heavy analysis, Captain may create one or more structured prepared plans
+- these are not active trades
+- these are conditional action blueprints
+- they describe what must happen for action to become valid
+
+Example conceptual plans:
+- PLAN A: if price returns to valid order block zone + reclaim confirmation -> BUY
+- PLAN B: if sweep fails and bearish breakdown confirms -> SELL
+
+Armed plan should contain:
+- plan_id
+- setup class
+- direction
+- originating heads/support summary
+- trigger condition
+- expiry condition
+- invalidation reference
+- readiness / urgency note
+- timestamp
+
+Where it lives:
+- built after heavy cycle
+- stored in setup_memory_store / armed_plan_engine
+- watched by light tick cycle
+
+Why this makes Captain stronger:
+- Captain becomes prepared, not reactive
+- Captain does not need heavy thinking at trigger moment
+- entry timing improves without tick-chaos thinking
+- plan validity and expiry can be controlled cleanly
+
+Important relation to WAIT rule:
+- WAIT still means no generic random active trigger
+- but if heavy cycle explicitly creates an approved armed plan,
+  then the light cycle is allowed to watch it
+- therefore Captain remains disciplined, not blind
+
+Responsible module:
+- armed_plan_engine.py
+
+
+================================================================================
+SECTION 23 - MARKET NARRATIVE TIMELINE (APPROVED + FULLY WIRED)
+================================================================================
+
+This is the second newly approved strong idea.
+It is now a core part of Captain architecture.
+
+Captain should not think using only current candle + static story summary.
+Captain should track the evolving intraday story as a timeline.
+
+Market Narrative Timeline means:
+- timestamped major market events stored in sequence through the day
+- a living event-chain memory
+- not just what market is now, but how it came here
+
+Example timeline events:
+- gap up / gap down
+- PDH / PDL touch or sweep
+- liquidity sweep
+- displacement
+- FVG creation
+- consolidation phase
+- BOS / CHOCH / structure break
+- regime shift
+- options wall interaction
+
+Why this matters:
+- a setup should not look isolated
+- Captain should understand if this is first test, second test, failed retest,
+  post-sweep reclaim, late-stage continuation, etc.
+- active trade supervision becomes smarter
+- decision snapshots become more meaningful
+- silence reasons become more truthful
+
+How it is wired:
+- heavy cycle updates timeline after market story interpretation
+- timeline becomes part of market story engine context
+- timeline excerpts are available to decision snapshot writer
+- active_trade_supervisor can refer to it during battlefield supervision
+- thesis integrity tracker can compare current state against prior timeline events
+
+Meaning in one line:
+Market Story Engine answers "What is the story now?"
+Narrative Timeline answers "How did the market reach here today?"
+
+Responsible module:
+- narrative_timeline_engine.py
+
+
+================================================================================
+SECTION 24 - OPPOSITE-CASE ENGINE (APPROVED)
+================================================================================
+
+Captain checks strongest opposite case before committing.
+
+Examples:
+- long setup exists, but strongest short case may still be dangerous
+- short setup exists, but strongest long reclaim case may still be dangerous
+
+If opposite case is too strong:
+- conviction reduces
+- trade can become WAIT or REJECT
+
+This reduces one-sided blindness.
+
+
+================================================================================
+SECTION 25 - SILENCE REASON ENGINE (APPROVED)
+================================================================================
+
+Captain must give structured reasons for WAIT / BLOCKED / REJECT.
+
+Possible silence reasons:
+- insufficient confluence
+- psychology block
+- active trade exists
+- dead market
+- trap risk high
+- stale setup
+- plan expired
+- narrative shift
+- capital mismatch
+- real mode lock
+- weak conviction
+
+Responsible module:
+- silence_reason_logger.py
+
+
+================================================================================
+SECTION 26 - DECISION SNAPSHOT SYSTEM (APPROVED)
+================================================================================
+
+Every major final decision must freeze a structured snapshot.
+
+Snapshot includes:
+- market story summary
+- narrative timeline excerpt
+- heads summary
+- active setup / armed plan reference
+- conviction score
+- invalidation
+- reason for trade / no trade
+- session context
+- capital context
+- mood/personality
+
+Uses:
+- audit
+- debugging
+- shadow logging
+- confidence calibration
+- dashboard explanation
+
+Responsible module:
+- decision_snapshot_writer.py
+
+
+================================================================================
+SECTION 27 - SHADOW LOGGING + CONFIDENCE CALIBRATION WIRING
+================================================================================
+
+Approved and wired.
+
+Shadow Logging:
+- rejected / skipped opportunities should be captured
+- setup class + rejection reason should be stored
+
+Confidence Calibration:
+- Captain’s declared conviction can later be compared against actual result
+- every decision snapshot must carry conviction value
+
+These systems become stronger once historical decision data accumulates.
+But wiring is already locked now.
+
+
+================================================================================
+SECTION 28 - NO-TRADE SCORE
+================================================================================
+
+Locked answer:
+Captain must keep no-trade score internally.
+
+Meaning:
+- trade desirability score exists
+- no-trade justification score also exists
+
+Silence is an actively reasoned output.
+
+
+================================================================================
+SECTION 29 - CAPTAIN INTERNAL DATA FLOW (IMPROVED)
+================================================================================
+
+HEAVY CYCLE FLOW:
+1. permission_gate
+2. market_story_engine
+3. narrative_timeline_engine update
+4. confluence_engine
+5. opposite_case_engine
+6. conviction_engine
+7. personality_engine
+8. trade_class_engine
+9. setup_memory_store update
+10. armed_plan_engine build/update
+11. setup_expiry_manager
+12. confidence_decay_engine
+13. active trade thesis review if needed
+14. trade_constructor (only if TRADE state)
+15. decision_snapshot_writer
+16. silence_reason_logger (if no trade)
+17. output to execution/dashboard
+
+LIGHT CYCLE FLOW:
+1. armed_plan_engine watch active prepared plans
+2. setup_memory_store reference
+3. active_trade_supervisor
+4. thesis integrity tracker
+5. intervention_engine review
+6. output if trigger/intervention is justified
+
+This is the strongest improved wiring of Captain floor.
+
+
+================================================================================
+SECTION 30 - COMPLETE STATUS OF FLOOR 5
+================================================================================
+
+FLOOR 5 - CAPTAIN is now planned with these locked features:
+- one active trade only
+- 1m heavy thinking with multi-timeframe context
+- tick-based light observation
+- weighted confluence
+- SMC/ICT strategic priority
+- session-adaptive aggression
+- manual capital respect
+- dynamic setup expiry
+- confidence decay
+- dynamic cooldown by trade class
+- no immediate re-entry
+- WAIT remembered but not generically armed
+- real mode 3-losing-trades lock
+- psychology block non-overridable
+- routine execution vs rare captain override
+- thesis integrity tracker
+- opposite-case engine
+- trade class system
+- armed plans system
+- market narrative timeline
+- decision snapshot system
+- silence reason system
+- no-trade score
+- shadow logging + calibration wiring
+
+This floor is now the strongest current conceptual planning version of Captain.
+Lower floors may still force specific interface refinements later.
+But the core Captain architecture is now properly wired.
+
+================================================================================
+NEXT FLOOR TO PLAN:
+ FLOOR 4 - DEPARTMENT HEADS
+================================================================================
+
+================================================================================
+SECTION 31 - V2 ALIGNMENT INTENT (IMPORTANT)
+================================================================================
+
+This V2 aligned edition is NOT a new Captain design.
+It is an alignment upgrade of the existing Captain architecture after Floor 4
+(Department Heads) planning became locked.
+
+Therefore this file follows three strict principles:
+1. preserve the existing Captain architecture
+2. preserve the existing modules, workflows, state logic, armed plans, market story,
+   contradiction handling, thesis logic, trade construction, psychology integration
+3. add Floor 4 alignment intelligence without deleting, simplifying, or collapsing
+   the existing design
+
+This means:
+- old sections remain valid
+- old modules remain valid
+- old workflows remain valid
+- the following new alignment sections EXTEND the existing Captain design
+- if any line below appears stricter than an older general line, the stricter V2
+  alignment should be considered the new operating interpretation
+
+In practical terms:
+Captain V2 = Existing Captain Design + Floor 4 Alignment Upgrade
+
+
+================================================================================
+SECTION 32 - V2 ALIGNMENT CHANGELOG (WHAT WAS ADDED, WHY, WHERE)
+================================================================================
+
+This section exists so future review is easy.
+It explicitly documents:
+- what new intelligence was added
+- why it was added
+- which Floor 4 requirement forced the addition
+- where it is integrated in Captain
+
+V2 Additions Map:
+
+1. Head State Awareness
+Added because Floor 4 locked head states:
+- READY
+- UNCERTAIN
+- STALE
+
+Why added:
+Captain cannot trust all reports equally anymore.
+Captain must understand that a READY SMC report is not the same as a STALE one.
+
+Integrated into:
+- Section 5 (Captain Input Contract)
+- Section 24 / 35 (trust weighting logic)
+- Section 29 / 37 (heavy cycle flow refinement)
+
+2. Freshness Awareness
+Added because Floor 4 locked:
+- freshness_score
+- freshness_tag
+- last_deep_update
+
+Why added:
+Captain must not blindly trust stale intelligence.
+Freshness must shape trust and drill-down need.
+
+Integrated into:
+- Section 5 / 33 (input contract refinement)
+- Section 24 / 35 (report trust weighting)
+- Section 37 (summary-first workflow refinement)
+
+3. Context Quality Consumption
+Added because Floor 4 locked:
+- SMC context_quality_score
+- ICT context_quality_score
+
+Why added:
+Setup exists is not equal to good setup.
+Captain must distinguish technical existence from contextual quality.
+
+Integrated into:
+- Section 5 / 33 (input contract refinement)
+- Section 24 / 35 (trust weighting)
+- Section 38 (context quality consumption rules)
+
+4. NO_SETUP Intelligence
+Added because Floor 4 locked that:
+NO_SETUP alone is not enough;
+NO_SETUP must be interpreted together with state context.
+
+Why added:
+Captain must understand difference between:
+- no setup because market is clean but nothing is ready
+- no setup because the head itself is uncertain/stale/conflicted
+
+Integrated into:
+- Section 5 / 33 (input contract refinement)
+- Section 38 (NO_SETUP intelligence)
+- Section 37 (drill-down triggers)
+
+5. Floor Summary First Workflow
+Added because Floor 4 locked:
+Captain should receive both:
+- Floor Summary
+- Individual Reports
+
+Why added:
+Captain should reduce routine parsing load without losing drill-down depth.
+
+Integrated into:
+- Section 5 / 33 (summary input)
+- Section 7 / 37 (heavy cycle refinement)
+- Section 39 (floor summary consumption logic)
+
+6. Core Head Prioritization
+Added because Floor 4 reinforced:
+- SMC and ICT are core heads
+- Macro stale is not same as SMC/ICT stale
+
+Why added:
+Captain must treat stale core structure intelligence more seriously than stale
+non-core contextual intelligence.
+
+Integrated into:
+- Section 8 / 35 (trust weighting)
+- Section 39 (stale core head handling)
+
+7. Floor Summary Consumption Logic
+Added because Floor 4 clarified:
+summary is not the final judge;
+summary is the first-pass intelligence layer.
+
+Integrated into:
+- Section 39 (explicit summary usage)
+- Section 37 (drill-down workflow)
+
+8. Stale Core Head Handling
+Added because Floor 4 locked contextual stale handling.
+
+Integrated into:
+- Section 35
+- Section 37
+
+9. Report Trust Weighting
+Added because Floor 4 made clear that trust should depend on:
+- head type
+- head state
+- freshness
+- context quality (for SMC/ICT)
+
+Integrated into:
+- Section 35
+- Section 37
+
+10. Drill-down Decision Logic
+Added because Floor 4 locked:
+Captain should use summary first, then drill down when needed.
+
+Integrated into:
+- Section 37
+- Section 39
+
+
+================================================================================
+SECTION 33 - CAPTAIN INPUT CONTRACT REFINEMENT (FLOOR 4 ALIGNED)
+================================================================================
+
+This section extends Section 5.
+Section 5 remains valid, but Captain input contract is now more precise.
+
+Captain still receives:
+- individual head reports
+- contextual system inputs
+
+New locked refinement:
+Captain now also receives a Floor Summary object from Floor 4.
+
+Therefore Captain input layers are now:
+
+INPUT LAYER A - FLOOR SUMMARY
+- summary_timestamp
+- floor_bias_snapshot
+- floor_confidence_snapshot
+- active_setup_count
+- primary_setups_by_head
+- backup_setups_by_head
+- ready_heads_count
+- uncertain_heads_count
+- stale_heads_count
+- conflict_present
+- stale_warning_present
+- strongest_domain_signal
+- strongest_context_signal
+- strongest_risk_warning
+- summary_witness_lines
+
+INPUT LAYER B - INDIVIDUAL HEAD REPORTS
+For directional heads:
+- head_name
+- state = READY / UNCERTAIN / STALE
+- freshness_score
+- freshness_tag
+- last_deep_update
+- bias
+- confidence
+- dominant_tf
+- timeframe_view
+- primary_setup
+- backup_setup
+- active_zones
+- armed_triggers
+- invalidation
+- bull_case
+- bear_case
+- confluence_note
+- witness_summary
+- timestamp
+
+For SMC and ICT specifically, Captain must also consume:
+- context_quality_score
+
+For Psychology:
+- trade_allowed
+- caution_level
+- cooldown_active
+- repeated_mistake_flag
+- trap_pressure
+- block_reason
+- invalidation (brake invalidation / release condition)
+- witness_summary
+- freshness_score / tag / state
+- timestamp
+
+New NO_SETUP interpretation fields (logical, may be explicit or derivable):
+- setup_presence = HAS_SETUP / NO_SETUP
+- setup_absence_context = READY_NO_SETUP / UNCERTAIN_NO_SETUP / STALE_NO_SETUP
+
+Why this refinement matters:
+Captain should no longer read “no setup” as one flat state.
+A head saying:
+- NO_SETUP + READY
+means “I am healthy and I see nothing worth trading now.”
+But a head saying:
+- NO_SETUP + UNCERTAIN
+means “my domain interpretation itself is unstable.”
+These are not the same.
+
+This refinement makes Captain smarter without redesigning Captain.
+It only sharpens what Captain already receives.
+
+
+================================================================================
+SECTION 34 - CORE HEAD PRIORITIZATION (FLOOR 4 ALIGNED)
+================================================================================
+
+This section extends Section 8 and the old weighted confluence logic.
+
+Captain already had weighted confluence.
+Now that Floor 4 is locked, Captain must explicitly distinguish between:
+- core heads
+- support/context heads
+- brake head
+
+Locked hierarchy:
+
+CORE STRUCTURE HEADS
+- SMC Head
+- ICT Head
+
+SUPPORT / CONFIRMATION HEADS
+- Technical Head
+- Options Head
+
+LIGHT CONTEXT GATE
+- Macro Head
+
+BRAKE HEAD
+- Psychology Head
+
+Why this matters:
+Because not all stale, uncertain, or weak reports should affect Captain equally.
+Examples:
+- Macro STALE does not automatically destroy a trade idea
+- SMC STALE is far more dangerous because it weakens structural truth
+- ICT UNCERTAIN matters more than Macro UNCERTAIN in many setups
+
+This is NOT a redesign.
+This is a clarified weighting interpretation.
+
+
+================================================================================
+SECTION 35 - REPORT TRUST WEIGHTING (NEW)
+================================================================================
+
+This section is the most important Floor 4 alignment upgrade.
+It extends Sections 8, 24, and 29 without replacing them.
+
+Captain must now build trust weighting for each head report.
+Trust weighting is NOT the same as the head's own confidence.
+
+Important distinction:
+- head confidence = how strong that head believes its current opportunity/context is
+- report trust weighting = how much Captain should trust that head right now
+
+Captain report trust weighting should depend on 5 things:
+
+1. HEAD TYPE PRIORITY
+- core heads (SMC, ICT) inherently matter more for structural truth
+- support heads (Technical, Options) matter next
+- Macro is lighter permission context
+- Psychology is brake authority, not directional trust input
+
+2. HEAD STATE
+- READY -> normal trust
+- UNCERTAIN -> reduced trust
+- STALE -> much lower trust or caution escalation
+
+3. FRESHNESS
+- freshness_score
+- freshness_tag
+- last_deep_update
+
+Captain should reduce trust if a report is not fresh enough for current market speed.
+
+4. CONTEXT QUALITY (SMC / ICT only)
+- context_quality_score modifies Captain trust for those core heads
+
+5. INVALIDATION QUALITY / INVALIDATION CLARITY
+- Captain may also consider how clearly and usefully a head defines invalidation
+- examples of qualitative invalidation conditions:
+  - invalidation clear
+  - invalidation well-defined
+  - invalidation ambiguous
+  - invalidation weakly specified
+- invalidation quality is a trust-support factor
+- invalidation quality is NOT confidence
+- invalidation quality is NOT conviction
+- invalidation quality is NOT trade approval
+- this should remain a qualitative contract, not a hard formula
+
+Why this is necessary:
+An SMC setup may exist technically,
+but if context quality is poor, Captain should not trust it fully.
+A head may also appear directional, but if it cannot define a clear invalidation,
+Captain should trust that view less aggressively.
+Conceptual trust formula (not code, just logic):
+
+report_trust =
+  base_head_priority_weight
+  x head_state_modifier
+  x freshness_modifier
+  x (context_quality_modifier, if head is SMC/ICT)
+
+Examples:
+
+Case 1:
+- SMC Head
+- state = READY
+- freshness high
+- context_quality_score high
+Result: Captain should trust it strongly.
+
+Case 2:
+- Macro Head
+- state = STALE
+- freshness low
+Result: Captain should reduce trust, but not necessarily block trade.
+
+Case 3:
+- ICT Head
+- state = STALE
+Result: Captain must become much stricter because a core structural head is stale.
+
+This is exactly why Floor 4 required contextual stale handling.
+
+
+================================================================================
+SECTION 36 - STALE CORE HEAD HANDLING (NEW)
+================================================================================
+
+This section formalizes what happens when important heads are stale.
+
+Captain must not treat all stale heads equally.
+
+Rule set:
+
+A. If Macro Head is stale
+- reduce macro trust
+- keep Captain cautious about macro permission
+- but trade can still proceed if core structure is strong
+
+B. If Technical Head is stale
+- reduce technical confirmation strength
+- Captain may still proceed if SMC/ICT strong and context is clean
+
+C. If Options Head is stale
+- Captain becomes more cautious on derivatives-backed confirmation
+- more important on expiry or options-heavy conditions
+
+D. If SMC or ICT is stale
+- this is serious
+- Captain must become stricter
+- possible actions:
+  - downgrade conviction
+  - require drill-down
+  - convert candidate trade to WAIT
+  - in extreme cases block trade
+
+Why:
+SMC and ICT are core heads.
+Their stale state weakens the very structural narrative Captain depends on.
+
+This does not delete the old confluence system.
+It refines it.
+
+
+================================================================================
+SECTION 37 - FLOOR SUMMARY FIRST WORKFLOW (NEW)
+================================================================================
+
+This section extends Section 7 and Section 29.
+
+Captain heavy cycle must now use the following first-pass workflow:
+
+STEP 1 - Read Floor Summary first
+Purpose:
+- understand overall state cheaply
+- know whether drill-down is even necessary
+- reduce routine complexity
+
+STEP 2 - Check drill-down necessity
+Captain asks:
+- is conflict_present = true?
+- are stale warnings present?
+- is strongest domain signal high conviction?
+- is a core head stale or uncertain?
+- is active setup count unusual?
+- is there mismatch between summary and current market story?
+- is there intervention review active?
+
+STEP 3 - If no drill-down needed
+Captain can continue using summary-guided high-level path
+and only fetch specific key details it already knows it needs.
+
+STEP 4 - If drill-down needed
+Captain drills into individual head reports.
+
+This is now the aligned workflow.
+
+Why this is correct:
+- Captain should not parse 6 full reports blindly every routine cycle
+- Captain should not stay blind behind a summary either
+- summary must guide attention
+- drill-down must happen on exception, conflict, or opportunity escalation
+
+This design directly supports the golden rule of Floor 4.
+
+
+================================================================================
+SECTION 38 - DRILL-DOWN DECISION LOGIC (NEW)
+================================================================================
+
+This section explicitly defines when Captain should drill down.
+
+Captain must drill down into individual reports when ANY of the following happen:
+
+1. conflict_present in Floor Summary
+2. strongest setup candidate is high quality / high conviction candidate
+3. any core head (SMC/ICT) is STALE
+4. any core head is UNCERTAIN while another head is strongly directional
+5. context_quality_score is weak or mismatched for SMC/ICT
+6. no-setup condition is ambiguous
+7. active trade intervention review is underway
+8. summary shows stale warnings near an expiry/event-sensitive period
+9. opposite-case risk appears stronger than normal
+
+Captain may skip immediate deep drill-down when:
+- floor summary is stable
+- no conflict
+- no stale core head
+- no unusual warning
+- no high-quality immediate candidate requiring close reading
+
+This logic makes Captain efficient and disciplined.
+
+
+================================================================================
+SECTION 39 - NO_SETUP INTELLIGENCE (NEW)
+================================================================================
+
+Captain must now explicitly understand the difference between kinds of NO_SETUP.
+
+There are at least three meaningful forms:
+
+1. NO_SETUP + READY
+Meaning:
+- head is healthy
+- data is fresh enough
+- interpretation is stable
+- but no valid opportunity is present right now
+
+This is a clean no-trade signal.
+Captain should treat this as healthy silence.
+
+2. NO_SETUP + UNCERTAIN
+Meaning:
+- head has no valid setup
+- and its interpretation is not stable enough
+- current market may be unclear, conflicted, transitional, or weakly defined
+
+This is not the same as healthy silence.
+This adds caution.
+
+3. NO_SETUP + STALE
+Meaning:
+- head cannot offer trustworthy setup intelligence because its view is stale
+
+This should reduce trust strongly,
+especially for core heads.
+
+Why this matters:
+If Captain only sees “NO_SETUP,”
+it loses an important layer of professional judgment.
+
+This intelligence directly improves:
+- no-trade score
+- silence reason quality
+- stale handling
+- drill-down logic
+
+
+================================================================================
+SECTION 40 - FLOOR SUMMARY CONSUMPTION LOGIC (NEW)
+================================================================================
+
+This section clarifies exactly how Captain uses Floor Summary.
+
+Floor Summary must never make the final decision.
+Floor Summary exists to shape Captain attention.
+
+Captain uses Floor Summary for:
+- overall bias snapshot
+- overall confidence snapshot
+- active setup count snapshot
+- head health snapshot
+- strongest domain signal
+- strongest caution signal
+- stale warning detection
+- conflict detection
+- data_health_signal
+
+Data-health clarification:
+- GOOD / CAUTION / DEGRADED / CRITICAL signal may influence Captain attention
+- it may influence drill-down necessity and operational caution
+- it does NOT replace final decision ownership
+- final decision still remains with Captain
+
+Captain uses individual reports for:
+- true judgment under conflict
+- high-quality candidate validation
+- structural trust validation
+- invalidation details
+- bull_case / bear_case comparison
+- intervention review
+
+This is the final aligned interpretation:
+Floor Summary = attention compressor
+Individual Reports = truth depth
+Captain = final judge
+
+
+================================================================================
+SECTION 41 - HEAVY CYCLE FLOW (V2 ALIGNED REFINEMENT)
+================================================================================
+
+This section refines Section 29.
+Old heavy cycle remains valid, but the new aligned order is:
+
+1. permission_gate
+2. market_story_engine
+3. narrative_timeline_engine update
+4. read Floor Summary first
+5. decide drill-down necessity
+6. if needed, read individual reports
+7. apply report trust weighting
+8. apply stale core head logic
+9. evaluate NO_SETUP intelligence properly
+10. confluence_engine
+11. opposite_case_engine
+12. conviction_engine
+13. personality_engine
+14. trade_class_engine
+15. setup_memory_store update
+16. armed_plan_engine build/update
+17. setup_expiry_manager
+18. confidence_decay_engine
+19. active trade thesis review if needed
+20. trade_constructor (if TRADE)
+21. decision_snapshot_writer
+22. silence_reason_logger (if no trade)
+23. output to execution/dashboard
+
+This is not a redesign.
+This is the old Captain flow with Floor 4 alignment intelligence inserted.
+
+
+================================================================================
+SECTION 42 - LIGHT CYCLE FLOW (V2 ALIGNED REFINEMENT)
+================================================================================
+
+Old light cycle remains valid.
+V2 refinement:
+Captain light cycle may consult:
+- armed_plan state
+- active trade supervisor state
+- core head stale flags if already marked by heavy cycle
+- summary-derived warning carryover if needed
+
+But light cycle still does NOT perform heavy reinterpretation.
+It remains lightweight.
+
+
+================================================================================
+SECTION 43 - WHY THIS V2 ALIGNMENT MATTERS
+================================================================================
+
+Without this V2 upgrade, Captain would still be strong,
+but it would miss key Floor 4 realities:
+- not all head reports are equally fresh
+- not all stale heads are equally dangerous
+- setup existence is not equal to setup quality
+- no-setup states carry meaning
+- summary-first workflow reduces unnecessary Captain load
+
+This V2 upgrade therefore does not replace Captain.
+It sharpens Captain.
+It makes Captain more realistic, more explainable, and more tightly wired to
+Floor 4.
+
+
+================================================================================
+SECTION 44 - FINAL STATUS OF CAPTAIN V2 ALIGNED EDITION
+================================================================================
+
+Captain V2 aligned edition now preserves:
+- existing architecture
+- existing modules
+- existing workflows
+- existing state machine logic
+- existing armed plan system
+- existing market story engine
+- existing contradiction logic
+- existing thesis logic
+- existing trade constructor
+- existing psychology integration
+
+And now adds:
+- head state awareness
+- freshness awareness
+- SMC/ICT context-quality consumption
+- NO_SETUP intelligence
+- floor summary first workflow
+- core head prioritization
+- floor summary consumption logic
+- stale core head handling
+- report trust weighting
+- drill-down decision logic
+
+This file is now the aligned Captain edition required after Floor 4 planning.
+
+Captain Architecture Rewrite = NO
+Captain-Floor4 Alignment Upgrade = YES
+
+================================================================================
+NEXT STEP STILL LOCKED:
+Floor 3 planning will begin only after this V2 aligned Captain edition is accepted.
+================================================================================
+
+================================================================================
+SECTION 45 - V2.1 CONTRACT TIGHTENING INTENT
+================================================================================
+
+This V2.1 edition is NOT a rewrite.
+This V2.1 edition is NOT a new Captain architecture.
+This V2.1 edition is NOT a philosophy change.
+This V2.1 edition is NOT a new module design.
+
+This V2.1 edition exists only to tighten contracts and clean audit gaps.
+
+Strict interpretation of this update:
+- existing sections remain preserved
+- existing workflows remain preserved
+- existing architecture remains preserved
+- existing state logic remains preserved
+- existing modules remain preserved
+- no new trading logic is introduced
+- no new indicator logic is introduced
+- Captain is still NOT a direct Floor 3 runtime consumer
+
+This edition only makes implicit contracts explicit.
+
+Target identity:
+Captain V2
+->
+Captain V2.1 Contract Tightened Edition
+
+
+================================================================================
+SECTION 46 - V2.1 CHANGE SUMMARY
+================================================================================
+
+Updated file name:
+- ASSEMBLY_PLAN_01_FLOOR_5_CAPTAIN_V2_1_CONTRACT_TIGHTENED.txt
+
+Added sections list:
+- Section 45 - V2.1 Contract Tightening Intent
+- Section 46 - V2.1 Change Summary
+- Section 47 - Directional Head Common Contract Tightening
+- Section 48 - NO_SETUP Intelligence Contract Tightening
+- Section 49 - Mandatory Floor Summary Health Snapshot Fields
+- Section 50 - Core Head Health Snapshot Consumption Logic
+- Section 51 - Summary-First Drill-Down Triggers (Explicit)
+- Section 52 - Audit Issue Resolved Mapping
+
+Modified sections list:
+- No existing body section was deleted or shortened.
+- No existing body section was replaced.
+- No in-place destructive rewrite was performed.
+- Existing sections are tightened by appended contract-clarification sections only.
+
+Why this method was used:
+- preserve old design integrity
+- avoid accidental architecture drift
+- make audit gaps explicit without altering the Captain’s core model
+
+
+================================================================================
+SECTION 47 - DIRECTIONAL HEAD COMMON CONTRACT TIGHTENING
+================================================================================
+
+This section tightens Section 33 without replacing it.
+
+Captain now requires the following common directional-report fields to be treated
+as explicit common-contract expectations from Floor 4:
+
+MANDATORY DIRECTIONAL REPORT FIELDS
+- head_name
+- state = READY / UNCERTAIN / STALE
+- freshness_score
+- freshness_tag
+- last_deep_update
+- bias
+- confidence
+- dominant_tf
+- timeframe_view
+- primary_setup
+- backup_setup
+- active_zones
+- armed_triggers
+- invalidation
+- bull_case
+- bear_case
+- confluence_note
+- witness_summary
+- timestamp
+
+Important tightening:
+- confluence_note is now explicitly treated as a common directional-report field
+  expected by Captain.
+- this does NOT create new trading logic.
+- this only removes ambiguity in the common contract.
+
+Why confluence_note must be explicit:
+Captain often needs a compact explanation of why a domain setup aligns with
+another domain or why it does not.  Without an explicit confluence_note field,
+that information becomes inconsistent and harder to trust during summary-first
+review or drill-down review.
+
+This resolves the audit gap that noted confluence_note was conceptually present
+in Captain expectations but not explicit enough at contract-tightening level.
+
+
+================================================================================
+SECTION 48 - NO_SETUP INTELLIGENCE CONTRACT TIGHTENING
+================================================================================
+
+This section tightens Section 39 without replacing it.
+
+Captain now explicitly expects NO_SETUP intelligence to be preserved through the
+report contract in a way that distinguishes setup absence quality.
+
+Captain must treat the following as distinct states:
+
+1. NO_SETUP + READY
+Meaning:
+- the head is healthy
+- the report is trusted enough
+- no meaningful setup exists right now
+
+Captain handling:
+- treat as healthy silence
+- does NOT automatically force drill-down
+- does NOT reduce trust by itself
+
+2. NO_SETUP + UNCERTAIN
+Meaning:
+- no setup exists
+- and the head’s interpretation is unstable or conflicted
+
+Captain handling:
+- increase caution
+- can trigger drill-down, especially if the head is core (SMC/ICT)
+- should not be treated the same as healthy silence
+
+3. NO_SETUP + STALE
+Meaning:
+- no setup exists
+- and the report itself is stale or weakly trustworthy
+
+Captain handling:
+- reduce trust strongly
+- if the stale head is core (SMC/ICT), treat this as materially important
+- may convert a candidate trade into WAIT if structure trust weakens too much
+
+Contract interpretation note:
+The report does not need a separate magical architecture.
+This intelligence can be exposed either by explicit fields such as:
+- setup_presence
+- setup_absence_context
+or by a deterministic derivation from:
+- primary_setup / backup_setup emptiness
+- head state
+
+But from Captain’s point of view, the distinction MUST exist.
+
+Why this tightening was required:
+The audit correctly identified that plain “NO_SETUP” is not enough.
+Captain must know whether setup absence is:
+- healthy
+- uncertain
+- stale
+
+That difference matters for trust, silence, and drill-down behavior.
+
+
+================================================================================
+SECTION 49 - MANDATORY FLOOR SUMMARY HEALTH SNAPSHOT FIELDS
+================================================================================
+
+This section tightens Sections 33, 37, and 40.
+
+Floor Summary already exists as Captain’s first-pass intelligence layer.
+V2.1 now makes summary health content more explicit.
+
+Captain now requires the following Floor Summary fields to be treated as
+mandatory summary fields:
+
+MANDATORY FLOOR SUMMARY FIELDS
+- summary_timestamp
+- floor_bias_snapshot
+- floor_confidence_snapshot
+- active_setup_count
+- primary_setups_by_head
+- backup_setups_by_head
+- ready_heads_count
+- uncertain_heads_count
+- stale_heads_count
+- conflict_present
+- stale_warning_present
+- strongest_domain_signal
+- strongest_context_signal
+- strongest_risk_warning
+- data_health_signal
+- summary_witness_lines
+- core_head_health_snapshot
+- head_health_snapshot
+
+Additional mandatory governance signal:
+- data_health_signal
+
+Possible values:
+- GOOD
+- CAUTION
+- DEGRADED
+- CRITICAL
+
+Contract clarification:
+- data_health_signal may arrive into Floor Summary through the Floor 2 governance /
+  health path after being carried upward through summary/governance channels
+- Captain may consume this signal during summary-first review as a contextual
+  governance signal
+- data_health_signal supports:
+  - trust awareness
+  - drill-down necessity
+  - operational caution
+- data_health_signal is NOT conviction
+- data_health_signal is NOT trade approval
+- data_health_signal is NOT directional bias
+
+Why two health snapshots?
+
+A. core_head_health_snapshot
+This is a compact high-priority snapshot for the heads Captain cares most about
+before routine drill-down:
+- SMC state
+- ICT state
+- Technical state
+- Macro state
+- Psychology state
+
+This is mandatory because audit correctly found that summary-first workflow is
+weaker if Captain cannot quickly tell which critical heads are stale or unstable.
+
+B. head_health_snapshot
+This is the broader compact per-head health picture for all heads.
+It does not replace individual reports.
+It gives summary-level awareness of:
+- state
+- freshness_tag
+- optionally last_deep_update presence
+
+Suggested compact shape (conceptual, not final code syntax):
+core_head_health_snapshot = {
+  "smc": {"state": "READY", "freshness_tag": "fresh"},
+  "ict": {"state": "READY", "freshness_tag": "fresh"},
+  "technical": {"state": "READY", "freshness_tag": "warm"},
+  "macro": {"state": "STALE", "freshness_tag": "stale"},
+  "psychology": {"state": "READY", "freshness_tag": "fresh"}
+}
+
+head_health_snapshot = {
+  "technical": {...},
+  "smc": {...},
+  "ict": {...},
+  "options": {...},
+  "macro": {...},
+  "psychology": {...}
+}
+
+Why this tightening was required:
+The audit correctly found that counts alone are not enough.
+Captain needs quick summary visibility into WHICH heads are stale or uncertain,
+not only how many.
+
+
+================================================================================
+SECTION 50 - CORE HEAD HEALTH SNAPSHOT CONSUMPTION LOGIC
+================================================================================
+
+This section tightens Sections 34, 35, 36, 37, and 40.
+
+Captain already had core-head prioritization.
+V2.1 now makes the consumption logic explicit.
+
+Core heads remain:
+- SMC
+- ICT
+
+Important support heads in summary-first review:
+- Technical
+- Macro
+- Psychology
+
+Captain must use core_head_health_snapshot during summary-first workflow in the
+following way:
+
+1. If SMC = STALE
+- treat this as structurally serious
+- reduce trust sharply
+- require drill-down before allowing strong structural conviction
+- if combined with weak ICT context, candidate trade may degrade to WAIT
+
+2. If ICT = STALE
+- treat this as contextually serious
+- reduce trust sharply
+- require drill-down
+- if combined with weak SMC context, candidate trade may degrade to WAIT
+
+3. If Technical = STALE
+- reduce technical confirmation trust
+- Captain may still continue if SMC/ICT are structurally strong
+- but summary-first pass should flag caution
+
+4. If Macro = STALE
+- reduce macro permission trust
+- but do NOT treat it as automatically equivalent to SMC/ICT stale
+- trade may still proceed if structural truth is strong
+
+5. If Psychology = UNCERTAIN or STALE
+- Captain must treat discipline information carefully
+- depending on implementation, this may require a drill-down because brake
+  quality affects permission logic
+
+Why this tightening was required:
+The audit correctly found that Captain needed explicit stale-core-head handling
+and should not treat Macro stale and SMC stale as equivalent situations.
+
+This does not add new trading logic.
+It clarifies summary consumption trust logic.
+
+
+================================================================================
+SECTION 51 - SUMMARY-FIRST DRILL-DOWN TRIGGERS (EXPLICIT)
+================================================================================
+
+This section tightens Sections 37 and 38.
+
+Captain already had summary-first workflow and drill-down logic.
+V2.1 makes the triggers explicit and contract-clean.
+
+Captain must drill down into individual reports when ANY of the following hold:
+
+A. conflict_present = true
+Reason:
+Summary says the floor is not aligned. Captain must inspect the details.
+
+B. stale_warning_present = true AND a core/support signal is involved
+Reason:
+Summary warns that trust may be degraded.
+
+C. core_head_health_snapshot shows:
+- SMC not READY
+- ICT not READY
+Reason:
+Core structure/context heads require deeper inspection when not healthy.
+
+D. head_health_snapshot shows an important mismatch
+Example:
+- Technical READY
+- SMC STALE
+- ICT UNCERTAIN
+Reason:
+Summary-level mismatch needs domain detail.
+
+E. strongest_domain_signal is high enough to matter materially
+Reason:
+High-opportunity cases deserve deeper verification before conviction rises.
+
+F. strongest_risk_warning is non-trivial
+Reason:
+Captain must understand why risk warning is present.
+
+G. NO_SETUP intelligence is not healthy silence
+Example:
+- NO_SETUP + UNCERTAIN
+- NO_SETUP + STALE
+Reason:
+Absence of setup is not always absence of problem.
+
+H. active trade supervision / intervention review is underway
+Reason:
+Captain needs full detail during battlefield review.
+
+Captain may continue without full drill-down when ALL of the following are true:
+- conflict_present = false
+- stale_warning_present = false
+- core heads = READY
+- strongest_domain_signal is routine and not exceptional
+- no intervention review is active
+- NO_SETUP conditions are healthy silence where applicable
+
+Why this tightening was required:
+The audit correctly found that drill-down triggers needed to be explicit rather
+than partly implied.
+
+This section does not change Captain workflow.
+It makes it operationally clearer.
+
+
+================================================================================
+SECTION 52 - AUDIT ISSUE RESOLVED MAPPING
+================================================================================
+
+This section explicitly maps the audit gaps to V2.1 fixes.
+
+Audit Gap 1:
+Confluence Note Contract not explicit enough
+-> Resolved by Section 47
+
+Audit Gap 2:
+NO_SETUP intelligence not explicit enough
+-> Resolved by Section 48
+
+Audit Gap 3:
+Core head health snapshot missing in summary-first workflow
+-> Resolved by Section 49 and Section 50
+
+Audit Gap 4:
+Head health snapshot consumption logic under-specified
+-> Resolved by Section 49, Section 50, and Section 51
+
+Audit Gap 5:
+Summary health snapshot fields not explicit enough
+-> Resolved by Section 49
+
+Audit Gap 6:
+Drill-down decision logic not explicit enough
+-> Resolved by Section 51
+
+Additional audit-related tightening:
+- report trust weighting is now more concretely usable through health snapshots
+- stale core head handling is now operationally explicit in summary-first flow
+- Captain remains NOT a direct Floor 3 runtime consumer
+- architecture remains preserved
+
+
+================================================================================
+SECTION 53 - FINAL STATUS OF V2.1 CONTRACT TIGHTENED EDITION
+================================================================================
+
+Captain V2.1 Contract Tightened Edition preserves:
+- existing Captain architecture
+- existing Captain modules
+- existing Captain workflows
+- existing Captain philosophy
+- existing Captain armed plan model
+- existing Captain market story + narrative timeline model
+- existing Captain contradiction / opposite-case logic
+- existing Captain thesis integrity logic
+- existing Captain trade constructor
+- existing Captain psychology integration
+- existing Captain summary-first design
+
+And explicitly tightens:
+- common directional report contract
+- NO_SETUP intelligence contract
+- floor summary mandatory fields
+- core-head health snapshot consumption
+- summary-first drill-down triggers
+- audit-resolution traceability
+
+Captain V2.1 is therefore:
+NOT a redesign
+NOT a simplification
+NOT a replacement
+BUT
+an explicit contract-tightening upgrade of the preserved Captain V2 architecture
+
+================================================================================
+END OF CAPTAIN V2.1 CONTRACT TIGHTENED ADDITIONS
+================================================================================
+
+================================================================================
+SECTION 54 - V2.2 FINALIZATION INTENT
+================================================================================
+
+This V2.2 file is not a Captain redesign.
+This V2.2 file does not add new architecture.
+This V2.2 file does not add floors or sides.
+This V2.2 file does not change ownership.
+This V2.2 file only tightens final contract clarity so that Captain becomes:
+- Architecture Safe
+- Ownership Safe
+- Integration Safe
+- Replay Safe
+- Side A aligned
+- Side B aligned
+- Side C aligned
+- Audit Ready
+- Implementation Ready
+
+Minimal change rule:
+The existing Captain V2.1 contract-tightened file remains the base.
+Only final weak or implicit areas are clarified.
+
+
+================================================================================
+SECTION 55 - OWNERSHIP PRESERVATION FINAL CLARIFICATION
+================================================================================
+
+The following ownership chain remains locked and must not drift:
+
+- Floor 3 owns Quality
+- Floor 4 owns Confidence
+- Captain owns Conviction
+- Captain owns final Decision / Trade Approval
+- Side A owns Execution
+- Side B owns Visibility
+- Side C owns Memory storage
+
+Captain therefore owns:
+- final judgment
+- final conviction
+- final trade approval
+- strategic override authority
+- no-trade reasoning ownership
+
+Captain does NOT own:
+- Floor 3 calculations
+- Floor 4 expert interpretation ownership
+- Side A execution ownership
+- Side B display ownership
+- Side C memory ownership
+
+Why this matters:
+Captain is strongest when it remains the supreme judge,
+not when it absorbs every other layer.
+
+
+================================================================================
+SECTION 56 - FLOOR 4 -> CAPTAIN FINAL CONTRACT CLARIFICATION
+================================================================================
+
+Captain already consumes Floor 4 through:
+- Floor Summary
+- Individual Head Reports
+
+V2.2 reinforces the meaning of that contract.
+
+Captain consumes from Floor 4:
+- confidence-bearing expert opinion
+- invalidation-bearing expert opinion
+- freshness/state context
+- core-head health context
+- no-setup intelligence context
+- trust-support fields
+
+Captain does NOT receive from Floor 4:
+- conviction
+- trade approval
+- execution command
+
+Why this matters:
+It preserves the strongest split in the whole system:
+- Heads interpret
+- Captain judges
+
+This is not a new rule.
+It is a final reinforcement of the existing handoff.
+
+
+================================================================================
+SECTION 57 - SIDE A ALIGNMENT FINAL CLARIFICATION
+================================================================================
+
+Captain already hands off one approved execution intent to Side A.
+V2.2 clarifies the strategic/tactical boundary more explicitly.
+
+Captain -> Side A relationship:
+- Captain approves
+- Side A executes
+- Captain may intervene only through already-locked rare strategic override paths
+- Captain does not micro-manage routine order mechanics
+
+Captain provides to Side A:
+- approved intent
+- execution-relevant context
+- invalidation / stop / target intent
+- mode/capital context
+- override permissions where applicable
+
+Captain does NOT do inside Side A:
+- broker interaction
+- order lifecycle management
+- position truth management
+- reconciliation ownership
+
+Why this matters:
+Execution safety depends on Side A remaining tactical/mechanical.
+Captain strength depends on staying strategic.
+
+
+================================================================================
+SECTION 58 - SIDE B VISIBILITY FINAL CLARIFICATION
+================================================================================
+
+Captain is one of the strongest visible truth owners for Dashboard.
+V2.2 clarifies what that means without changing Side B ownership.
+
+Side B may surface from Captain:
+- Captain state
+- current market story summary
+- conviction band
+- trade reason
+- no-trade reason
+- active trade supervision notes
+- override notes
+- floor-summary-driven explainability hooks
+
+Captain does NOT become a dashboard layer.
+Dashboard does not become Captain.
+
+Why this matters:
+Explainability depends heavily on Captain,
+but display ownership still belongs to Side B.
+
+This preserves the view/decision boundary cleanly.
+
+
+================================================================================
+SECTION 59 - SIDE C / REPLAY / AUDIT COMPATIBILITY FINAL CLARIFICATION
+================================================================================
+
+Captain is not a memory owner.
+But Captain is one of the most important sources of review-worthy truth.
+
+V2.2 clarifies that Captain outputs should remain reference-compatible with Side C,
+including where appropriate:
+- decision journal entries
+- conviction band references
+- no-trade reason memory
+- decision timestamps
+- heads used references
+- override references where Captain is the strategic source
+
+Replay / audit compatibility means:
+Captain decisions should remain reconstructable from:
+- Floor 4 floor summary
+- Floor 4 head reports
+- Captain decision snapshots
+- no-setup logic
+- trust-weighting logic
+- market narrative timeline context
+
+Why this matters:
+If Captain becomes a black box,
+future replay, audit, and operator trust weaken.
+
+This does not shift memory ownership to Captain.
+It clarifies Captain’s traceability obligations.
+
+
+================================================================================
+SECTION 60 - EXPLAINABILITY AND AUDITABILITY FINAL CLARIFICATION
+================================================================================
+
+Captain is the final explainability apex of the system.
+V2.2 clarifies the exact meaning of that.
+
+Captain should remain able to explain in traceable form:
+- why trade?
+- why no trade?
+- which heads mattered most?
+- what invalidation mattered?
+- what stale/core-head warnings mattered?
+- what opposite-case pressure mattered?
+- why intervention happened if it happened?
+
+Why this matters:
+Floor 3 supports explainability.
+Floor 4 structures explainable expert confidence.
+Captain finalizes explainability into judgment.
+
+This makes Captain both:
+- decision owner
+- explainability owner
+without making it a memory store or dashboard.
+
+
+================================================================================
+SECTION 61 - CAPTAIN V2.2 FINAL STATUS
+================================================================================
+
+Captain V2.2 Final preserves:
+- existing Captain architecture
+- existing modules
+- existing workflows
+- existing state machine logic
+- existing armed plan system
+- existing market story + narrative timeline model
+- existing contradiction / opposite-case logic
+- existing thesis integrity logic
+- existing trade constructor
+- existing psychology integration
+- existing summary-first design
+- existing V2.1 contract tightening
+
+And explicitly reinforces:
+- ownership preservation across Floors 3/4/5 and Sides A/B/C
+- Floor 4 -> Captain confidence/decision split
+- Captain -> Side A strategic/tactical boundary
+- Captain -> Side B visibility compatibility
+- Captain -> Side C / replay / audit traceability compatibility
+- final explainability ownership
+
+This file is therefore:
+- not a redesign
+- not a new Captain architecture
+- not an ownership rewrite
+- not an execution shift
+- not a memory shift
+
+It is the finalized contract-tightened Captain planning file.
+
+================================================================================
+END OF CAPTAIN V2.2 FINALIZATION ADDITIONS
+================================================================================

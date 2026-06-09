@@ -1,0 +1,1352 @@
+================================================================================
+ JUNIOR ALADDIN - SIDE B DASHBOARD PLAN
+ (V1.2 Full Final - Consolidated Final Planning Reference)
+================================================================================
+
+PURPOSE OF THIS FILE
+-------------------------------------------------------------------------------
+This file converts the locked dashboard understanding and Q1-Q30 decisions into a
+clean planning document for SIDE B: DASHBOARD.
+
+This is the full finalized planning reference.
+It does NOT introduce new architecture.
+It does NOT add new floors.
+It does NOT add new sides.
+It does NOT shift ownership from Floors 1-5 or Side A.
+It does NOT merge Captain into dashboard.
+It does NOT merge Execution into dashboard.
+
+This dashboard plan is built to remain tightly aligned with:
+- conversation context
+- dashboard reference image
+- dashboard notes / roadmap
+- FLOOR 01 locked file
+- FLOOR 02 locked file
+- FLOOR 03 locked file
+- FLOOR 04 locked file
+- FLOOR 05 locked file
+- SIDE A locked file
+
+Goal:
+Create a dashboard planning document strong enough that later:
+- Side C planning
+- integration planning
+- implementation sequencing
+can proceed without needing dashboard redesign.
+
+Important V1.2 note:
+This file exists as the full consolidated final because an earlier V1.1 final
+artifact existed in split/incomplete form across workspace paths.
+This V1.2 file preserves the full draft body plus all finalization additions in
+one canonical final file.
+
+
+================================================================================
+SECTION 1 - PURPOSE
+================================================================================
+
+One-line identity:
+SIDE B = Operator Terminal
+
+The dashboard is not just a visual layer.
+It is the operator-facing terminal through which the system is monitored,
+understood, controlled within authority, and reviewed.
+
+Dashboard exists to support four operator functions:
+1. Monitor
+2. Analyse
+3. Control
+4. Review
+
+The dashboard must reveal system truth,
+not replace system truth.
+
+The dashboard must make the trading machine operable,
+not make the dashboard itself the machine.
+
+
+================================================================================
+SECTION 2 - DASHBOARD PHILOSOPHY
+================================================================================
+
+The dashboard is a desktop-first institutional cockpit.
+It must feel like a serious operator console, not a generic UI.
+
+Core philosophy:
+- operator-first
+- truth-first
+- workflow-first
+- explainability-first
+- attention-protective
+- failure-visible
+- governance-safe
+
+The dashboard must help the operator answer these questions quickly:
+- Is the system safe?
+- What mode am I in?
+- What is Captain doing?
+- Is there an active trade?
+- Is risk under control?
+- Is something wrong anywhere?
+
+The dashboard must not:
+- calculate alpha
+- decide trades
+- reinterpret backend truth independently
+- bypass ownership
+- silently hide stale or degraded conditions
+
+
+================================================================================
+SECTION 3 - DASHBOARD PRINCIPLES
+================================================================================
+
+Locked principles:
+
+1. Dashboard = Operator Terminal
+2. Dashboard Never Becomes Decision Layer
+3. Truth Ownership Always Remains With Floors / Sides
+4. Dashboard supports Monitor + Analyse + Control + Review
+5. Dashboard protects operator attention
+6. Explainability is first-class
+7. Failure visibility must be explicit
+8. Dashboard is desktop-first, not mobile-first
+9. Dashboard can request actions, not own backend authority
+10. Dashboard must remain tightly aligned with locked architecture
+
+
+================================================================================
+SECTION 4 - OPERATOR MODEL
+================================================================================
+
+Primary user:
+- Operator / System Owner
+
+Secondary users:
+- Analyst / Reviewer
+- future operational reviewer / auditor
+
+Non-users in the control sense:
+- Captain is not a dashboard user; it is a backend decision brain
+- Execution is not a dashboard user; it is an action layer
+
+Operator responsibilities supported by dashboard:
+- observe system status
+- analyse market/trade context
+- request allowed controls
+- review decisions and outcomes
+- inspect failures and health
+- use replay/review workspaces when appropriate
+
+
+================================================================================
+SECTION 5 - AUTHORITY MODEL
+================================================================================
+
+Dashboard authority is controlled, not unlimited.
+
+Allowed operator authority:
+- request mode change
+- set capital limits
+- trigger reconnect / sync style operational requests
+- trigger kill-switch / emergency actions within defined governance
+- approve allowed override confirmations
+- close current trade manually if allowed by governance
+- open review / replay / diagnostics workspaces
+
+Not allowed operator authority:
+- direct trade creation from dashboard
+- changing Captain logic
+- changing Head logic
+- changing Floor 3 calculations
+- changing Floor 2 validation rules
+- silently bypassing Side A governance
+- editing live execution policy from UI
+
+Dashboard role:
+- request
+- confirm
+- show result
+- never secretly own backend authority
+
+
+================================================================================
+SECTION 6 - COMMAND ROUTING MODEL
+================================================================================
+
+Locked model:
+Central Command Router -> Correct Owner
+
+Flow:
+Dashboard
+ ↓
+Dashboard Command Router
+ ↓
+Correct Floor / Side Owner
+
+Command Routing Lifecycle
+-------------------------------------------------------------------------------
+Request
+ ↓
+Validation
+ ↓
+Routing
+ ↓
+Owner Response
+ ↓
+Dashboard Ack
+
+Meaning:
+- dashboard first emits a request
+- routing/governance validation happens before owner execution
+- request is then forwarded to the correct owner
+- owner returns response/outcome
+- dashboard surfaces acknowledgement/result back to the operator
+
+Why this lifecycle matters:
+It preserves auditability and prevents the dashboard from becoming a hidden direct
+control bypass surface.
+
+Why this is strongest:
+- direct UI-to-owner calls create governance looseness
+- central routing creates auditability
+- command ownership remains explicit
+
+Examples:
+- mode request -> Side A Mode Router
+- reconnect request -> Floor 1 owner path
+- capital change -> Captain/Side A context path
+- kill request -> Side A emergency governance path
+- replay open -> Floor 2 / future Side C review paths
+
+Important boundary:
+Command Router routes.
+It does not decide.
+
+
+================================================================================
+SECTION 7 - WORKSPACE ARCHITECTURE
+================================================================================
+
+Locked screen philosophy:
+Hybrid
+
+Meaning:
+- one Primary Cockpit screen
+- multiple Focused Workspaces for deep review
+
+Primary Cockpit:
+- live operation
+- first-glance truth
+- active trade/risk/execution visibility
+- fast drill-down launch point
+
+Focused Workspaces:
+- Review Workspace
+- Replay Workspace
+- Diagnostics Workspace
+- future Journal / Memory workspace integrations
+
+Why hybrid is strongest:
+- single-screen only becomes cluttered
+- multi-workspace only weakens first-glance power
+- hybrid supports both operation and investigation
+
+
+================================================================================
+SECTION 8 - COCKPIT ARCHITECTURE
+================================================================================
+
+The primary cockpit is the first screen the operator sees.
+It must satisfy the First-Glance Cockpit Rule.
+
+First view must reveal within ~5 seconds:
+- System Health
+- Mode
+- Captain State
+- Active Trade State
+- Risk State
+- Critical Alerts
+
+First-Glance Cockpit Contract
+-------------------------------------------------------------------------------
+Priority order for immediate operator attention:
+1. Critical Alerts
+2. System Health
+3. Mode
+4. Active Trade State
+5. Captain State
+6. Risk State
+
+This does not mean lower-priority fields are unimportant.
+It means the cockpit must visually and operationally surface the top six items in
+that order so the operator can judge immediate safety first.
+
+Cockpit architecture should prioritize:
+1. safety
+2. state
+3. action visibility
+4. immediate context
+
+The cockpit is not where deep history lives.
+The cockpit is where live truth lives.
+
+
+================================================================================
+SECTION 9 - CONTROL SURFACE DESIGN
+================================================================================
+
+Control surface model is state-aware and authority-aware.
+
+Always-visible core controls:
+- mode status / mode request surface
+- capital setting access
+- kill-switch
+- reconnect / sync access
+- critical acknowledgement controls
+
+Contextual / state-aware controls:
+- current active trade manual close
+- emergency flatten
+- override confirmations
+- recovery actions
+- diagnostics opens
+
+Controls must shrink or expand based on system state.
+Dashboard must not expose risky controls equally in all states.
+
+
+================================================================================
+SECTION 10 - EXPLAINABILITY DESIGN
+================================================================================
+
+Explainability is a first-class dashboard citizen.
+
+Trade Taken Explainability must show:
+- why the trade was taken
+- which Heads aligned
+- Captain summary
+- invalidation summary
+- trade class
+- current execution state
+
+No-Trade Explainability must also be first-class:
+- why no trade?
+- no setup?
+- conflict?
+- stale?
+- health issue?
+- active trade exists?
+- psychology block?
+
+This is critical because:
+Trade not taken is also a decision.
+Dashboard must make that visible.
+
+Layered explainability model:
+Layer 1:
+- Captain Summary
+
+Layer 2:
+- aligned Heads quick view
+- invalidation summary
+
+Layer 3:
+- full explainability drill-down
+- full head reports
+- Captain decision trail
+
+
+================================================================================
+SECTION 11 - ACTIVE TRADE SURFACE
+================================================================================
+
+Active Trade Surface must use layered visibility.
+
+Basic Always Visible:
+- symbol
+- quantity
+- P&L
+- mode
+
+Tactical Default:
+- execution state
+- protection state
+- trade class
+- current SL / TGT state
+
+Strategic Expand:
+- Captain conviction band
+- invalidation summary
+- override flag
+- Captain summary snippet
+
+Why layered visibility is strongest:
+- first glance stays fast
+- active trade remains understandable
+- deeper review is available without cluttering the cockpit
+
+
+================================================================================
+SECTION 12 - NO TRADE SURFACE
+================================================================================
+
+No-Trade Surface is first-class.
+It is not a minor status note.
+
+No-trade reason must be surfaced at the same conceptual importance level as trade
+reason, because “no trade” is also a valid system decision.
+
+Visible no-trade reasons can include:
+- no setup
+- conflict
+- stale
+- health issue
+- active trade exists
+- psychology block
+- data/caution issue
+
+No-Trade Classification
+-------------------------------------------------------------------------------
+The dashboard should explicitly classify no-trade reasons into operator-meaningful
+categories such as:
+- Setup Absent
+- Conflict
+- Health Restriction
+- Active Trade Exists
+- Governance Restriction
+- Manual Restriction
+
+Why this classification matters:
+It helps the operator distinguish between:
+- no opportunity
+- unsafe environment
+- governance block
+- active-trade lock
+- manual/operator-caused restriction
+
+This surface increases operator trust and avoids the feeling that the system is
+“doing nothing for unknown reasons.”
+
+
+================================================================================
+SECTION 13 - HEALTH SURFACE
+================================================================================
+
+Health Surface must tell the operator whether the machine is safe and which layer
+is degraded.
+
+Health State Dictionary
+-------------------------------------------------------------------------------
+HEALTHY
+- the relevant floor/side is operating normally within expected behavior
+- no meaningful degradation currently surfaced
+
+DEGRADED
+- the floor/side is still functioning but with reduced quality, elevated risk,
+  or operational weakness
+- operator attention is needed, but total failure has not occurred
+
+STALE
+- the floor/side is not providing sufficiently fresh operational truth for normal
+  confidence in timeliness
+- the last known state may still be visible, but it must be treated as stale
+
+UNAVAILABLE
+- the floor/side output is currently unavailable to the dashboard
+- this is stronger than stale and means the dashboard cannot obtain current truth
+
+LOCKED
+- the floor/side is intentionally blocked or safety-restricted
+- this is not the same as failure; it may be a governance/safety condition
+
+SILENT
+- the decision layer (especially Captain) is intentionally not acting
+- this is not automatically a failure state
+- silence must be accompanied by explainable reason where applicable
+
+Top-level grouped view should include:
+- feeds
+- truth
+- intelligence
+- decision
+- action
+
+Deeper drill-down should map to:
+- Floor 1
+- Floor 2
+- Floor 3
+- Floor 4
+- Floor 5
+- Side A
+
+Health Surface must be able to show:
+- system healthy
+- degraded
+- stale
+- unavailable
+- locked
+- silent
+
+This is not cosmetic system status.
+This is operator survival information.
+
+
+================================================================================
+SECTION 14 - ALERT MODEL
+================================================================================
+
+Locked model:
+Severity + Category hybrid alert model.
+
+Alert dimensions:
+A. Severity
+- INFO
+- CAUTION
+- SEVERE
+- CRITICAL
+
+B. Category
+- execution
+- health
+- review
+- risk
+- governance
+- operator attention
+
+Why hybrid alert model is strongest:
+- severity alone becomes noisy at scale
+- category alone hides urgency
+- combining both keeps routing and review useful
+
+Alerts should be usable for:
+- top-level cockpit warnings
+- event feeds
+- review workspaces
+- future Side C journal integration
+
+
+================================================================================
+SECTION 15 - FAILURE VISIBILITY MODEL
+================================================================================
+
+Dashboard must never hide failure.
+It must classify and surface it.
+
+Explicit failure visibility targets:
+- Floor 1 degraded
+- Floor 2 stale
+- Floor 3 delayed
+- Floor 4 unavailable
+- Floor 5 silent
+- Side A locked
+
+Failure states should not be treated as one generic red light.
+Operator should understand what failed and why it matters.
+
+Expected meanings:
+- Floor 1 degraded -> connection/feed problem
+- Floor 2 stale -> truth/governance problem
+- Floor 3 delayed -> intelligence lag problem
+- Floor 4 unavailable -> expert interpretation missing
+- Floor 5 silent -> decision silence (with reason), not necessarily failure
+- Side A locked -> action layer intentionally blocked or safety-restricted
+
+Failure Severity Guidance
+-------------------------------------------------------------------------------
+This dashboard should use failure severity as an operator guidance contract,
+not as a hidden decision engine.
+
+Suggested guidance logic:
+- INFO -> noteworthy condition, not immediate danger
+- CAUTION -> operator attention needed, system still broadly usable
+- SEVERE -> reduced trust or reduced action authority, drill-down strongly advised
+- CRITICAL -> immediate top-level operator attention, safety/governance concern
+
+Examples of guidance intent:
+- Floor 1 degraded may often surface as CAUTION or SEVERE depending on impact
+- Floor 2 stale may reduce trust in truth/state and should be visibly escalated
+- Floor 4 unavailable should not remain a low-severity cosmetic warning
+- Floor 5 silent with a healthy no-trade reason is not automatically CRITICAL
+- Side A locked can become SEVERE or CRITICAL depending on mode/context
+
+Failure surfacing model:
+- top-level severity visible immediately
+- affected floor/side visible on drill-down
+- cause and status visible on deeper inspection
+
+
+================================================================================
+SECTION 16 - CHART SURFACE DESIGN
+================================================================================
+
+Chart ownership boundary must remain clear.
+
+Locked chart surface model:
+Hybrid
+
+Default chart owner:
+- Floor 3 (base render truth)
+
+Context overlays:
+- Floor 4 (Head-consumable contextual overlays)
+
+Optional decision overlays:
+- Captain (only as optional decision annotations)
+
+Why this is strongest:
+- chart remains truth-based
+- interpretation overlays remain separated
+- Captain is not merged into chart truth
+
+Chart should remain central because it is the operator’s visual market anchor.
+But chart alone must not be the dashboard.
+
+
+================================================================================
+SECTION 17 - REVIEW WORKSPACE
+================================================================================
+
+Review Workspace exists for:
+- decision review
+- no-trade review
+- trade outcome review
+- aligned-heads review
+- blocked action review
+
+It is separate from the live cockpit.
+
+Why:
+The operator should be able to inspect without polluting the primary live
+attention surface.
+
+Review Workspace should be read-oriented, not control-oriented.
+
+
+================================================================================
+SECTION 18 - REPLAY WORKSPACE
+================================================================================
+
+Locked model:
+Separate Workspace Allow
+
+Replay / review workspace may be opened during live operation in read-only form.
+It must not obtain live control authority.
+
+Allowed:
+- replay references
+- review reports
+- historical decision trail
+- journal references
+- comparison views
+
+Not allowed:
+- live execution changes
+- mode changes via replay
+- trade modifications from replay workspace
+
+Reason:
+Replay is valuable, but must never compromise live cockpit safety.
+
+
+================================================================================
+SECTION 19 - DIAGNOSTICS WORKSPACE
+================================================================================
+
+Diagnostics Workspace is for:
+- system health drill-down
+- degraded state inspection
+- stale/unavailable layer diagnosis
+- execution unknown/reconcile details
+- source/connectivity diagnostics
+- review signal inspection
+
+This workspace supports failure diagnosis.
+It should not become a hidden admin bypass surface.
+
+
+================================================================================
+SECTION 20 - FUTURE SIDE C INTEGRATION POINTS
+================================================================================
+
+Future Side C insertion points should be reserved now.
+Not implemented now, but architecture-ready.
+
+Reserved insertion areas:
+- Trade Journal
+- Decision Journal
+- Override History
+- Health History
+- Replay Workspace
+
+Why reserve these now:
+So future Side C integration does not require dashboard redesign.
+
+The placeholders may be visible as reserved/inactive workspace entry points until
+backend memory/journal capabilities are fully ready.
+
+
+================================================================================
+SECTION 21 - REFRESH MODEL
+================================================================================
+
+Locked attention model:
+HOT / WARM / COLD
+
+HOT
+- execution
+- risk
+- active trade
+- mode
+- health
+
+WARM
+- Captain
+- heads
+- context
+- charts
+
+COLD
+- replay
+- journal
+- diagnostics
+- history
+
+Why this matters:
+Not all dashboard data should refresh equally.
+This protects laptop efficiency and operator attention.
+
+Meaning:
+- HOT = operate
+- WARM = understand
+- COLD = investigate
+
+
+================================================================================
+SECTION 22 - SESSION CACHE MODEL
+================================================================================
+
+Locked cache model:
+Hybrid
+
+Keep:
+- session cache
+- last valid state
+- lightweight review cache
+
+Do not keep:
+- heavy local historical duplication
+- deep audit store inside dashboard
+
+Why this is strongest:
+- supports reconnect/recover/view continuity
+- supports first-glance persistence
+- avoids turning dashboard into Side C
+
+
+================================================================================
+SECTION 23 - COMMAND ACKNOWLEDGEMENT MODEL
+================================================================================
+
+Locked model:
+Hybrid
+
+Critical controls:
+- full Request / Ack / Result chain
+
+Non-critical actions:
+- lightweight acknowledgement acceptable
+
+Why this matters:
+Operator must know whether important actions were:
+- sent
+- accepted
+- rejected
+- completed
+
+This improves trust without overloading normal interactions.
+
+
+================================================================================
+SECTION 24 - PANEL OWNERSHIP MODEL
+================================================================================
+
+Locked model:
+Primary Owner + Supporting Signals
+
+Meaning:
+Each panel must have one primary truth owner.
+It may also consume supporting signals from other floors/sides.
+
+Example:
+Captain Panel
+- Primary Owner: Floor 5
+- Supporting Signals: Floor 4, Floor 2
+
+Panel Ownership Visibility Contract
+-------------------------------------------------------------------------------
+Major panels should visibly expose or internally preserve clarity about:
+- Primary Owner
+- Supporting Signals
+
+This does NOT mean noisy UI labels on every pixel.
+It means the planning and implementation contract must preserve visible ownership
+clarity in major panels so the operator and future maintainers can understand
+where truth is coming from.
+
+Why this is strongest:
+- ownership stays visible
+- truth authority stays clean
+- operator still receives context
+- debugging and future audit become easier
+
+Panels must not become random data mixing zones with no ownership anchor.
+
+
+================================================================================
+SECTION 25 - FLOOR MAPPING TABLE
+================================================================================
+
+Dashboard consumes from floors as follows:
+
+Floor 1
+- connection state
+- lifecycle state
+- latency
+- reconnect count
+- source availability
+
+Floor 2
+- data health signal
+- validation/review summary
+- traceability/replay availability markers
+- source health summary
+
+Floor 3
+- chart-ready streams
+- states
+- maps
+- session packets
+- Common Market State Projection
+
+Floor 4
+- floor summary
+- head reports
+- head states
+- invalidation
+- freshness
+- primary/backup setups
+
+Floor 5
+- Captain state
+- decision status
+- conviction band
+- market story summary
+- no-trade reason
+- override/attention notes
+
+This table exists to keep dashboard aligned to ownership.
+
+
+================================================================================
+SECTION 26 - SIDE MAPPING TABLE
+================================================================================
+
+Side A
+- execution state
+- order lifecycle
+- active position state
+- blocked actions
+- override events
+- reconcile / unknown state
+- real lock state
+
+Future Side C
+- trade journal
+- decision journal
+- override history
+- health history
+- replay history
+
+Dashboard does not own these truths.
+It reveals them.
+
+
+================================================================================
+SECTION 27 - WORKFLOW MAPPING
+================================================================================
+
+Locked operator workflow:
+Monitoring
+ ↓
+Analysis
+ ↓
+Decision Review
+ ↓
+Execution Review
+ ↓
+Historical Review
+
+Dashboard layout should follow this workflow.
+
+Meaning:
+- top/cockpit = monitoring + immediate operation
+- center/context = analysis
+- drill-down panels/workspaces = decision review
+- execution panel/workspace = execution review
+- journal/replay/diagnostics = historical review
+
+This is a workflow-first dashboard, not a random layout-first dashboard.
+
+
+================================================================================
+SECTION 28 - STATE-BASED UI BEHAVIOR
+================================================================================
+
+Locked control behavior:
+State-Based Adaptive
+
+Examples:
+Captain SILENT:
+- review and diagnosis available
+- action surfaces reduced appropriately
+
+Side A LOCKED:
+- diagnostics / review / sync visible
+- normal execution controls reduced
+
+DEGRADED / STALE / CRITICAL:
+- control surface shrinks or changes according to safety and authority
+- dashboard must never visually imply normality in abnormal states
+
+Dashboard State Matrix
+-------------------------------------------------------------------------------
+| State                  | Visible Controls                              | Restricted Controls                          | Review Access                  | Diagnostics Access            |
+|-----------------------|-----------------------------------------------|----------------------------------------------|-------------------------------|------------------------------|
+| HEALTHY               | core controls + contextual controls            | only governance-forbidden actions            | full normal review            | normal diagnostics           |
+| DEGRADED              | core controls remain, risky actions reduced    | some risky actions/contextual actions shrink | review remains available      | diagnostics emphasized       |
+| STALE                 | core visibility retained, new risky actions reduced | new action paths may shrink strongly      | review available              | diagnostics strongly useful  |
+| UNAVAILABLE           | surviving controls only                        | unavailable component related actions blocked | review limited by data truth | diagnostics priority high    |
+| LOCKED                | diagnostics / review / recovery visible        | normal execution controls reduced or blocked | review available              | diagnostics priority high    |
+| SILENT                | review/diagnosis available                     | action surfaces reduced appropriately        | decision review emphasized    | diagnostics available        |
+
+This keeps control authority honest.
+
+
+================================================================================
+SECTION 29 - GOVERNANCE RULES
+================================================================================
+
+Dashboard governance rules:
+1. Dashboard can request, not decide.
+2. Dashboard can reveal, not reinterpret.
+3. Dashboard can confirm, not bypass.
+4. Dashboard can control only within authority.
+5. Dashboard must not hide stale or degraded truth.
+6. Dashboard must not steal ownership from floors/sides.
+7. Dashboard is desktop-first operator tooling.
+8. Explainability is not optional.
+9. No-trade reason is first-class.
+10. Side C future expansion must not force redesign.
+
+
+================================================================================
+SECTION 30 - DASHBOARD CONTRACTS
+================================================================================
+
+Dashboard contracts must include at least these categories:
+
+A. Read Contracts
+- which floor/side fields are read
+- refresh class
+- stale handling behavior
+
+B. Command Contracts
+- request -> router -> owner -> result
+- critical control acknowledgement rules
+
+C. Explainability Contracts
+- trade reason
+- no-trade reason
+- Captain summary
+- invalidation summary
+- aligned heads quick view
+
+D. Failure Contracts
+- severity
+- affected floor/side
+- state meaning
+- drill-down reason
+
+E. Future Memory Contracts
+- Side C journal insertion points
+- replay review references
+- override history insertion points
+
+These contracts keep SIDE B aligned without changing ownership.
+
+
+================================================================================
+SECTION 31 - FINAL STATUS OF SIDE B BASE PLANNING BODY
+================================================================================
+
+This SIDE B base planning body preserves locked architecture and adds no new
+floors/sides.
+It is aligned to:
+- operator terminal philosophy
+- first-glance cockpit rule
+- explainability first-class rule
+- HOT/WARM/COLD attention model
+- workflow-first layout model
+- failure visibility model
+- Side A compatibility
+- future Side C insertion readiness
+- desktop-first operation model
+
+This base planning body became the preserved foundation for later targeted
+finalization additions.
+
+================================================================================
+END OF SIDE B BASE PLANNING BODY
+================================================================================
+
+================================================================================
+SECTION 32 - V1.1 FINALIZATION INTENT
+================================================================================
+
+This V1.1 file is not a dashboard redesign.
+This V1.1 file does not add new floors.
+This V1.1 file does not add new sides.
+This V1.1 file does not shift ownership from Floors 1-5, Side A, or Side C.
+This V1.1 file only tightens weak or implicit dashboard contracts so the
+operator terminal becomes safer, clearer, and more implementation-ready.
+
+This finalization focuses on:
+- Side A alignment
+- Side C alignment
+- command routing clarity
+- control authority clarity
+- replay/read-only boundary clarity
+- auditability/traceability visibility
+
+Minimal change principle:
+Existing dashboard draft remains the base.
+Only weak contract areas are tightened.
+
+
+================================================================================
+SECTION 33 - COMMAND AND CONTROL AUTHORITY TIGHTENING
+================================================================================
+
+This section tightens Sections 5, 6, 9, 23, and 28 without redesigning them.
+
+A. Active Trade Direct Controls
+-------------------------------------------------------------------------------
+Dashboard direct operator actions during an active trade should remain strictly
+limited to governed controls such as:
+- kill-switch
+- required override confirmations
+- current active trade manual close
+- emergency flatten
+
+Dashboard must NOT allow:
+- new trade entry from UI
+- manual SL/TGT redesign
+- size increase
+- Captain conviction override
+- Head decision edits
+- Floor calculation edits
+
+Why this is required:
+The dashboard is an operator terminal, not a hidden execution/decision engine.
+
+B. Mode Switch While Active Trade Exists
+-------------------------------------------------------------------------------
+Normal mode switch requests should be blocked while an active trade exists.
+Examples blocked during active trade:
+- PAPER -> REAL
+- REAL -> PAPER
+- ALERT-style operational escalation into execution mode
+
+Allowed exception:
+- emergency safety downgrade path
+
+Why this is required:
+Mode changes should remain trade-boundary events except for safety downgrade.
+This preserves execution stability.
+
+C. Capital Change Timing Contract
+-------------------------------------------------------------------------------
+If no active trade exists:
+- capital change may apply immediately
+
+If active trade exists:
+- new capital value is stored
+- current trade remains unchanged
+- new capital takes effect from the next trade
+
+Why this is required:
+Mid-trade capital mutation would distort auditability and trade consistency.
+
+D. LIVE Enable Cadence Contract
+-------------------------------------------------------------------------------
+Dashboard should treat live enablement as a governed approval path,
+not a simple toggle.
+
+Accepted operational model:
+- live enable request
+- governance/compliance checks
+- final confirmation
+- approval token/session awareness
+- re-confirmation on expiry or critical state transitions
+
+Why this is required:
+Real trading activation must remain intentional and reviewable.
+
+E. Command Acknowledgement Clarification
+-------------------------------------------------------------------------------
+Critical controls should follow:
+Request -> Validation -> Routing -> Owner Response -> Dashboard Ack
+
+Non-critical controls may use lightweight acknowledgement.
+
+Why this is required:
+Operator must know whether important actions were merely requested or actually
+accepted/executed.
+
+
+================================================================================
+SECTION 34 - SIDE A VISIBILITY AND OPERATIONAL ALIGNMENT TIGHTENING
+================================================================================
+
+This section tightens the Side A alignment inside the dashboard.
+
+Dashboard must explicitly surface Side A operational truth such as:
+- execution state
+- order lifecycle state
+- active position state
+- blocked action events
+- override events
+- reconcile / unknown state
+- real lock / caution state
+
+Additional execution-state visibility contract:
+If Side A enters UNKNOWN / PENDING_RECONCILE or other materially uncertain
+operational states, dashboard must not bury that only in deep logs.
+
+Expected display behavior:
+- execution panel warning by default
+- top cockpit strip warning when severity is high enough
+
+Why this is required:
+Broker ambiguity, protection ambiguity, or reconcile uncertainty are operator-
+critical conditions.
+
+Dashboard must surface them as operational truth,
+not force the operator to discover them accidentally.
+
+
+================================================================================
+SECTION 35 - SIDE C BOUNDARY AND MEMORY ACCESS TIGHTENING
+================================================================================
+
+This section tightens Sections 18, 20, 27, and 30.
+
+Locked memory access boundary:
+Side B must consume Side C through read models / projections.
+It must not consume raw Side C stores directly.
+
+Clarified path:
+Side B
+  ↓
+Read Models / Projections
+  ↓
+Side C Query Layer
+  ↓
+Side C Stores
+
+Why this is required:
+- preserves memory ownership boundaries
+- improves cacheability and scaling
+- protects Side C from becoming a UI-coupled store
+- supports future review/replay/audit growth
+
+Future Side C insertion points remain reserved:
+- Trade Journal
+- Decision Journal
+- Override History
+- Health History
+- Replay Workspace
+
+These remain insertion points only.
+Dashboard does not pre-empt Side C ownership.
+
+
+================================================================================
+SECTION 36 - EXPLAINABILITY AND NO-TRADE TIGHTENING
+================================================================================
+
+This section tightens Sections 10 and 12.
+
+A. Trade Explainability
+-------------------------------------------------------------------------------
+When a trade exists, dashboard should be able to surface in layered form:
+- why the trade was taken
+- which Heads aligned
+- invalidation summary
+- Captain summary
+- active execution state
+
+B. No-Trade Explainability
+-------------------------------------------------------------------------------
+No-trade reason remains first-class.
+Dashboard should be able to classify no-trade reasons such as:
+- Setup Absent
+- Conflict
+- Health Restriction
+- Active Trade Exists
+- Governance Restriction
+- Manual Restriction
+
+Why this is required:
+No-trade is also a system decision.
+Operator trust depends on understanding both action and silence.
+
+
+================================================================================
+SECTION 37 - AUDITABILITY / TRACEABILITY VISIBILITY TIGHTENING
+================================================================================
+
+This section tightens Sections 24, 25, 26, and 27.
+
+A. Panel Ownership Visibility
+-------------------------------------------------------------------------------
+Major panels should preserve clarity of:
+- Primary Owner
+- Supporting Signals
+
+This may be visible either:
+- directly in panel metadata/diagnostic reveal
+or
+- through internal panel contract/documentation
+
+Why this is required:
+Operator and future maintainers should be able to tell where truth comes from.
+
+B. Workflow Traceability
+-------------------------------------------------------------------------------
+The dashboard should preserve operator workflow clarity across:
+Monitoring
+  ↓
+Analysis
+  ↓
+Decision Review
+  ↓
+Execution Review
+  ↓
+Historical Review
+
+Dashboard layout and workspace behavior must continue to respect this flow.
+
+C. Failure Traceability
+-------------------------------------------------------------------------------
+If failure is surfaced at top level,
+the operator must be able to drill down to:
+- affected floor/side
+- state meaning
+- reason/context
+
+Why this is required:
+Failure visibility without explainable drill-down becomes noisy rather than useful.
+
+
+================================================================================
+SECTION 38 - SIDE B V1.1 FINAL STATUS
+================================================================================
+
+Side B V1.1 Final preserves:
+- existing dashboard architecture
+- existing dashboard principles
+- existing operator-terminal philosophy
+- existing floor/side ownership boundaries
+- existing HOT/WARM/COLD model
+- existing workflow-first layout logic
+- existing explainability-first model
+- existing Side A compatibility
+- existing future Side C insertion design
+
+And explicitly tightens:
+- command/control authority details
+- active-trade control boundaries
+- mode-switch and capital-change contracts
+- live-enable governance clarification
+- Side A unknown/reconcile visibility
+- Side C read-model boundary
+- no-trade explainability reinforcement
+- panel ownership/auditability visibility
+
+This file is therefore:
+- not a redesign
+- not a new dashboard architecture
+- not an ownership rewrite
+
+It is the finalized contract-tightened dashboard planning file.
+
+================================================================================
+END OF SIDE B V1.1 FINALIZATION ADDITIONS
+================================================================================
+
+================================================================================
+SECTION 39 - V1.2 FULL FINAL CONSOLIDATION INTENT
+================================================================================
+
+This V1.2 file is not a dashboard redesign.
+This V1.2 file does not add new floors.
+This V1.2 file does not add new sides.
+This V1.2 file does not shift ownership.
+This V1.2 file does not rewrite approved architecture.
+
+This V1.2 file exists only to solve one practical documentation problem:
+The dashboard planning body and the dashboard finalization addendum had existed
+in split/inconsistent file form across workspace paths.
+
+Therefore this V1.2 file consolidates into one canonical final file:
+- the full dashboard planning body
+- the full dashboard finalization additions
+- the same preserved architecture boundaries
+- the same preserved Side A / Side C / control / explainability principles
+
+This is a file-governance and final-reference improvement,
+not an architecture change.
+
+
+================================================================================
+SECTION 40 - SIDE B V1.2 FULL FINAL STATUS
+================================================================================
+
+Side B V1.2 Full Final preserves:
+- full draft planning content
+- full V1.1 finalization content
+- operator terminal identity
+- monitor/analyse/control/review philosophy
+- command routing boundary
+- active-trade control restrictions
+- Side A visibility compatibility
+- Side C read-model boundary
+- explainability-first philosophy
+- no-trade first-class treatment
+- workflow-first and HOT/WARM/COLD model
+- auditability / traceability visibility
+
+And additionally guarantees:
+- one complete final file
+- one canonical planning reference file
+- no missing draft body
+- no missing finalization addendum
+- no dependency on split-path fragments for future reference
+
+This file is therefore the full dashboard final planning reference.
+
+================================================================================
+END OF SIDE B V1.2 FULL FINAL CONSOLIDATION ADDITIONS
+================================================================================

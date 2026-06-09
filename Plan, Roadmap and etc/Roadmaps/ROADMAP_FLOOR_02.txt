@@ -1,0 +1,1636 @@
+================================================================================
+ JUNIOR ALADDIN - ROADMAP FLOOR 02: DATA CENTER
+ Implementation Execution Document
+================================================================================
+
+DOCUMENT IDENTITY
+--------------------------------------------------------------------------------
+This is NOT an architecture document.
+This is an IMPLEMENTATION EXECUTION DOCUMENT.
+
+This document does NOT:
+- redefine architecture
+- change ownership
+- change contracts
+- change dataflow
+- change wiring
+- change sequencing
+
+This document DOES:
+- provide the exact step-by-step build order for Floor 2
+- define every sub-system, its contract, its dependencies, and its validation
+- cover validation pipeline, cleaning layer, structuring layer, metadata side-channel,
+  review engine, replay engine, contract registry, and Floor 3 handoff
+- serve as the daily coding reference during Floor 2 build
+
+================================================================================
+SECTION 1 - PURPOSE
+================================================================================
+
+One-line identity:
+FLOOR 2 = Data Truth Layer — the system's trusted foundation for all data.
+
+Why this floor exists:
+- Floor 1 brings raw market data into the system
+- Floor 2 preserves, validates, cleans, structures, traces, and exposes it
+- Floor 3 then uses that truth to create intelligence
+- Floor 2 is the MOST important floor because everything above depends on whether
+  the data foundation is truthful, traceable, validated, replayable, and contract-governed
+- Floor 2 must do TWO things at once: preserve original truth AND make usable clean
+  structured truth available
+
+What Floor 2 creates:
+- Data Contract Registry (first-class governance — incoming, internal, outgoing contracts)
+- Raw Storage Layer (original raw + normalized raw envelope — dual raw model)
+- Validation Pipeline (5 validators: duplicate, timestamp, continuity, schema, corruption)
+- Cleaning Layer (tick cleaning, options cleaning, anomaly repair, cleaned layer writer)
+- Structuring Layer (tick streams, candle streams, options snapshots, session packets)
+- Metadata Side-Channel (quality facts, traceability, transform stage, health signal)
+- Review Engine (hybrid: continuous + scheduled + event-triggered)
+- Replay Engine (3 levels: raw replay, cleaned replay, structured replay)
+- Major/Minor Classification (storage priority + processing priority)
+- Floor 3 Handoff (7 output categories: validated tick stream, candles, options snapshots,
+  session packets, macro support packets, metadata side-channel, computed-ready hooks)
+
+What Floor 2 explicitly does NOT create:
+- Any intelligence, analysis, or setup detection (Floor 3+ owns this)
+- Any confidence or conviction scores (Floors 4-5 own this)
+- Any trade judgment or market interpretation (Floor 3+ owns this)
+- Any trading opinion ("this feed is good enough for trade" — forbidden)
+- Any execution logic (Side A owns this)
+
+CRITICAL ARCHITECTURE RULES (must never be violated):
+- Floor 2 generates truth, metadata, and validated structure ONLY — NOT intelligence
+- Floor 2 does NOT detect setups (no FVG/OB trade candidate logic — that's Floor 3)
+- Floor 2 quality facts are factual (packet_completeness=96%), NOT interpretive
+  ("this feed is good for trading")
+- Floor 2 does NOT drift into Floor 3 territory (no structured intelligence,
+  market interpretation, candidate setup meaning, domain confidence)
+- Floor 2 does NOT drift into Captain territory (no trade permission, no conviction)
+- Replay is a FIRST-CLASS responsibility, not optional future utility
+- Data Contract Registry is a FIRST-CLASS governance responsibility
+
+STRICT GUARDRAILS (LOCKED — 10 RULES):
+1. No intelligence generation — only truth, metadata, validated structure
+2. No setup detection — no FVG trade candidate, OB trade candidate, trend continuation
+3. No scores that behave like intelligence scores — quality facts only
+4. No opinion — allowed: "packet_completeness=96%" — forbidden: "this feed is good for trade"
+5. Limited to: truth preservation, validation, cleaning, structuring, traceability,
+   replay, metadata, contracts
+6. Must not drift into Floor 3 territory
+7. Must not drift into Captain territory
+8. Replay = first-class responsibility
+9. Data Contract Registry = first-class governance
+10. Supports upper floors through contracts, not hidden assumptions
+
+================================================================================
+SECTION 2 - COMPONENT ARCHITECTURE
+================================================================================
+
+FOLDER STRUCTURE:
+
+junior_aladdin/floor_2_datacenter/
+│
+├── __init__.py
+├── datacenter_types.py
+├── datacenter_contracts.py
+├── data_contract_registry.py
+├── traceability_registry.py
+├── quality_metadata_builder.py
+├── source_health_engine.py
+├── review_signal_builder.py
+│
+├── ingress/
+│   ├── raw_ingest_router.py
+│   ├── source_envelope_builder.py
+│   └── ingress_monitor.py
+│
+├── raw/
+│   ├── original_raw_store.py
+│   ├── normalized_raw_store.py
+│   └── raw_retention_manager.py
+│
+├── validation/
+│   ├── duplicate_validator.py
+│   ├── timestamp_validator.py
+│   ├── continuity_validator.py
+│   ├── schema_validator.py
+│   ├── corruption_validator.py
+│   └── validation_router.py
+│
+├── cleaning/
+│   ├── tick_cleaner.py
+│   ├── options_cleaner.py
+│   ├── packet_cleaner.py
+│   ├── anomaly_repair.py
+│   └── cleaned_layer_writer.py
+│
+├── structuring/
+│   ├── tick_stream_builder.py
+│   ├── candle_stream_builder.py
+│   ├── options_snapshot_builder.py
+│   ├── session_packet_builder.py
+│   ├── macro_support_builder.py
+│   ├── structured_writer.py
+│   └── major_minor_classifier.py
+│
+├── metadata/
+│   ├── packet_metadata_builder.py
+│   ├── source_trace_builder.py
+│   ├── transform_stage_tracker.py
+│   ├── quality_fact_builder.py
+│   └── retention_metadata_builder.py
+│
+├── review/
+│   ├── continuous_review_engine.py
+│   ├── scheduled_audit_engine.py
+│   ├── event_triggered_review_engine.py
+│   ├── raw_vs_structured_verifier.py
+│   ├── retention_verifier.py
+│   └── audit_report_writer.py
+│
+├── replay/
+│   ├── raw_replay_engine.py
+│   ├── cleaned_replay_engine.py
+│   ├── structured_replay_engine.py
+│   ├── replay_contracts.py
+│   └── replay_controller.py
+│
+├── output/
+│   ├── floor3_handoff_builder.py
+│   ├── metadata_sidechannel_builder.py
+│   ├── session_stream_router.py
+│   ├── review_status_router.py
+│   └── datacenter_output_gateway.py
+│
+└── governance/
+    ├── registry_loader.py
+    ├── runtime_contract_checks.py
+    ├── source_policy_registry.py
+    └── retention_policy_registry.py
+
+SUB-SYSTEM RESPONSIBILITIES:
+
+datacenter_types.py:
+- Floor 2 specific types: ValidationResult, CleaningResult, StructureResult
+- ValidationTier enum (A/B/C), DataClass enum (MAJOR/MINOR)
+- ReviewSignal enum (GOOD/CAUTION/DEGRADED/CRITICAL)
+- TransformStage enum (RAW/VALIDATED/CLEANED/STRUCTURED)
+
+datacenter_contracts.py:
+- All feed schemas defined explicitly
+- Incoming contracts (from Floor 1)
+- Internal contracts (between Floor 2 sub-systems)
+- Outgoing contracts (to Floor 3)
+
+data_contract_registry.py:
+- First-class governance: docs + runtime checks on key feeds
+- Defines: stream/packet name, ownership, schema, freshness expectation,
+  source expectations, quality metadata fields, major/minor class, consumers
+- Runtime enforcement on critical feeds
+
+INGEST SUB-SYSTEM (ingress/):
+
+raw_ingest_router.py:
+- Accept incoming packets from Floor 1
+- Classify by routing identity (SPOT_FEED, OPTIONS_FEED, etc.)
+- Route to appropriate processing pipeline
+- Log all ingest activity
+
+source_envelope_builder.py:
+- Normalize Floor 1 envelope into Floor 2's standard envelope format
+- Preserve ALL Floor 1 fields (add, never remove)
+- Add Floor 2 ingest metadata (ingested_at, ingest_batch_id)
+
+ingress_monitor.py:
+- Track incoming packet rate, volume, source health
+- Detect ingress anomalies (zero packets, rate drop, misrouted)
+- Feed into review engine
+
+RAW STORAGE SUB-SYSTEM (raw/):
+
+original_raw_store.py:
+- Write Floor 1 raw packets EXACTLY as received (unmodified)
+- Architecture rule: original raw = preserved source truth
+- Index by: received_at, source, feed_type, connection_id
+
+normalized_raw_store.py:
+- Write Floor 1 packets wrapped in Floor 2's standard operational envelope
+- Same truth, standardized for downstream system handling
+- Index by: normalized_timestamp, feed_type, packet_id
+
+raw_retention_manager.py:
+- Dynamic retention by data class (Major/Minor)
+- Major: tick data, options chain, OI snapshots → longer retention
+- Minor: support feeds, auxiliary, secondary → shorter retention
+- Configurable TTLs per class
+
+VALIDATION PIPELINE (validation/):
+
+validation_router.py:
+- Route each packet to appropriate validators based on ValidationTier
+- Tier A (very strong): tick data, options chain, OI snapshots
+  → ALL 5 validators run
+- Tier B (strong): candle data, session packets, major structured streams
+  → 4 validators (skip corruption)
+- Tier C (medium/basic): macro support, secondary references, auxiliary
+  → 2 validators (schema + timestamp)
+- Aggregate results, compute validation_confidence
+
+duplicate_validator.py:
+- Check packet_id uniqueness on normalized_raw_store
+- Check received_at + source + feed_type combination for duplicates
+- Configurable dedup window (default: 100ms for ticks, 1s for others)
+- Output: is_duplicate (bool), duplicate_of_packet_id (str | None)
+
+timestamp_validator.py:
+- Check chronological order (received_at should be increasing per source+feed)
+- Check received_at > source_timestamp (packet can't arrive before it was sent)
+- Check received_at within acceptable clock skew (configurable, default 5s)
+- Output: is_ordered (bool), timestamp_delta_ms (float), clock_skew_warning (bool)
+
+continuity_validator.py:
+- Check for missing ticks/candles in expected sequence
+- Expected: 1 tick per ~100ms for spot ticks during market hours
+- Detect: gap > 1s → discontinuity flagged
+- Track: continuity_status = GOOD / MINOR_GAP / MAJOR_GAP / GAP_RECOVERED
+- Output: continuity_status, last_good_sequence_id, gap_duration_ms
+
+schema_validator.py:
+- Check ALL mandatory fields present per data contract
+- Check field types match contract definition
+- Check field value ranges (e.g., price > 0, volume >= 0)
+- Output: schema_compliant (bool), missing_fields (list), type_mismatches (list)
+
+corruption_validator.py:
+- OHLC sanity: high >= low, high >= open, low <= close, etc.
+- Price sanity: within NSE circuit limits (configurable)
+- Volume sanity: not astronomical (100x+ above normal)
+- OI sanity: not negative, not sudden 1000x spike
+- Output: is_corrupt (bool), corruption_type (str), details (dict)
+
+CLEANING LAYER (cleaning/):
+
+tick_cleaner.py:
+- Remove zero-volume ticks (exchange artifacts)
+- Remove ticks with obviously wrong prices (fat-finger guards)
+- Flag but preserve removed ticks for audit (never truly delete)
+- Output: cleaned_tick (dict | None), removal_reason (str | None)
+
+options_cleaner.py:
+- OI sanity: remove negative OI records
+- Premium bounds: remove strikes with unrealistic premium (100x+ of ATM)
+- Flag extreme values for review
+- Output: cleaned_snapshot (dict | None), anomaly_flags (list)
+
+packet_cleaner.py:
+- General packet anomalies: empty payload, malformed JSON, encoding issues
+- Remove obviously broken packets, flag for review
+- Output: cleaned_packet (dict | None), anomaly_flags (list)
+
+anomaly_repair.py:
+- Interpolate minor gaps (1-2 missing ticks between valid ticks)
+- Flag major gaps (3+ missing ticks) — do NOT interpolate
+- Repair small timestamp misalignments (within 50ms)
+- Output: repaired (bool), repair_action (str | None), original_values (dict)
+
+cleaned_layer_writer.py:
+- Write validation-passed data as cleaned records
+- Write anomaly-repaired data with repair metadata
+- Write removed packets to quarantine store (for audit)
+- Output: cleaned records → structuring layer
+- Architecture rule: cleaned layer = reusable, not just a scratchpad
+
+STRUCTURING LAYER (structuring/):
+
+tick_stream_builder.py:
+- Group validated ticks into continuous stream
+- Timestamp-ordered sequence with sequence_id
+- Stream metadata: start_time, end_time, tick_count, gaps
+- Output: TickStream (structured, queryable)
+
+candle_stream_builder.py:
+- Build 1m OHLCV candles from tick stream
+- OHLCV: open, high, low, close, volume for each 1m window
+- Track candle completeness (partial vs full minute)
+- Validate candle: high >= low, open/close within [high, low]
+- Output: CandleStream(1m candles), CandleMetadata per candle
+
+options_snapshot_builder.py:
+- Build OI snapshots at configurable intervals (default: 5m)
+- Group by expiry, strike, option type (CE/PE)
+- Fields: strike, OI, premium, IV, delta, change_in_OI
+- Output: OptionsSnapshot per interval
+
+session_packet_builder.py:
+- Build explicit session packets: opening, mid-session, closing
+- Session boundaries based on market hours (9:15-3:30)
+- Fields: session_id, session_type, session_phase, session_status
+- Broader references: Asia, London, New York if applicable
+- Output: SessionPacket per session phase change
+
+major_minor_classifier.py:
+- Classify each feed as Major or Minor
+- Major: tick data, candle streams, options chain, OI snapshots, core market feeds
+- Minor: support feeds, auxiliary feeds, secondary references, slower contextual
+- Effects applied to: storage priority, processing priority, validation strictness,
+  replay importance, retention behavior, output routing priority
+- Output: classification record per feed
+
+structured_writer.py:
+- Write all structured outputs to structured store
+- Coordinate writes in dependency order (ticks → candles → options → session)
+- Ensure atomicity per time window
+
+METADATA SIDE-CHANNEL (metadata/):
+
+packet_metadata_builder.py:
+- Build packet-level metadata: received_at, envelope fields, packet_size, source
+- Indexed by packet_id for fast lookup
+- Available for dashboard debugging
+
+source_trace_builder.py:
+- Track source lineage through pipeline stages
+- Minimum: source, fetched_at, validated_at, review_status, transform_stage
+- Enables: "where did this packet come from? what stage did it pass through?"
+- Output: traceability record per packet
+
+transform_stage_tracker.py:
+- Track raw → validated → cleaned → structured for each packet
+- Timestamp each stage completion
+- Flag packets stuck at a stage (not progressing)
+- Output: stage history per packet
+
+quality_fact_builder.py:
+- Build factual quality metrics (NOT judgmental)
+- Fields: raw_trust_level (0-1), validation_confidence (0-1),
+  packet_completeness (0-1), continuity_status (GOOD/MINOR_GAP/MAJOR_GAP),
+  source_health_state (HEALTHY/DEGRADED/STALE/AUTH_FAILED/DISCONNECTED)
+- These are QUALITY FACTS, not intelligence
+- Output: QualityFacts per packet/stream
+
+retention_metadata_builder.py:
+- Track retention decisions: class (Major/Minor), retention class, deletion date,
+  archive flag
+- Support audit trail for data lifecycle
+- Output: RetentionRecord per data class
+
+REVIEW ENGINE (review/):
+
+continuous_review_engine.py:
+- Ongoing health monitoring of data quality
+- Feed health check, packet loss detection, continuity check, source degradation
+- Runs on every batch of ingested data
+- Output: health_events, quality_flags, review_signals
+
+scheduled_audit_engine.py:
+- Scheduled governance checks: raw vs structured verification, retention verification,
+  audit reports, quality summaries
+- Configurable schedule (daily, weekly)
+- Output: audit_reports, verification_results
+
+event_triggered_review_engine.py:
+- Triggered on: packet corruption spike, source degradation, validation failure burst,
+  abnormal continuity break cluster
+- Deep analysis on triggered events
+- Output: incident_reports, investigation_summaries
+
+raw_vs_structured_verifier.py:
+- Compare original raw data with structured output for selected samples
+- Verify no data loss during transformation
+- Output: verification_score (0-1), discrepancies (list)
+
+retention_verifier.py:
+- Verify retention policy is being followed
+- Check: data not deleted early, archive process running, old data expiring correctly
+- Output: compliance_status, violations (list)
+
+audit_report_writer.py:
+- Generate human-readable audit reports
+- Include: quality summaries, health trends, verification results, incident log
+- Output: structured audit reports
+
+review_signal_builder.py:
+- Convert review outcomes into 4-level transportable signal:
+  GOOD / CAUTION / DEGRADED / CRITICAL
+- Route through metadata side-channel to upper floors
+- Captain receives ONLY light signal through upper-floor summary paths
+- NOT a direct Captain decision feed
+
+REPLAY ENGINE (replay/):
+
+raw_replay_engine.py:
+- Replay raw packets from original_raw_store
+- Support time range queries (start_time, end_time)
+- Support source + feed_type filters
+- Output: exact same packet sequence as original ingest
+
+cleaned_replay_engine.py:
+- Replay cleaned packets from cleaned store
+- Include repair/removal metadata where applicable
+- Support validation result filters (e.g., replay only VALIDATED packets)
+- Output: cleaned packet stream
+
+structured_replay_engine.py:
+- Replay structured streams (candles, tick streams, options snapshots)
+- Support structured-level time range queries
+- Output: same structured format as real-time pipeline
+
+replay_contracts.py:
+- Define replay query interface: time range, filters, output format
+- Version the replay contracts for future compatibility
+- Document replay use cases: debugging, testing, verification
+
+replay_controller.py:
+- Manage replay sessions
+- Coordinate raw → cleaned → structured replay order
+- Ensure replay produces identical output (bit-for-bit for raw)
+- Track replay session metadata (session_id, user, purpose)
+
+OUTPUT SUB-SYSTEM (output/):
+
+floor3_handoff_builder.py:
+- Assemble Floor 3 handoff contract: ALL 7 output categories
+- validated_tick_stream, validated_candle_streams, options_snapshots,
+  session_packets, macro_support_packets, metadata side-channel, computed-ready hooks
+- Verify every mandatory field before handoff
+- Raise ContractViolationError on missing fields
+
+metadata_sidechannel_builder.py:
+- Package quality facts, traceability, transform_stage, review signal for transport
+- Route through side-channel (not in main data stream)
+- Keep side-channel lightweight (factual metadata only, no raw data)
+
+session_stream_router.py:
+- Route per-session structured outputs to correct consumers
+- Opening session, mid-session, closing session routing
+- Support session context propagation
+
+review_status_router.py:
+- Route review signals to appropriate consumers
+- Light signal to Captain summary path
+- Detailed reports to Side B (dashboard) and Side C (memory)
+
+datacenter_output_gateway.py:
+- Central output point for all Floor 2 outbound data
+- Govern output contracts, enforce schema compliance
+- Log all outbound data for audit
+
+GOVERNANCE SUB-SYSTEM (governance/):
+
+registry_loader.py:
+- Load data contract registry from config/registry definitions
+- Validate registry format
+- Support hot-reload for contract updates
+
+runtime_contract_checks.py:
+- Runtime enforcement of contract compliance on key feeds
+- Check all outbound data against registered contracts
+- Log violations, raise ContractViolationError on critical mismatches
+
+source_policy_registry.py:
+- Define policies per source: allowed feed types, validation tiers, retention classes
+- Enforce source-specific rules at ingress
+- Support adding new sources without code changes
+
+retention_policy_registry.py:
+- Define retention policies per data class
+- Configuration-driven TTLs
+- Support archive path configuration
+
+================================================================================
+SECTION 3 - STEP-BY-STEP BUILD ORDER
+================================================================================
+
+BUILD ORDER: Sub-systems and files must be built in this exact order.
+
+The build follows the logical data flow: Ingest → Store → Validate → Clean →
+Structure → Metadata → Review → Replay → Handoff
+
+----------------------------------------------------------------------
+STEP 2.1 — FLOOR 2 TYPES + CONTRACTS (datacenter_types.py, datacenter_contracts.py)
+----------------------------------------------------------------------
+Files: floor_2_datacenter/datacenter_types.py
+       floor_2_datacenter/datacenter_contracts.py
+
+Purpose: Define all Floor 2 specific types and contracts before any code.
+         Input contracts, internal contracts, output contracts all defined upfront.
+
+Input contract (datacenter_contracts.py):
+- Floor 1 output contract (5 payload families): original_raw_packet,
+  minimal_source_envelope, feed_routing_identity, source_health_facts,
+  manual_source_tags
+
+Output contract:
+- datacenter_types.py:
+  - ValidationTier enum: A, B, C
+  - DataClass enum: MAJOR, MINOR
+  - TransformStage enum: RAW, VALIDATED, CLEANED, STRUCTURED
+  - ReviewSignal enum: GOOD, CAUTION, DEGRADED, CRITICAL
+  - ContinuityStatus enum: GOOD, MINOR_GAP, MAJOR_GAP, GAP_RECOVERED
+  - ValidationResult dataclass: validator_name, passed, details, confidence
+  - QualityFacts dataclass: raw_trust_level, validation_confidence,
+    packet_completeness, continuity_status, source_health_state
+- datacenter_contracts.py:
+  - ALL feed schemas as Python dataclasses/dict templates
+  - Incoming, internal, outgoing contract definitions
+
+Dependencies: Phase 0 (shared/types.py, shared/config.py, shared/errors.py)
+Validation:
+- All enums importable and have correct values
+- All contracts define mandatory vs optional fields
+- Floor 1 → Floor 2 input contract matches Floor 1 handoff exactly
+
+----------------------------------------------------------------------
+STEP 2.2 — INGEST SUB-SYSTEM (ingress/)
+----------------------------------------------------------------------
+Files: floor_2_datacenter/ingress/raw_ingest_router.py
+       floor_2_datacenter/ingress/source_envelope_builder.py
+       floor_2_datacenter/ingress/ingress_monitor.py
+
+Purpose: Accept incoming Floor 1 packets, normalize envelopes, monitor ingress.
+
+Input contract:
+- Floor 1 5-family payload: dict with keys:
+  - original_raw_packet: dict
+  - minimal_source_envelope: dict (source, feed_type, connection_id, etc.)
+  - feed_routing_identity: str
+  - source_health_facts: dict
+  - manual_source_tags: dict | None
+
+Output contract:
+- Raw ingest payload (to raw storage): dict with all 5 families preserved
+  + ingest metadata (ingested_at, ingest_batch_id)
+- Ingress health metrics to monitoring
+
+Dependencies: Step 2.1 (types + contracts)
+Validation:
+- raw_ingest_router receives Floor 1 packet → routes correctly
+- source_envelope_builder normalizes without losing any original field
+- ingress_monitor tracks rate correctly
+- Reject malformed input with ContractViolationError
+
+----------------------------------------------------------------------
+STEP 2.3 — RAW STORAGE SUB-SYSTEM (raw/)
+----------------------------------------------------------------------
+Files: floor_2_datacenter/raw/original_raw_store.py
+       floor_2_datacenter/raw/normalized_raw_store.py
+       floor_2_datacenter/raw/raw_retention_manager.py
+
+Purpose: Preserve original truth + normalized envelope in persistent storage.
+
+Input contract:
+- From ingest sub-system: dict with Floor 1 data + ingest metadata
+
+Output contract:
+- original_raw_store: exact raw data written to SQLite table (original_raw_packets)
+- normalized_raw_store: normalized envelope written to SQLite table (normalized_raw_packets)
+- raw_retention_manager: retention class assigned per packet
+
+Dependencies: Step 2.2 (ingest sub-system must exist to produce inputs)
+Validation:
+- Store 10 packets → verify original_raw_store has exact copies
+- Store 10 packets → verify normalized_raw_store has envelope with all mandatory fields
+- Query by timestamp range → correct packets returned
+- Retention: set short TTL → verify expired packets cleaned up
+- Dual raw model: both stores have same content (different formats)
+
+----------------------------------------------------------------------
+STEP 2.4 — VALIDATION PIPELINE (validation/)
+----------------------------------------------------------------------
+Files: floor_2_datacenter/validation/validation_router.py
+       floor_2_datacenter/validation/duplicate_validator.py
+       floor_2_datacenter/validation/timestamp_validator.py
+       floor_2_datacenter/validation/continuity_validator.py
+       floor_2_datacenter/validation/schema_validator.py
+       floor_2_datacenter/validation/corruption_validator.py
+
+Purpose: Validate data quality — catch duplicates, bad timestamps,
+         continuity gaps, schema violations, corrupt data.
+
+Build order within this step:
+2.4.1 — duplicate_validator.py (most critical — prevent reprocessing)
+2.4.2 — timestamp_validator.py (temporal ordering)
+2.4.3 — continuity_validator.py (gap detection)
+2.4.4 — schema_validator.py (field compliance)
+2.4.5 — corruption_validator.py (OHLC/price sanity)
+2.4.6 — validation_router.py (orchestrates all validators)
+
+Input contract:
+- From raw storage sub-system: normalized raw envelope
+
+Output contract (per validator):
+- Each validator produces: ValidationResult (validator_name, passed, details, confidence)
+- validation_router produces: aggregate validation decision (PASS/FAIL/FLAG)
+
+Dependencies: Step 2.3 (raw storage for source data)
+Validation:
+- duplicate_validator: 10 identical packets → 9 detected as duplicates
+- timestamp_validator: out-of-order packet → flagged with timestamp_delta_ms
+- continuity_validator: insert 5s gap → MAJOR_GAP detected
+- schema_validator: packet missing mandatory field → schema_compliant=False
+- corruption_validator: high < low OHLC → is_corrupt=True
+- validation_router: Tier A → all 5 validators run; Tier C → 2 validators run
+- Dynamic validation by data type works correctly
+
+----------------------------------------------------------------------
+STEP 2.5 — CLEANING LAYER (cleaning/)
+----------------------------------------------------------------------
+Files: floor_2_datacenter/cleaning/tick_cleaner.py
+       floor_2_datacenter/cleaning/options_cleaner.py
+       floor_2_datacenter/cleaning/packet_cleaner.py
+       floor_2_datacenter/cleaning/anomaly_repair.py
+       floor_2_datacenter/cleaning/cleaned_layer_writer.py
+
+Purpose: Clean validated data — remove artifacts, repair minor anomalies,
+         preserve audit trail of all removals/repairs.
+
+Build order:
+2.5.1 — tick_cleaner.py (most common — tick artifacts are frequent)
+2.5.2 — packet_cleaner.py (general packet anomalies)
+2.5.3 — options_cleaner.py (options-specific cleaning)
+2.5.4 — anomaly_repair.py (interpolation of minor gaps)
+2.5.5 — cleaned_layer_writer.py (writes cleaned output)
+
+Input contract:
+- Validated packets from validation pipeline
+- Validation results indicating which packets passed/failed
+
+Output contract:
+- Cleaned packets (validation-passed + anomaly-repaired)
+- Quarantine records (removed packets with removal_reason)
+- Cleaning metadata (what was removed/repaired and why)
+
+Dependencies: Step 2.4 (validation results determine what gets cleaned)
+Validation:
+- tick_cleaner: zero-volume tick → removed, flagged for audit
+- options_cleaner: negative OI → removed
+- packet_cleaner: empty payload → removed
+- anomaly_repair: single missing tick between two valid ticks → interpolated
+- anomaly_repair: 5 consecutive missing ticks → NOT repaired (gap flagged)
+- cleaned_layer_writer: cleaned packets written, removed packets quarantined
+- Original raw is NEVER modified — cleaning creates fresh cleaned records
+
+----------------------------------------------------------------------
+STEP 2.6 — STRUCTURING LAYER (structuring/)
+----------------------------------------------------------------------
+Files: floor_2_datacenter/structuring/tick_stream_builder.py
+       floor_2_datacenter/structuring/candle_stream_builder.py
+       floor_2_datacenter/structuring/options_snapshot_builder.py
+       floor_2_datacenter/structuring/session_packet_builder.py
+       floor_2_datacenter/structuring/major_minor_classifier.py
+       floor_2_datacenter/structuring/structured_writer.py
+
+Purpose: Transform cleaned data into structured, reusable formats.
+
+Build order:
+2.6.1 — major_minor_classifier.py (classification needed by all other builders)
+2.6.2 — tick_stream_builder.py (ticks → structured tick stream)
+2.6.3 — candle_stream_builder.py (ticks → 1m OHLCV candles)
+2.6.4 — options_snapshot_builder.py (OI snapshots)
+2.6.5 — session_packet_builder.py (session boundaries)
+2.6.6 — macro_support_builder.py (VIX, FII/DII, global cues, calendar)
+2.6.7 — structured_writer.py (persists all structured outputs)
+
+Input contract:
+- Cleaned packets from cleaning layer
+- Major/Minor classification rules
+
+Output contract (mandatory structured outputs):
+- validated_tick_stream: structured tick stream with sequence_id
+- validated_candle_streams: 1m OHLCV candles (minimum required)
+- options_snapshots: OI snapshots at configured intervals
+- session_packets: explicit session context packets
+- macro_support_packets: structured support/context feeds
+
+Dependencies: Step 2.5 (cleaned data)
+Validation:
+- tick_stream_builder: 100 ticks → stream with 100 entries, sequential sequence_ids
+- candle_stream_builder: 60 ticks for 1 minute → 1 correct OHLCV candle
+- candle_stream_builder: verify high >= low, open/close within [high, low]
+- options_snapshot_builder: OI data → correct snapshot with strike, OI, premium, IV
+- session_packet_builder: 9:15 → opening session packet; 15:30 → closing packet
+- major_minor_classifier: tick data = MAJOR, macro support = MINOR
+- structured_writer: all outputs persisted correctly
+
+----------------------------------------------------------------------
+STEP 2.7 — METADATA SIDE-CHANNEL (metadata/)
+----------------------------------------------------------------------
+Files: floor_2_datacenter/metadata/packet_metadata_builder.py
+       floor_2_datacenter/metadata/source_trace_builder.py
+       floor_2_datacenter/metadata/transform_stage_tracker.py
+       floor_2_datacenter/metadata/quality_fact_builder.py
+       floor_2_datacenter/metadata/retention_metadata_builder.py
+
+Purpose: Build factual metadata about data quality, traceability, and lineage.
+
+Build order:
+2.7.1 — transform_stage_tracker.py (tracks pipeline progress — needed by trace builder)
+2.7.2 — packet_metadata_builder.py (packet-level metadata)
+2.7.3 — source_trace_builder.py (source lineage through pipeline)
+2.7.4 — quality_fact_builder.py (factual quality metrics)
+2.7.5 — retention_metadata_builder.py (retention governance records)
+
+Input contract:
+- From all previous pipeline stages: validation results, cleaning actions,
+  structure outputs, transform_stage updates
+
+Output contract:
+- TransformStage: per-packet stage history (raw → validated → cleaned → structured)
+- PacketMetadata: received_at, envelope fields, packet_size, source
+- SourceTrace: source, fetched_at, validated_at, review_status, transform_stage
+- QualityFacts: raw_trust_level, validation_confidence, packet_completeness,
+  continuity_status, source_health_state
+- RetentionMetadata: class, retention class, deletion date, archive flag
+
+Dependencies: Steps 2.4-2.6 (validation, cleaning, structuring pipelines)
+Validation:
+- transform_stage_tracker: packet enters raw → stage=RAW; passes validation → stage=VALIDATED
+- source_trace_builder: query by packet_id → full pipeline trace returned
+- quality_fact_builder: 100% clean data → raw_trust_level=1.0, validation_confidence=1.0
+- quality_fact_builder: 50% validation failure → validation_confidence=0.5
+- Quality facts are FACTUAL, not interpretive — no trade judgment
+- retention_metadata_builder: MAJOR data → longer retention than MINOR
+
+----------------------------------------------------------------------
+STEP 2.8 — DATA CONTRACT REGISTRY + GOVERNANCE (governance/)
+----------------------------------------------------------------------
+Files: floor_2_datacenter/data_contract_registry.py
+       floor_2_datacenter/governance/registry_loader.py
+       floor_2_datacenter/governance/runtime_contract_checks.py
+       floor_2_datacenter/governance/source_policy_registry.py
+       floor_2_datacenter/governance/retention_policy_registry.py
+
+Purpose: Establish first-class governance for all data contracts.
+
+Input contract:
+- Contract definitions from datacenter_contracts.py
+- Source policy definitions from config
+- Retention policy definitions from config
+
+Output contract:
+- ContractRegistry: registered contracts with runtime enforcement hooks
+- RuntimeContractChecks: pass/fail for outbound data against registered contracts
+- SourcePolicyRegistry: per-source policies enforced at ingest
+- RetentionPolicyRegistry: data class → retention TTL mapping
+
+Dependencies: Steps 2.1-2.7 (all contracts must be defined before registry can verify them)
+Validation:
+- Register a contract → verify it exists in registry
+- Runtime check on data matching contract → passes
+- Runtime check on data violating contract → flagged with ContractViolationError
+- Source policy: source X only feeds type Y → verify enforced at ingest
+- Retention policy: set TTL → verify data cleaned up correctly
+
+----------------------------------------------------------------------
+STEP 2.9 — REVIEW ENGINE (review/)
+----------------------------------------------------------------------
+Files: floor_2_datacenter/review/continuous_review_engine.py
+       floor_2_datacenter/review/scheduled_audit_engine.py
+       floor_2_datacenter/review/event_triggered_review_engine.py
+       floor_2_datacenter/review/raw_vs_structured_verifier.py
+       floor_2_datacenter/review/retention_verifier.py
+       floor_2_datacenter/review/audit_report_writer.py
+       floor_2_datacenter/review_signal_builder.py
+
+Purpose: Monitor data health continuously, conduct scheduled audits,
+         respond to anomalies, produce review signals.
+
+Build order:
+2.9.1 — continuous_review_engine.py (core monitoring — build first)
+2.9.2 — review_signal_builder.py (signal generation — needed by all review types)
+2.9.3 — event_triggered_review_engine.py (anomaly detection)
+2.9.4 — scheduled_audit_engine.py (periodic checks)
+2.9.5 — raw_vs_structured_verifier.py (data fidelity check)
+2.9.6 — retention_verifier.py (policy compliance)
+2.9.7 — audit_report_writer.py (report generation)
+
+Input contract:
+- QualityFacts from metadata side-channel
+- Pipeline health metrics
+- Retention metadata
+
+Output contract:
+- ContinuousReview: health_events stream, real-time quality_flags
+- ScheduledAudit: audit_reports, verification_results
+- EventTriggeredReview: incident_reports for anomaly spikes
+- RawVsStructured: verification_score per sample window
+- RetentionVerifier: compliance_status, violations list
+- ReviewSignal: 4-level transportable signal (GOOD/CAUTION/DEGRADED/CRITICAL)
+
+Dependencies: Steps 2.4-2.8 (pipeline data + metadata + registry)
+Validation:
+- continuous_review_engine: feed normal data → no health events; feed bad data → events generated
+- event_triggered_review_engine: single validation failure → no trigger;
+  10 consecutive failures → trigger investigation
+- raw_vs_structured_verifier: identical input/output → verification_score=1.0
+- review_signal_builder: healthy system → GOOD signal
+- review_signal_builder: degraded system → CAUTION/DEGRADED signal
+- Captain receives ONLY light signal — detailed reports go to Side B/Side C
+
+----------------------------------------------------------------------
+STEP 2.10 — REPLAY ENGINE (replay/)
+----------------------------------------------------------------------
+Files: floor_2_datacenter/replay/raw_replay_engine.py
+       floor_2_datacenter/replay/cleaned_replay_engine.py
+       floor_2_datacenter/replay/structured_replay_engine.py
+       floor_2_datacenter/replay/replay_contracts.py
+       floor_2_datacenter/replay/replay_controller.py
+
+Purpose: Enable replay of data at 3 levels: raw, cleaned, structured.
+
+Build order:
+2.10.1 — replay_contracts.py (define replay interface first)
+2.10.2 — raw_replay_engine.py (simplest — read from original_raw_store)
+2.10.3 — cleaned_replay_engine.py (read from cleaned layer)
+2.10.4 — structured_replay_engine.py (read from structured outputs)
+2.10.5 — replay_controller.py (manage sessions, coordinate replay levels)
+
+Input contract:
+- Time range query + optional filters (source, feed_type, validation tier, etc.)
+
+Output contract:
+- raw_replay: exact packet sequence as originally ingested
+- cleaned_replay: cleaned packets with repair/removal metadata
+- structured_replay: structured streams (same format as real-time pipeline)
+- replay_controller: session_id, session_state, output stream
+
+Dependencies: Steps 2.3-2.6 (stores must exist with data)
+Validation:
+- Store 1 hour of data → replay raw → verify bit-for-bit identical output
+- Store → replay cleaned → verify repair metadata preserved
+- Store → replay structured → verify same candles produced
+- Replay must produce IDENTICAL output on second replay (deterministic)
+- replay_controller: start session → replay data → end session → session logged
+
+----------------------------------------------------------------------
+STEP 2.11 — METADATA + REVIEW STATUS ROUTER (output/ support)
+----------------------------------------------------------------------
+Files: floor_2_datacenter/metadata/quality_fact_builder.py (already exists)
+       floor_2_datacenter/output/metadata_sidechannel_builder.py
+       floor_2_datacenter/output/review_status_router.py
+
+Purpose: Package metadata and review signals for transport to upper floors.
+
+Input contract:
+- QualityFacts from metadata sub-system
+- ReviewSignal from review engine
+
+Output contract:
+- MetadataSideChannel: structured quality_facts + traceability + transform_stage
+- ReviewStatus: 4-level light signal + summary (GOOD/CAUTION/DEGRADED/CRITICAL)
+
+Dependencies: Steps 2.7 (metadata) + 2.9 (review)
+Validation:
+- metadata_sidechannel_builder: all quality fact fields present
+- review_status_router: light signal correctly reflects review state
+- Side-channel does NOT contain raw market data — only factual metadata
+
+----------------------------------------------------------------------
+STEP 2.12 — FLOOR 3 HANDOFF (output/)
+----------------------------------------------------------------------
+Files: floor_2_datacenter/output/floor3_handoff_builder.py
+       floor_2_datacenter/output/session_stream_router.py
+       floor_2_datacenter/output/datacenter_output_gateway.py
+
+Purpose: Assemble and deliver ALL Floor 3 required outputs.
+
+Input contract:
+- Structured data from structuring sub-system
+- Metadata from metadata side-channel
+- Review signal from review engine
+
+Output contract (7 mandatory categories):
+1. validated_tick_stream: structured tick stream for downstream
+2. validated_candle_streams: clean candle foundation (1m minimum)
+3. options_snapshots: OI snapshots for options analysis
+4. session_packets: session/time-context support
+5. macro_support_packets: structured VIX, FII/DII, global cues, calendar
+6. metadata side-channel: quality facts, traceability, review state,
+   source health, review light signal
+7. computed-ready hooks: stable interfaces for Floor 3 computation,
+   NOT actual intelligence
+
+Dependencies: Steps 2.6 (structuring), 2.7 (metadata), 2.9 (review), 2.11 (routers)
+Validation:
+- floor3_handoff_builder: ALL 7 output categories present
+- floor3_handoff_builder: missing mandatory field → ContractViolationError
+- Each output category matches shared/types.py contracts
+- No intelligence/opinion in any output field
+- datacenter_output_gateway: logs every outbound transmission
+
+----------------------------------------------------------------------
+STEP 2.13 — FULL FLOOR 2 INTEGRATION TEST
+----------------------------------------------------------------------
+Purpose: Verify the complete Floor 2 chain works end-to-end.
+
+Integration test chain:
+1. Inject Floor 1 mock data (10 packets: 7 healthy, 1 duplicate, 1 corrupt, 1 out-of-order)
+2. Ingest sub-system receives all 10 + normalizes envelopes
+3. Raw storage persists dual raw copies
+4. Validation pipeline runs all validators on Tier A data
+   → duplicate detected, corruption flagged, out-of-order flagged
+5. Cleaning layer removes corrupt tick, repairs minor timestamp mismatch
+6. Structuring layer builds 1m candle from remaining valid ticks
+7. Metadata side-channel populated with quality facts for all packets
+8. Review engine detects anomaly burst from multiple failures → events generated
+9. Replay: store batch → replay → verify identical output
+10. Floor 3 handoff produces all 7 output categories
+
+Validation:
+- `pytest tests/test_floor_2/ -v` → all tests pass
+- `python -c "from junior_aladdin.floor_2_datacenter import *"` → zero import errors
+- Dual raw: both original and normalized stores have correct data
+- All 5 validators produce correct pass/fail for known test data
+- All mandatory structured outputs produced correctly
+- Replay produces identical output
+
+================================================================================
+SECTION 4 - INPUT/OUTPUT CONTRACTS
+================================================================================
+
+FLOOR 2 AS A WHOLE:
+
+INPUT CONTRACT (from Floor 1):
+5 payload families per packet:
+1. original_raw_packet: dict (unmodified source truth)
+2. minimal_source_envelope: dict (source, feed_type, connection_id, packet_id,
+   routing_id, received_at)
+3. feed_routing_identity: str (SPOT_FEED / OPTIONS_FEED / VIX_FEED /
+   CALENDAR_FEED / MACRO_FEED)
+4. source_health_facts: dict (lifecycle_state, latency_ms, heartbeat_age_s,
+   reconnect_count)
+5. manual_source_tags: dict | None (only for manual ingress)
+
+OUTPUT CONTRACT (to Floor 3) — 7 mandatory categories:
+
+CATEGORY 1: validated_tick_stream
+- Stream of validated ticks with sequence_id
+- Fields: timestamp, price, volume, source, feed_type, sequence_id
+
+CATEGORY 2: validated_candle_streams
+- 1m OHLCV candles (minimum), can build higher timeframes in Floor 3
+- Fields: timestamp, open, high, low, close, volume, candle_completeness
+
+CATEGORY 3: options_snapshots
+- OI snapshots at configured intervals
+- Fields: timestamp, expiry, strike, option_type, OI, premium, IV
+
+CATEGORY 4: session_packets
+- Explicit session context
+- Fields: session_id, session_type, session_phase, session_status, timestamp
+
+CATEGORY 5: macro_support_packets
+- Structured support/context feeds: VIX, FII/DII, global cues, calendar events
+- Fields: timestamp, data_type, value, source, freshness
+
+CATEGORY 6: metadata side-channel
+- QualityFacts: raw_trust_level, validation_confidence, packet_completeness,
+  continuity_status, source_health_state
+- SourceTrace: source, fetched_at, validated_at, review_status, transform_stage
+- ReviewSignal: GOOD/CAUTION/DEGRADED/CRITICAL
+
+CATEGORY 7: computed-ready hooks
+- Stable interface definitions for Floor 3 computation staging
+- Packet schemas, staging interfaces
+- NOT actual computation, NOT intelligence
+
+ERROR CONTRACT:
+- ContractViolationError: raised when outbound data fails contract check
+- ValidationError: raised when inbound data fails validation (logged, packet quarantined)
+- ReplayError: raised when replay target data not found
+- Missing mandatory field: ContractViolationError + logged
+
+PER-SUB-SYSTEM CONTRACTS:
+
+| Sub-system        | Input                              | Output                              | Error                         |
+|-------------------|------------------------------------|--------------------------------------|-------------------------------|
+| ingress/          | Floor 1 payload families            | Raw ingest payloads + ingress health | ContractViolationError        |
+| raw/              | Raw ingest payloads                 | Original raw + normalized raw stores | StoreError on write failure   |
+| validation/       | Normalized raw envelopes             | ValidationResults per validator      | ValidationError on bad data   |
+| cleaning/         | Validated packets + results         | Cleaned packets + quarantine records | ValueError on invalid config  |
+| structuring/      | Cleaned data                        | Structured streams + snapshots       | ValueError on invalid input   |
+| metadata/         | Pipeline stage data                 | QualityFacts, SourceTrace, etc.      | ValueError on missing field   |
+| review/           | Metadata, pipeline health            | Health events, audit reports, signal  | Logged, no crash              |
+| replay/           | Time range + filter queries          | Replayed data (raw/cleaned/structured)| ReplayError on missing data   |
+| governance/       | Contract definitions + policy config | Registry, runtime checks, enforcement | ContractViolationError        |
+| output/           | Structured + metadata               | Floor 3 handoff (7 categories)       | ContractViolationError        |
+
+================================================================================
+SECTION 5 - DEPENDENCY MAP
+================================================================================
+
+UPSTREAM DEPENDENCIES (must exist before Floor 2 can start):
+- Phase 0 complete: shared/types.py, config.py, logging.py, errors.py, testing.py
+- Phase 1 complete: Floor 1 producing enveloped packets to 5-family handoff
+- Floor 1 → Floor 2 contract verified (all 5 payload families present)
+- Python packages:
+  - SQLite3 (built-in — zero install)
+  - json (built-in), datetime (built-in)
+- Storage backend: SQLite for dev (file-based, zero setup, single laptop)
+
+DOWNSTREAM DEPENDENCIES (Floor 2 blocks these):
+- Phase 3 (Side C Base): needs Floor 2 data contracts (event formats, schemas)
+- Phase 4 (Floor 3 Calculation Engines): needs Floor 2 validated structured data
+- Side C Health Events: needs Floor 2 quality/health metadata
+- Side B Dashboard data panels: need Floor 2 structured data flowing
+
+MOCK REQUIREMENTS:
+- Mock Floor 1 packet generator (shared/testing.py)
+  - Generate healthy ticks, duplicate ticks, corrupt ticks, out-of-order ticks
+  - Generate valid and invalid options data
+- In-memory SQLite for test speed
+- Mock source health facts for all lifecycle states
+- All Floor 2 sub-systems testable WITHOUT real Floor 1 running
+
+INTERNAL DEPENDENCY CHAIN (within Floor 2):
+```
+datacenter_types.py + datacenter_contracts.py (no deps within floor)
+    ↓
+ingress/ (depends on contracts + types)
+    ↓
+raw/ (depends on ingest)
+    ↓
+validation/ (depends on raw store)
+    ↓
+cleaning/ (depends on validation)
+    ↓
+structuring/ (depends on cleaning)
+    ↓
+metadata/ (depends on validation + cleaning + structuring)
+    ↓
+governance/ (depends on all contracts + data)
+    ↓
+review/ (depends on metadata + pipeline data)
+    ↓
+replay/ (depends on raw + cleaned + structured stores)
+    ↓
+output/ (depends on structuring + metadata + review)
+```
+
+================================================================================
+SECTION 6 - WIRING DIAGRAM
+================================================================================
+
+FLOOR 2 INTERNAL WIRING:
+
+```
+Floor 1 packet (5 families)
+    |
+    v
+ingress/raw_ingest_router.py
+    |
+    +---> source_envelope_builder.py (normalize envelope)
+    |         |
+    |         v
+    |    ingress_monitor.py (track ingress metrics)
+    |
+    v
+raw/original_raw_store.py ──> raw/normalized_raw_store.py
+    |                              |
+    |                              v
+    |                         validation/validation_router.py
+    |                              |
+    |              +---------------+---------------+
+    |              |               |               |
+    v              v               v               v
+    |    duplicate_val  timestamp_val  continuity_val
+    |              |               |               |
+    |    schema_validator    corruption_validator
+    |              |               |
+    |              +-------+-------+
+    |                      |
+    |                      v
+    |              cleaning/tick_cleaner.py
+    |                      |
+    |              cleaning/options_cleaner.py
+    |                      |
+    |              cleaning/anomaly_repair.py
+    |                      |
+    |              cleaning/cleaned_layer_writer.py
+    |                      |
+    |                      v
+    |              structuring/major_minor_classifier.py
+    |                      |
+    |              structuring/tick_stream_builder.py
+    |                      |
+    |              structuring/candle_stream_builder.py
+    |                      |
+    |              structuring/options_snapshot_builder.py
+    |                      |
+    |              structuring/session_packet_builder.py
+    |                      |
+    |              structuring/structured_writer.py
+    |                      |
+    +----> metadata/transform_stage_tracker.py
+    |                      |
+    +----> metadata/quality_fact_builder.py
+    |                      |
+    +----> metadata/source_trace_builder.py
+    |                      |
+    |                      v
+    |              review/continuous_review_engine.py
+    |                      |
+    |              review/review_signal_builder.py
+    |                      |
+    +----> replay/raw_replay_engine.py
+    |              |
+    +----> replay/cleaned_replay_engine.py
+    |              |
+    +----> replay/structured_replay_engine.py
+    |                      |
+    |                      v
+    |              output/metadata_sidechannel_builder.py
+    |                      |
+    +----> output/floor3_handoff_builder.py
+    |                      |
+    +----> output/datacenter_output_gateway.py
+                             |
+                             v
+                       [FLOOR 3 — Calculation Engines]
+```
+
+FLOOR 2 → FLOOR 3 WIRING:
+
+```
+Floor 2 produces → Floor 3 consumes:
+validated_tick_stream         → Raw Data layer (all domains)
+validated_candle_streams       → All domains (core OHLCV input)
+options_snapshots              → Options Domain
+session_packets                → All domains (session context)
+macro_support_packets          → Macro Domain
+metadata side-channel          → Domain confidence/quality context
+computed-ready hooks           → Future computation staging
+```
+
+FLOOR 2 → SIDE C WIRING:
+
+```
+Floor 2 emits (through metadata side-channel → Side C):
+- data health events (quality degradation, source degradation)
+- review references (audit reports, verification results)
+- replay references (replay session records)
+- structured truth availability markers
+- review light signal references (GOOD/CAUTION/DEGRADED/CRITICAL)
+```
+
+FLOOR 2 → SIDE B WIRING:
+
+```
+Floor 2 facts available for dashboard (through higher-level consumption):
+- data health light signal (GOOD/CAUTION/DEGRADED/CRITICAL)
+- validation/review summary facts
+- source health summary facts (through governed chain)
+- replay/review availability markers
+- structured truth availability markers
+- traceability data (source, fetched_at, validated_at, transform_stage)
+```
+
+================================================================================
+SECTION 7 - DATA FLOW
+================================================================================
+
+LIVE MARKET DATA FLOW THROUGH FLOOR 2:
+
+```
+Floor 1 produces 5-family payload
+    |
+    v
+RAW INGEST:
+- raw_ingest_router receives packet
+- source_envelope_builder normalizes envelope
+- ingress_monitor logs ingress metrics
+    |
+    v
+DUAL RAW STORAGE:
+- original_raw_store: writes packet exactly as received
+- normalized_raw_store: writes envelope + normalized metadata
+    |
+    v
+VALIDATION PIPELINE:
+- validation_router classifies packet as Tier A/B/C
+- Tier A packets run through all 5 validators:
+  1. duplicate_validator: check packet_id uniqueness
+  2. timestamp_validator: check chronological order
+  3. continuity_validator: check for gaps in sequence
+  4. schema_validator: check mandatory fields
+  5. corruption_validator: check OHLC sanity
+- Each validator produces ValidationResult
+    |
+    v
+CLEANING LAYER:
+- Validated packets enter cleaning
+- tick_cleaner removes zero-volume artifacts
+- packet_cleaner removes broken packets
+- anomaly_repair interpolates minor gaps
+- cleaned_layer_writer writes cleaned records + quarantines removals
+    |
+    v
+STRUCTURING LAYER:
+- major_minor_classifier assigns Major/Minor class
+- tick_stream_builder groups ticks into continuous stream
+- candle_stream_builder builds 1m OHLCV candles from tick stream
+- options_snapshot_builder builds OI snapshots at configured intervals
+- session_packet_builder creates session context packets
+- structured_writer persists all structured outputs
+    |
+    v
+METADATA SIDE-CHANNEL:
+- transform_stage_tracker tracks raw→validated→cleaned→structured
+- quality_fact_builder computes factual quality metrics
+- source_trace_builder builds source lineage
+- retention_metadata_builder assigns retention class
+    |
+    v
+REVIEW ENGINE:
+- continuous_review_engine monitors real-time health
+- event_triggered_review_engine flags anomaly spikes
+- scheduled_audit_engine runs periodic checks
+- review_signal_builder produces 4-level signal
+    |
+    v
+FLOOR 3 HANDOFF (7 categories):
+1. validated_tick_stream
+2. validated_candle_streams
+3. options_snapshots
+4. session_packets
+5. macro_support_packets
+6. metadata side-channel
+7. computed-ready hooks
+```
+
+REPLAY DATA FLOW:
+
+```
+User queries time range + optional filters
+    |
+    v
+replay_controller starts session
+    |
+    +---> raw_replay_engine: read original_raw_store → replay raw packets
+    |
+    +---> cleaned_replay_engine: read cleaned store → replay cleaned packets
+    |
+    +---> structured_replay_engine: read structured store → replay streams
+    |
+    v
+Output: exact same data as originally produced (bit-for-bit for raw)
+```
+
+================================================================================
+SECTION 8 - VALIDATION MATRIX
+================================================================================
+
+UNIT VALIDATION (isolated tests for each module):
+
+raw_ingest_router.py:
+- Test: receives valid Floor 1 payload → routes to raw storage
+- Test: receives malformed payload → ContractViolationError, no crash
+- Test: receives unknown routing identity → logged, quarantined
+
+original_raw_store.py / normalized_raw_store.py:
+- Test: write → read → verify exact content preserved
+- Test: write 1000 records → query by timerange → correct range returned
+- Test: dual raw: both stores have same packet content (different format)
+
+duplicate_validator.py:
+- Test: 10 identical packets → 9 detected as duplicates
+- Test: different packets with same received_at → NOT duplicate (different source)
+- Test: same packet with 10s gap → NOT duplicate (different received_at)
+
+timestamp_validator.py:
+- Test: packets in order → is_ordered=True
+- Test: packets out of order → is_ordered=False, timestamp_delta_ms calculated
+- Test: received_at before source_timestamp → clock_skew_warning=True
+
+continuity_validator.py:
+- Test: consecutive ticks with <1s gap → continuity_status=GOOD
+- Test: 5s gap between ticks → continuity_status=MAJOR_GAP
+- Test: gap recovered after 3 ticks → continuity_status=GAP_RECOVERED
+
+schema_validator.py:
+- Test: ALL mandatory fields present → schema_compliant=True
+- Test: missing mandatory field → schema_compliant=False, field listed
+- Test: wrong field type → type_mismatches populated
+
+corruption_validator.py:
+- Test: high >= low → is_corrupt=False
+- Test: high < low → is_corrupt=True
+- Test: volume normal → is_corrupt=False
+- Test: volume 1000x normal → is_corrupt=True
+- Test: NaN price value → is_corrupt=True, corruption_type="nan_or_inf"
+- Test: Infinity strike price → is_corrupt=True, corruption_type="nan_or_inf"
+- Test: negative price → is_corrupt=True, corruption_type="negative_value"
+
+validation_router.py:
+- Test: Tier A packet → all 5 validators run
+- Test: Tier C packet → only schema + timestamp validators run
+- Test: all validators pass → aggregate PASS
+- Test: any validator fails → aggregate FAIL
+- Test: Floor 1 sends duplicate packet_id → Floor 2 duplicate_validator catches it
+  (governance boundary: duplicate detection is Floor 2's responsibility, NOT Floor 1's)
+
+tick_cleaner.py:
+- Test: zero-volume tick → removed with removal_reason
+- Test: normal tick → passes through unchanged
+
+candle_stream_builder.py:
+- Test: 60 ticks in 1 minute → 1 correct 1m candle
+- Test: open=first tick price, close=last tick price, high=max, low=min
+- Test: incomplete minute → candle flagged as PARTIAL
+
+options_snapshot_builder.py:
+- Test: OI data → snapshot with correct strike, OI, premium, IV
+- Test: no OI data in period → no snapshot written (not empty)
+
+session_packet_builder.py:
+- Test: 9:15 AM → opening session packet
+- Test: 12:30 PM → mid-session packet
+- Test: 3:30 PM → closing session packet
+
+quality_fact_builder.py:
+- Test: all validators pass → raw_trust_level=1.0, validation_confidence=1.0
+- Test: 50% validation failure → validation_confidence=0.5
+- Test: NO trade judgment in output (verify field names)
+
+original_raw_store.py (dual raw):
+- Test: original raw = input as-is (no modification)
+- Test: normalized raw = input + envelope fields (additive, never subtractive)
+
+raw_replay_engine.py:
+- Test: store 100 packets → replay → verify identical count + content
+- Test: replay with timerange filter → only matching packets returned
+
+cleaned_replay_engine.py:
+- Test: store 100 cleaned packets → replay → verify repair metadata preserved
+
+floor3_handoff_builder.py:
+- Test: ALL 7 output categories present
+- Test: missing mandatory field → ContractViolationError
+
+CONTRACT VALIDATION (cross-module checks):
+- Verify Floor 1 → Floor 2 input contract matches actual Floor 1 output
+- Verify Floor 2 → Floor 3 output contract matches Floor 3 expected input
+- Verify ALL 7 handoff categories have mandatory fields documented
+- Verify quality_fact fields are FACTUAL (no confidence, no opinion)
+- Verify review_signal is 4-level (GOOD/CAUTION/DEGRADED/CRITICAL)
+- Verify Dual Raw model: original = unmodified, normalized = additive only
+
+REPLAY VALIDATION:
+- Store 1 hour of Floor 1 data through full pipeline → replay at each stage
+- Verify raw replay: identical bit-for-bit to original packets
+- Verify cleaned replay: same cleaning actions applied on replay
+- Verify structured replay: same candles produced from same input
+- Replay must be DETERMINISTIC — identical output on every replay
+- Replay must NOT modify system state (read-only guarantee)
+
+INTEGRATION VALIDATION:
+- Full chain: Floor 1 mock → Ingest → Raw Store → Validation → Cleaning →
+  Structuring → Metadata → Review → Replay → Floor 3 Handoff
+- Feed mixed data: healthy + duplicate + corrupt + out-of-order → verify
+  validators catch all anomalies, cleaning removes/reports, structuring builds
+  clean candles from remaining valid ticks
+- Store → Replay → verify identical output at raw + cleaned + structured levels
+- `pytest tests/test_floor_2/ -v` — all tests pass
+- `python -c "from junior_aladdin.floor_2_datacenter import *"` — zero import errors
+
+================================================================================
+SECTION 9 - CROSS-COMPONENT IMPACTS
+================================================================================
+
+REPLAY IMPACT:
+- Floor 2 OWNS replay capability — it is a FIRST-CLASS responsibility
+- 3 replay levels: raw, cleaned, structured — each independently replayable
+- Replay must be deterministic (identical output from identical input)
+- Floor 3+ testing depends on Floor 2 replay being available and correct
+- Replay is read-only — it NEVER modifies system state
+- Replay sessions are tracked via replay_controller (session_id, user, purpose)
+- Replay output must match real-time pipeline output for same input
+- This enables: debugging, testing, verification, forensic review
+- Floor 2's replay architecture enables ALL upper floors to be tested against
+  known historical data without connecting to live market
+
+DASHBOARD IMPACT:
+- Floor 2 exposes factual operational data for dashboard, NOT judgments:
+  - Data health light signal (GOOD/CAUTION/DEGRADED/CRITICAL)
+  - Validation/review summary facts (pass rates, anomaly counts)
+  - Source health summary (lifecycle states across all sources)
+  - Replay availability markers (replay-ready data ranges)
+  - Structured truth availability markers (which feeds are producing)
+  - Traceability data (packet lineage for debugging)
+- Dashboard must NOT treat these as trading signals
+- Dashboard may show Floor 2 health in Health Surface panel
+- Detailed review reports go to Side B and Side C, NOT directly to Captain
+
+MEMORY IMPACT (Side C):
+- Floor 2 is an approved emitter for Side C:
+  - Data health events (quality degradation events, health state changes)
+  - Review references (audit report references, verification references)
+  - Replay references (replay session records for later lookup)
+  - Structured truth availability markers
+  - Review light signal references
+- Floor 2 remains the truth/governance owner of those facts
+- Side C remains storage/memory owner only — it stores what Floor 2 emits
+- This preserves exact separation: Floor 2 = truth owner, Side C = memory owner
+
+EXECUTION IMPACT (Side A):
+- Floor 2 does NOT interface directly with Side A
+- Side A execution may consider Floor 2 data health in risk assessment:
+  - DataHealth signal from Floor 2 → Side A policy (DEGRADED: cautious, STALE: block new)
+  - This happens through the governed chain, not direct Floor A→Side A path
+- Floor 2 does NOT make any execution decisions
+
+================================================================================
+SECTION 10 - COMMON MISTAKES + ANTI-PATTERNS
+================================================================================
+
+WHAT CAN BREAK ARCHITECTURE IN THIS FLOOR:
+
+Mistake 1: Creating intelligence-like scores in metadata
+- Problem: Adding fields like "feed_trade_worthiness" or "market_quality" to
+  quality_fact_builder.py
+- Architecture violation: Floor 2 produces FACTS, not judgment. "This feed is
+  good for trading" is Floor 4 territory.
+- Prevention: Quality facts must be descriptive (packet_completeness=96%),
+  never prescriptive (this data supports a trade).
+- Detection: Any quality_fact field with "recommend", "suggest", "trade",
+  "entry", "favorable" → P0 bug.
+
+Mistake 2: Building Floor 3 logic inside Floor 2 structuring layer
+- Problem: Adding setup detection, zone analysis, or domain confidence in
+  candle_stream_builder or tick_stream_builder
+- Architecture violation: Floor 2 structures data. Floor 3 creates intelligence.
+- Prevention: If you're writing "if breakout_detected" or "if FVG found" in
+  Floor 2 → stop. That's Floor 3 code.
+- Detection: Any "setup", "signal", "bias", "zone_type" field in Floor 2 output.
+
+Mistake 3: Computing confidence/conviction in Floor 2
+- Problem: Adding confidence_score or conviction_level to quality_facts
+- Architecture violation: Confidence = Floor 4. Conviction = Floor 5.
+- Prevention: Floor 2 quality = factual (0-1 scale describing process confidence,
+  NOT market confidence).
+- Detection: Any field named "confidence" or "conviction" in floor_2_datacenter/.
+
+Mistake 4: Making Floor 2 depend on Floor 3+ types
+- Problem: Importing Floor 3 types/classes in Floor 2 code
+- Architecture violation: Bottom-up dependency. Floor 2 should only depend on
+  shared/ types.
+- Prevention: ALL Floor 2 imports come from shared/. No floor_3_* imports.
+- Detection: `grep "from junior_aladdin.floor_3" floor_2_datacenter/` returns nothing.
+
+Mistake 5: Adding setup/trade detection in review engine
+- Problem: Review engine flags "setup detected" or "trade opportunity" as
+  review event
+- Architecture violation: Review engine = governance/truth. Setups = Floor 3+.
+- Prevention: Review events describe data health anomalies, NOT market setups.
+- Detection: Review event types include market interpretation fields.
+
+Mistake 6: Not implementing replay engine in Phase 2
+- Problem: Deferring replay to "later" because it's not urgent
+- Architecture violation: Replay is FIRST-CLASS and must be built during Phase 2.
+  Retrofitting replay later is exponentially harder.
+- Prevention: Replay engine built during Phase 2. Replay must be operational
+  before Phase 2 exit criteria are considered met.
+- Detection: Phase 2 exit criteria checklist doesn't include replay.
+
+Mistake 7: Forgetting dual-raw model
+- Problem: Storing only normalized raw without original raw
+- Architecture violation: Original source truth lost. Debugging impossible.
+- Prevention: Both original_raw_store and normalized_raw_store must exist.
+  Original raw = EXACT copy. Normalized raw = additive only.
+- Detection: No original_raw_store table/collection.
+
+Mistake 8: Applying same validation depth to all data types
+- Problem: Running all 5 validators on macro support packets (wasteful)
+- Architecture violation: Dynamic validation by tier exists to optimize
+  performance. Tier C data needs only 2 validators.
+- Prevention: validation_router correctly classifies Tier A/B/C and routes
+  accordingly.
+- Detection: All data types running through same validator count.
+
+Mistake 9: Making storage schema hard to extend
+- Problem: Rigid SQLite schema that requires migration for new feed types
+- Architecture violation: Floor 2 should support new data types without
+  schema changes.
+- Prevention: Use JSON fields for payload, normalized envelope has extensible
+  metadata fields.
+- Detection: Adding a new feed type requires schema migration.
+
+WHAT CREATES REWORK LATER:
+- Not implementing replay engine now → exponentially harder to retrofit
+  Fix: Implement replay in Phase 2, Steps 2.10.1-2.10.5
+- Not tracking transform_stage → debugging becomes detective work
+  Fix: Track each packet's stage in transform_stage_tracker.py
+- Forgetting dual-raw model → losing original source truth for audit
+  Fix: Both original_raw_store + normalized_raw_store in raw/ sub-system
+- Applying same validation depth to all data types → wasted CPU on Tier C
+  Fix: validation_router correctly routes by ValidationTier
+- Making storage schema rigid → painful migration for new feeds
+  Fix: Flexible schema with JSON payload fields + metadata
+- Not preserving original raw alongside normalized raw → audit failure
+  Fix: Dual Raw model enforced from day one
+- Letting Floor 2 accumulate intelligence code → architecture blurs
+  Fix: Strict code review + automated linting for Floor 2 boundary rules
+- Not defining contracts before coding → integration mismatches later
+  Fix: Step 2.1 (types + contracts) built before any pipeline code
+- Building validators in wrong order → missing interdependencies
+  Fix: Build order: duplicate → timestamp → continuity → schema → corruption
+
+================================================================================
+SECTION 11 - READY-TO-CODE CHECKLIST
+================================================================================
+
+BEFORE CODING STARTS (entry criteria):
+
+[ ] Phase 1 exit criteria met — Floor 1 producing enveloped packets
+[ ] Floor 1 → Floor 2 contract verified (all 5 payload families present)
+[ ] Floor 2 types defined in shared/types.py (ValidationTier, DataClass,
+    TransformStage, ReviewSignal, ContinuityStatus, QualityFacts, ValidationResult)
+[ ] Storage backend chosen: SQLite for dev (file-based, zero setup)
+[ ] Floor 2 → Floor 3 output contract drafted (7 mandatory categories)
+[ ] Floor 2 folder structure created (all sub-systems)
+[ ] FLOOR_02_DATA_CENTER_V1_1_FINAL.txt read and understood
+[ ] ROADMAP_MASTER.txt read for build context
+[ ] ROADMAP_FLOOR_02.txt open for daily reference
+[ ] Mock Floor 1 packet generator available in shared/testing.py
+    (healthy packets, duplicate packets, corrupt packets, out-of-order packets)
+[ ] First sub-system to build identified: ingress/
+[ ] Build order confirmed: types+contracts → ingress → raw → validation →
+    cleaning → structuring → metadata → governance → review → replay → output
+
+DURING BUILD (build criteria):
+
+[ ] Each sub-system independently testable with mock Floor 1 data
+[ ] Validation built before cleaning (validate first, clean second)
+[ ] Cleaning built before structuring (clean first, structure second)
+[ ] Metadata side-channel populated from day one (not retrofitted)
+[ ] Replay engine built during Phase 2 (not deferred)
+[ ] ALL modules import only from shared/ (no floor_3+ dependencies)
+[ ] NO intelligence/confidence/conviction fields in any Floor 2 output
+[ ] Quality facts are descriptive, not prescriptive
+[ ] Original raw = unmodified (verified by test)
+[ ] Every sub-system has at least 1 unit test
+
+VERIFICATION TESTS (run at end of each step):
+
+Step 2.1: [ ] datacenter_types enums importable, contracts defined
+Step 2.2: [ ] raw_ingest_router receives Floor 1 packet → routes correctly
+          [ ] source_envelope_builder normalizes without data loss
+Step 2.3: [ ] original_raw_store preserves EXACT copy
+          [ ] normalized_raw_store has all mandatory envelope fields
+          [ ] Retention correctly applies different TTLs for Major/Minor
+Step 2.4: [ ] duplicate_validator: 10 identical → 9 detected
+          [ ] timestamp_validator: out-of-order → flagged
+          [ ] continuity_validator: 5s gap → MAJOR_GAP
+          [ ] schema_validator: missing field → schema_compliant=False
+          [ ] corruption_validator: high<low → is_corrupt=True
+          [ ] validation_router: Tier A→5 validators, Tier C→2 validators
+Step 2.5: [ ] tick_cleaner: zero-volume tick removed
+          [ ] anomaly_repair: 1 missing tick interpolated, 5 missing NOT
+          [ ] cleaned_layer_writer: cleaned stored, removals quarantined
+Step 2.6: [ ] tick_stream_builder: 100 ticks → 100-entry stream
+          [ ] candle_stream_builder: 60 ticks → correct 1m candle
+          [ ] options_snapshot_builder: correct OI snapshot
+          [ ] session_packet_builder: correct session boundaries
+          [ ] major_minor_classifier: tick=MAJOR, macro=MINOR
+Step 2.7: [ ] transform_stage_tracker: raw→validated→cleaned→structured tracked
+          [ ] quality_fact_builder: factual metrics correct, no judgment
+          [ ] source_trace_builder: full lineage per packet
+Step 2.8: [ ] Contract registry: contract registered → runtime check passes
+          [ ] Source policy: source restriction enforced
+Step 2.9: [ ] continuous_review_engine: normal→no events, bad→events
+          [ ] event_triggered_review_engine: burst→investigation
+          [ ] review_signal_builder: healthy=GOOD, degraded=CAUTION/DEGRADED
+Step 2.10: [ ] raw_replay: identical output (bit-for-bit)
+           [ ] cleaned_replay: repair metadata preserved
+           [ ] structured_replay: same candles produced
+           [ ] replay_controller: full session lifecycle
+Step 2.11: [ ] metadata_sidechannel_builder: all fact fields present
+           [ ] review_status_router: light signal reflects review state
+Step 2.12: [ ] floor3_handoff_builder: ALL 7 categories present
+           [ ] Missing field → ContractViolationError
+
+EXIT CRITERIA (Phase 2 / Floor 2 complete):
+
+[ ] Floor 1 mock data: ingested → validated → cleaned → structured → stored
+[ ] Dual Raw model: original raw + normalized raw both populated correctly
+[ ] Validation catches: duplicates, bad timestamps, continuity gaps,
+    schema violations, corrupt OHLC
+[ ] 1m candles built correctly from tick stream
+[ ] Options snapshots generated at configured intervals
+[ ] Session packets produced per market session boundaries
+[ ] Metadata side-channel populated with quality facts + traceability
+[ ] Data health light signal: GOOD/CAUTION/DEGRADED/CRITICAL correctly reflects state
+[ ] Raw replay: bit-for-bit identical to original ingest
+[ ] Cleaned replay: preserves repair metadata
+[ ] Structured replay: produces same candles as original pipeline
+[ ] Floor 3 handoff produces ALL 7 mandatory output categories
+[ ] Major/Minor classification affects storage + processing priority
+[ ] No intelligence/confidence/conviction in any Floor 2 output
+[ ] All Floor 2 tests pass: `pytest tests/test_floor_2/ -v`
+[ ] Zero dependency on floor_3+ code
+[ ] FLOOR_02_DATA_CENTER_V1_1_FINAL.txt preserved (not modified)
+
+================================================================================
+END OF ROADMAP FLOOR 02: DATA CENTER
+================================================================================

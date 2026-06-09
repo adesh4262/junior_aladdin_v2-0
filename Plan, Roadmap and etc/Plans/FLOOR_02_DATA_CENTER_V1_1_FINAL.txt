@@ -1,0 +1,1354 @@
+================================================================================
+ JUNIOR ALADDIN - FLOOR 2 DATA CENTER PLAN
+ (Detailed Planning + Coding Blueprint Draft)
+================================================================================
+
+PURPOSE OF THIS FILE
+-------------------------------------------------------------------------------
+This file is the detailed planning and coding blueprint for FLOOR 2:
+DATA CENTER.
+
+This file must remain aligned with all locked upper floors:
+- Captain ✅ LOCK
+- Floor 4 Heads ✅ LOCK
+- Floor 3 Calculation Engines ✅ LOCK
+
+This floor is one of the most important floors in the system because everything
+above depends on whether the data foundation is:
+- truthful
+- traceable
+- validated
+- replayable
+- contract-governed
+- easy to consume
+
+But this floor also has strict limits.
+It must NOT become:
+- an intelligence layer
+- a setup detection layer
+- a scoring layer
+- an opinion layer
+- a Head layer
+- a Captain layer
+
+This floor must remain:
+- Truth Layer
+- Validation Layer
+- Traceability Layer
+- Replay Layer
+- Metadata Layer
+- Contract Governance Layer
+
+
+================================================================================
+SECTION 1 - FLOOR 2 IDENTITY
+================================================================================
+
+One-line identity:
+FLOOR 2 = Data Truth Layer
+
+Meaning:
+- Floor 1 brings market data into the system
+- Floor 2 preserves, validates, cleans, structures, traces, and exposes it
+- Floor 3 then uses that truth to create intelligence
+
+Floor 2 exists because raw market data is not enough.
+But raw market data must also not be destroyed, hidden, or over-interpreted.
+So Floor 2 must do two things at once:
+1. preserve original truth
+2. make usable clean structured truth available
+
+It must also preserve system trust by making all important data:
+- reviewable
+- replayable
+- source-traceable
+- quality-measured
+- contract-defined
+
+
+================================================================================
+SECTION 2 - STRICT GUARDRAILS (LOCKED)
+================================================================================
+
+RULE 1
+Floor 2 will not generate intelligence.
+It will generate truth, metadata, and validated structure only.
+
+RULE 2
+Floor 2 will not detect setups.
+No FVG trade candidate logic.
+No OB trade candidate logic.
+No trend continuation candidate logic.
+That belongs to Floor 3.
+
+RULE 3
+Floor 2 will not generate scores that behave like intelligence scores.
+It may generate quality facts.
+It may not generate trade-quality interpretation.
+
+RULE 4
+Floor 2 will not generate opinion.
+It may say:
+- packet_completeness = 96%
+- source_health = DEGRADED
+- continuity_status = GOOD
+It may NOT say:
+- this feed is good enough for trade
+- this market is bullish
+- this setup is strong
+
+RULE 5
+Floor 2 is limited to:
+- truth preservation
+- validation
+- cleaning
+- structuring
+- traceability
+- replay
+- metadata
+- contracts
+
+RULE 6
+Floor 2 must not drift into Floor 3 territory.
+That means no:
+- structured intelligence
+- market interpretation
+- candidate setup meaning
+- domain confidence
+
+RULE 7
+Floor 2 must not drift into Captain territory.
+That means no:
+- trade permission
+- no-trade decision
+- stale feed trading judgment
+- conviction-like behavior
+
+RULE 8
+Replay is a first-class responsibility of Data Center.
+It is not an optional future utility.
+
+RULE 9
+Data Contract Registry is a first-class governance responsibility of Data Center.
+It is not documentation fluff.
+
+RULE 10
+This floor must support the upper floors through contracts,
+not through hidden assumptions.
+
+
+================================================================================
+SECTION 3 - FLOOR 2 PRIMARY FOCUS
+================================================================================
+
+Locked answer:
+Balanced focus
+
+But with a practical hierarchy:
+1. Raw Truth Preserve
+2. Clean Structured Data Generate
+3. Replay / Test Infrastructure Maintain
+
+Why this order is correct:
+- if raw truth is lost, future debugging and trust collapse
+- if clean structured data is unavailable, Floor 3 becomes burdened with prep work
+- if replay is absent, testing, debugging, and reconstruction become weak
+
+So Data Center must not optimize for only one of these.
+It must balance all three.
+
+
+================================================================================
+SECTION 4 - FLOOR 2 ARCHITECTURE POSITION
+================================================================================
+
+System chain:
+MARKET
+ -> FLOOR 1 Market Connection
+ -> FLOOR 2 Data Center
+ -> FLOOR 3 Structured Intelligence Factory
+ -> FLOOR 4 Domain Experts
+ -> FLOOR 5 Captain
+
+What Floor 2 receives:
+- source data
+- raw packets
+- raw feeds
+- source metadata
+
+What Floor 2 gives upward:
+- validated truth
+- clean truth
+- structured truth
+- replayable truth
+- quality facts
+- contract-governed output
+
+Floor 2 is not meant to be smart.
+Floor 2 is meant to be trustworthy.
+
+
+================================================================================
+SECTION 5 - FLOOR 2 FOLDER STRUCTURE
+================================================================================
+
+Proposed rebuilt structure:
+
+floor_2_datacenter/
+│
+├── __init__.py
+├── datacenter_types.py
+├── datacenter_contracts.py
+├── data_contract_registry.py
+├── traceability_registry.py
+├── quality_metadata_builder.py
+├── source_health_engine.py
+├── review_signal_builder.py
+│
+├── ingress/
+│   ├── raw_ingest_router.py
+│   ├── source_envelope_builder.py
+│   └── ingress_monitor.py
+│
+├── raw/
+│   ├── original_raw_store.py
+│   ├── normalized_raw_store.py
+│   └── raw_retention_manager.py
+│
+├── validation/
+│   ├── duplicate_validator.py
+│   ├── timestamp_validator.py
+│   ├── continuity_validator.py
+│   ├── schema_validator.py
+│   ├── corruption_validator.py
+│   └── validation_router.py
+│
+├── cleaning/
+│   ├── tick_cleaner.py
+│   ├── options_cleaner.py
+│   ├── packet_cleaner.py
+│   ├── anomaly_repair.py
+│   └── cleaned_layer_writer.py
+│
+├── structuring/
+│   ├── tick_stream_builder.py
+│   ├── candle_stream_builder.py
+│   ├── options_snapshot_builder.py
+│   ├── session_packet_builder.py
+│   ├── structured_writer.py
+│   └── major_minor_classifier.py
+│
+├── metadata/
+│   ├── packet_metadata_builder.py
+│   ├── source_trace_builder.py
+│   ├── transform_stage_tracker.py
+│   ├── quality_fact_builder.py
+│   └── retention_metadata_builder.py
+│
+├── review/
+│   ├── continuous_review_engine.py
+│   ├── scheduled_audit_engine.py
+│   ├── event_triggered_review_engine.py
+│   ├── raw_vs_structured_verifier.py
+│   ├── retention_verifier.py
+│   └── audit_report_writer.py
+│
+├── replay/
+│   ├── raw_replay_engine.py
+│   ├── cleaned_replay_engine.py
+│   ├── structured_replay_engine.py
+│   ├── replay_contracts.py
+│   └── replay_controller.py
+│
+├── output/
+│   ├── floor3_handoff_builder.py
+│   ├── metadata_sidechannel_builder.py
+│   ├── session_stream_router.py
+│   ├── review_status_router.py
+│   └── datacenter_output_gateway.py
+│
+└── governance/
+    ├── registry_loader.py
+    ├── runtime_contract_checks.py
+    ├── source_policy_registry.py
+    └── retention_policy_registry.py
+
+Why this structure is strong:
+- it preserves truth and process stages clearly
+- raw, validation, cleaning, structuring, review, replay, output are separated
+- contract registry is first-class
+- replay is first-class
+- quality/traceability metadata are explicit citizens
+- no folder implies intelligence generation
+
+
+================================================================================
+SECTION 6 - STORAGE MODEL (LOCKED HYBRID)
+================================================================================
+
+Locked model:
+Hybrid storage layers
+
+Floor 2 planning layers:
+1. Raw Layer
+2. Cleaned Layer
+3. Structured Layer
+4. Major / Minor Classification Layer
+5. Computed-ready Hooks
+
+Important ownership rule:
+Computed storage is NOT owned by Floor 2.
+Floor 2 may expose computed-ready interfaces and hooks,
+but actual computation belongs to Floor 3.
+
+Why hybrid model is strongest:
+- raw truth is preserved
+- cleaned truth can be reused
+- structured truth is ready for intelligence layers
+- major/minor classification helps storage and processing priority
+- future computation handoff remains stable
+
+
+================================================================================
+SECTION 7 - DUAL RAW MODEL (LOCKED)
+================================================================================
+
+Locked model:
+Dual Raw
+
+Raw truth must exist in two forms:
+
+1. Original Raw
+- exactly as received from source
+- source quirks preserved
+- useful for source bug investigation and audit
+
+2. Normalized Raw Envelope
+- source truth wrapped in standard operational envelope
+- same truth, but standardized for downstream system handling
+
+Why both are needed:
+Original Raw preserves source truth.
+Normalized Raw Envelope preserves system usability.
+
+If only original raw exists:
+- downstream usage becomes messy
+- system has to repeatedly normalize in many places
+
+If only normalized raw exists:
+- original source truth can be lost
+- parser/source disputes become hard to debug
+
+Therefore dual raw is the safest and strongest architecture.
+
+Example normalized raw envelope concept:
+- source
+- packet_type
+- raw_payload_ref
+- fetched_at
+- received_at
+- source_sequence if available
+- envelope_id
+
+This is still raw layer.
+It is not interpretation.
+
+
+================================================================================
+SECTION 8 - MAJOR / MINOR CLASSIFICATION MODEL
+================================================================================
+
+Locked answer:
+Major / Minor classification is used for BOTH:
+- storage classification
+- processing priority classification
+
+Why this matters:
+If classification is only for storage,
+it loses operational value.
+If classification is only for processing,
+it loses governance clarity.
+
+Suggested interpretation:
+
+Major Data
+- tick data
+- candle streams
+- options chain / OI snapshots
+- core market feeds
+
+Minor Data
+- support feeds
+- auxiliary feeds
+- secondary references
+- slower contextual packets
+
+Effects of Major / Minor classification:
+1. Storage priority
+2. Processing priority
+3. Validation strictness
+4. Replay importance
+5. Retention behavior
+6. Output routing priority
+
+This is one of the strongest Data Center governance decisions.
+
+
+================================================================================
+SECTION 9 - VALIDATION MODEL (DYNAMIC BY DATA TYPE)
+================================================================================
+
+Locked answer:
+Validation must be dynamic by data type.
+
+Why this is strongest:
+Not all data streams deserve identical validation depth.
+Tick data and macro support data are not equally critical.
+
+Suggested validation strength tiers:
+
+Tier A - Very Strong Validation
+- tick data
+- options chain data
+- OI snapshots
+
+Validation examples:
+- duplicate checks
+- timestamp order checks
+- continuity checks
+- corruption checks
+- schema checks
+- packet completeness checks
+
+Tier B - Strong Validation
+- candle data
+- session packets
+- major structured streams
+
+Tier C - Medium / Basic Validation
+- macro support packets
+- secondary references
+- auxiliary support streams
+
+Why dynamic validation is correct:
+It preserves performance where possible,
+while remaining strict where truth integrity matters most.
+
+
+================================================================================
+SECTION 10 - CLEANED LAYER PURPOSE (LOCKED HYBRID)
+================================================================================
+
+Locked answer:
+Cleaned layer has hybrid purpose.
+
+It is not only:
+- a repair scratchpad
+- a temporary transitional dump
+- a one-time pass-through layer
+
+Cleaned layer should become:
+- validation-passed data
+- continuity-repaired data where applicable
+- corrected anomaly-aware data
+- reusable clean dataset layer
+
+Why this matters:
+If cleaned layer is too weak,
+Floor 3 must perform repeated prep work.
+If cleaned layer is too magical,
+Floor 2 starts becoming an intelligence layer.
+
+Therefore cleaned layer should:
+- improve usability
+- preserve truth discipline
+- remain non-opinionated
+
+
+================================================================================
+SECTION 11 - STRUCTURED LAYER MANDATORY OUTPUTS
+================================================================================
+
+Locked answer:
+Structured layer mandatory outputs = B
+
+Mandatory structured outputs:
+- validated candle streams
+- validated tick streams
+- options snapshots
+- session packets
+
+Why these are mandatory:
+These are the minimum practical structured products needed so that Floor 3 can
+focus on intelligence rather than data preparation.
+
+Why market packets are not mandatory here:
+Because higher-level common market abstractions can be built later in Floor 3
+through Common Market State Projection.
+Floor 2 should remain practical and focused.
+
+
+================================================================================
+SECTION 12 - SESSION PACKETS (EXPLICIT)
+================================================================================
+
+Locked answer:
+Session packets must be explicit.
+Not hidden inside vague metadata.
+
+Base session packet content should include:
+- session_id
+- session_type
+- session_phase
+- session_status
+
+And broader session references should also be supported:
+- Opening Phase
+- Mid Session
+- Closing Phase
+- Asia Reference
+- London Reference
+- New York Reference
+
+Why explicit session packets matter:
+- session context strongly influences market behavior
+- Floor 3 should not reconstruct session intelligence from vague metadata
+- replay and debugging become clearer
+- upper floors remain cleaner if session state is explicit
+
+Session packets are still data packets, not intelligence.
+They describe time-context truth.
+
+
+================================================================================
+SECTION 13 - QUALITY FACTS VS QUALITY JUDGMENT
+================================================================================
+
+This is one of the most important architecture rules of Floor 2.
+
+Floor 2 is allowed to generate:
+- quality facts
+- quality metadata
+- traceability metadata
+- review status
+
+Floor 2 is NOT allowed to generate:
+- trading quality judgment
+- intelligence confidence
+- feed is trade-worthy
+- setup reliability judgment
+
+Examples of allowed facts:
+- packet_completeness = 96%
+- continuity_status = GOOD
+- source_health_state = HEALTHY
+- validation_confidence = 0.98 (confidence in validation process, not in trading)
+
+Examples of forbidden judgments:
+- this feed is reliable enough for a trade
+- this packet suggests bullish opportunity
+- this source supports Captain conviction
+
+Meaning:
+Floor 2 creates facts.
+Higher floors create interpretation.
+
+This preserves the architecture boundary:
+- Floor 2 = Truth Layer
+- Floor 3 = Intelligence Layer
+- Floor 4 = Interpretation Layer
+- Floor 5 = Decision Layer
+
+
+================================================================================
+SECTION 14 - DATA QUALITY TIERING
+================================================================================
+
+Accepted strong addition:
+Data quality metadata should be richer than a generic “good/bad” flag.
+
+Useful quality fact fields:
+- raw_trust_level
+- validation_confidence
+- packet_completeness
+- continuity_status
+- source_health_state
+
+Why this is strong:
+- Floor 2 remains factual, not opinionated
+- higher floors later have richer quality context if needed
+- review, replay, and debugging improve
+
+These are quality facts, not intelligence.
+
+
+================================================================================
+SECTION 15 - SOURCE TRACEABILITY CONTRACT
+================================================================================
+
+Locked minimum traceability fields:
+- source
+- fetched_at
+- validated_at
+- review_status
+- transform_stage
+
+Why transform_stage is mandatory:
+Because packet lifecycle visibility matters during debugging.
+Without transform_stage, it becomes harder to know whether a packet is:
+- raw
+- validated
+- cleaned
+- structured
+
+Future traceability hook accepted:
+Source lineage should remain traceable through pipeline stages:
+source
+ -> validation
+ -> cleaning
+ -> structuring
+
+Why this matters:
+- incident investigation
+- parser/source dispute resolution
+- replay debugging
+- audit traceability
+
+This does not make Floor 2 smart.
+It makes Floor 2 accountable.
+
+
+================================================================================
+SECTION 16 - REPLAY ARCHITECTURE (FIRST-CLASS SECTION)
+================================================================================
+
+Replay is a first-class Data Center responsibility.
+It is not a side utility.
+
+Why replay must be first-class:
+Future system strength depends on the ability to:
+- debug incidents
+- reconstruct failures
+- test upper floors against known conditions
+- verify architecture correctness
+- replay exact pipeline stages
+
+Locked replay levels:
+1. Raw Replay
+2. Cleaned Replay
+3. Structured Replay
+
+Why 3 replay levels are needed:
+Raw Replay
+- source truth inspection
+- parser/source debugging
+
+Cleaned Replay
+- validation and repair debugging
+- anomaly repair verification
+
+Structured Replay
+- Floor 3 and above testing support
+- operational stream simulation
+
+Replay responsibilities of Floor 2:
+- maintain replay-ready storage organization
+- expose replay contracts
+- support stage-specific replay access
+- preserve enough metadata so replay can be trusted
+
+Replay must be treated as a core capability, not an afterthought.
+
+
+================================================================================
+SECTION 17 - REVIEW ENGINE ARCHITECTURE
+================================================================================
+
+Locked answer:
+Review engine = hybrid
+- continuous review
+- scheduled review
+- event-triggered review hooks
+
+A. Continuous Review
+-------------------------------------------------------------------------------
+Examples:
+- feed health monitoring
+- packet loss detection
+- continuity checks
+- source degradation watch
+
+B. Scheduled Review
+-------------------------------------------------------------------------------
+Examples:
+- raw vs structured verification
+- retention verification
+- audit reports
+- quality summaries
+
+C. Event-Triggered Review
+-------------------------------------------------------------------------------
+Examples:
+- packet corruption spike
+- source degradation event
+- unusual validation failure burst
+- abnormal continuity break cluster
+
+Why hybrid review is strongest:
+- continuous review catches fast degradation
+- scheduled review catches governance drift
+- event-triggered review catches anomalies at the moment they matter
+
+Review engine belongs to Floor 2 governance/truth assurance.
+It does not decide trades.
+
+
+================================================================================
+SECTION 18 - DATA CONTRACT REGISTRY (FIRST-CLASS GOVERNANCE)
+================================================================================
+
+Accepted strong addition:
+Data Contract Registry must be a first-class governance section.
+
+Locked scope:
+- incoming contracts
+- internal contracts
+- outgoing contracts
+
+Why this matters:
+As the system grows, contract ambiguity becomes a bigger risk than coding bugs.
+Registry keeps interfaces stable and explicit.
+
+Each important feed/packet contract should define:
+- stream/packet name
+- ownership
+- schema
+- freshness expectation
+- source expectations
+- quality metadata fields
+- major/minor classification
+- downstream consumers
+
+Locked enforcement model:
+Documentation + runtime checks on key feeds
+
+Why not documentation only?
+Because governance without runtime checking drifts.
+
+Why not strict enforcement on everything?
+Because unnecessary rigidity can slow development and add friction.
+
+This balance is strongest:
+- registry documents all contracts
+- runtime contract checks protect key feeds
+
+
+================================================================================
+SECTION 19 - OUTPUT CONTRACTS (DETAILED)
+================================================================================
+
+This is one of the most important sections in Floor 2.
+
+Floor 2 must output TWO broad categories upward:
+
+A. Core Structured Feeds
+B. Metadata Side-Channel
+
+A. CORE STRUCTURED FEEDS
+-------------------------------------------------------------------------------
+These are the operational feeds Floor 3 will actually use to build intelligence.
+
+Mandatory structured feeds:
+1. validated_tick_stream
+2. validated_candle_streams
+3. options_snapshots
+4. session_packets
+5. macro_support_packets (or equivalent structured macro/support feed packets)
+
+Why these are core:
+These are the minimum usable structured truth feeds required by Floor 3.
+The explicit addition of macro_support_packets closes the ambiguity around how
+Floor 3 Macro Domain receives structured support/context inputs from Floor 2.
+
+What macro_support_packets are:
+- structured support packets for macro/support data types
+- examples may include VIX support packets, FII/DII support packets,
+  global-cue packets, and calendar/event-support packets
+- they remain factual and structured
+- they do NOT become interpreted macro intelligence
+
+B. METADATA SIDE-CHANNEL
+-------------------------------------------------------------------------------
+These are not intelligence outputs.
+These are support truths about the quality and lineage of the data.
+
+Side-channel fields can include:
+- raw_trust_level
+- validation_confidence
+- packet_completeness
+- continuity_status
+- source_health_state
+- fetched_at
+- validated_at
+- review_status
+- transform_stage
+- replay_metadata
+- source lineage fields
+
+Why side-channel matters:
+It keeps quality and traceability available
+without polluting the core structured feeds.
+
+
+================================================================================
+SECTION 20 - FLOOR 2 -> FLOOR 3 HANDOFF CONTRACTS
+================================================================================
+
+This section explicitly defines the handoff contracts required by Rule 10.
+
+Floor 3 must receive from Floor 2:
+
+1. validated_tick_stream
+Purpose:
+- truth-preserved tick stream for downstream stream and replay uses
+
+2. validated_candle_streams
+Purpose:
+- clean candle foundation for all structural and technical computation
+
+3. options_snapshots
+Purpose:
+- clean options/OI/IV/wall computation inputs
+
+4. session_packets
+Purpose:
+- explicit session/time-context support for Floor 3
+
+5. macro_support_packets
+Purpose:
+- structured support/context feeds required by Floor 3 Macro Domain
+- examples may include VIX support packets, FII/DII support packets,
+  global-cue packets, and event/calendar support packets
+- these remain factual support feeds, not interpreted macro intelligence
+
+6. metadata side-channel
+Purpose:
+- quality facts
+- traceability facts
+- review state
+- source health facts
+- review light signal transport facts
+
+7. computed-ready hooks
+Purpose:
+- stable interfaces and packet schemas for future computation staging
+- not actual intelligence
+
+Why these handoffs matter:
+If these contracts are weak, Floor 3 will become part-data-prep and part-intelligence.
+That breaks the clean separation already locked.
+
+
+================================================================================
+SECTION 21 - REVIEW ENGINE CONTRACTS
+================================================================================
+
+Floor 2 review engine should expose:
+- review_status per important stream
+- audit_report outputs
+- raw_vs_structured verification results
+- retention verification results
+- event-trigger review flags
+- summary health signal for upper floors
+
+Captain-facing rule:
+Detailed review reports do NOT go directly to Captain.
+
+Locked model:
+Review reports may surface upward as light signal only.
+
+Examples of light signal levels:
+- GOOD
+- CAUTION
+- DEGRADED
+- CRITICAL
+
+Explicit transport route:
+- review engines produce review status / health outcomes inside Floor 2
+- review_signal_builder and review_status_router convert those outcomes into
+  transportable review-light-signal facts
+- those facts travel upward through the metadata side-channel
+- upper floors may consume them through governance/summary paths
+- Captain receives only the light signal through upper-floor summary paths,
+  not the detailed review reports themselves
+
+Why:
+Captain should know whether the data environment is degraded.
+Captain should not be forced to read full audit reports.
+
+This preserves:
+- Floor 2 truth role
+- Captain decision role
+- metadata side-channel as the contract path for operational health facts
+
+
+================================================================================
+SECTION 22 - DATA HEALTH LIGHT SIGNAL CONTRACT
+================================================================================
+
+Locked answer:
+Captain summary may receive 4-level light signal:
+- GOOD
+- CAUTION
+- DEGRADED
+- CRITICAL
+
+Important rule:
+Floor 2 provides the fact signal.
+Floor 2 does NOT decide what Captain should do with it.
+
+Meaning:
+- Floor 2 may say CRITICAL
+- Floor 5 / Floor 4 decide whether that implies block / caution / degraded trust
+
+Explicit contract path:
+- light signal is exposed by Floor 2 as a metadata side-channel fact
+- upper floors may preserve and aggregate that fact through their own summary
+  and governance paths
+- Captain consumes the summarized signal only after it has traveled upward,
+  not as a direct Floor 2 runtime decision feed
+
+This is a key architecture preservation rule.
+
+
+================================================================================
+SECTION 23 - COMPUTED-READY HOOKS (LOCKED)
+================================================================================
+
+Locked answer:
+Computed-ready hooks should be strong,
+but they must not become computation logic.
+
+Allowed in Floor 2:
+- handoff contracts
+- packet schemas
+- staging support
+- interface definitions
+
+Not allowed in Floor 2:
+- calculations
+- scoring
+- intelligence
+- structured opinion
+
+Why this is strongest:
+It future-proofs Floor 3 handoffs without moving computation downward.
+
+One strong architecture note:
+Floor 2 should provide stable interfaces so that Floor 3 can evolve internally in
+future without breaking the handoff contract unnecessarily.
+
+This is a governance and scaling design choice, not an intelligence choice.
+
+
+================================================================================
+SECTION 24 - RETENTION CONTRACTS
+================================================================================
+
+Locked answer:
+Dynamic retention model
+
+Why dynamic retention is strongest:
+Not all raw data deserves equal retention.
+Storage cost, debugging value, and replay value differ by packet class.
+
+Suggested interpretation:
+Tier 1 Raw:
+- tick data
+- options chain
+- OI snapshots
+Retention: longer (importance-based)
+
+Tier 2 Raw:
+- candles
+- session packets
+- market snapshots
+Retention: medium
+
+Structured layer:
+- long-lived / permanent where appropriate
+
+Important architecture note:
+Floor 2 does not aim to become an infinite raw archive.
+It aims to preserve enough truth for trust, replay, and debugging,
+while keeping storage policy governed.
+
+Retention contracts should define:
+- packet/feed class
+- classification (major/minor)
+- retention class
+- deletion/archive policy
+- replay eligibility
+
+
+================================================================================
+SECTION 25 - GOVERNANCE OF SOURCE HEALTH
+================================================================================
+
+Locked answer:
+Source health metadata is mandatory.
+
+Minimum meaning:
+Data Center should be able to state source health facts such as:
+- HEALTHY
+- DEGRADED
+- STALE
+- DISCONNECTED
+
+Why source health must be mandatory:
+The entire trust chain depends on source state.
+Without source health, upper floors lose an important quality fact.
+
+Again:
+Floor 2 reports source health facts.
+It does not decide trading behavior.
+
+
+================================================================================
+SECTION 26 - WHY FLOOR 2 MUST STAY NON-INTELLIGENT
+================================================================================
+
+This section exists because Floor 2 is the easiest place to accidentally overbuild.
+
+As more metadata, replay, review, and contracts are added,
+there is a temptation to let Floor 2 become “smart.”
+That must be resisted.
+
+Floor 2 may:
+- preserve truth
+- clean truth
+- expose truth
+- annotate truth
+- verify truth
+- trace truth
+
+Floor 2 may not:
+- interpret market meaning
+- create candidate trade meaning
+- create domain confidence
+- create conviction
+- generate trading opinion
+
+Why this matters:
+If Floor 2 becomes smart,
+then:
+- Floor 3 weakens
+- Floor 4 weakens
+- Captain weakens
+- architecture blurs
+
+The strongest system is not the one that does everything everywhere.
+It is the one that keeps the right intelligence at the right floor.
+
+
+================================================================================
+SECTION 27 - FINAL STATUS OF FLOOR 2
+================================================================================
+
+Floor 2 is now planned with the following locked features:
+- balanced truth / clean data / replay focus
+- hybrid storage layers
+- dual raw model
+- major/minor classification used in storage and processing priority
+- dynamic validation by data type
+- hybrid cleaned-layer purpose
+- structured mandatory outputs
+- explicit session packets
+- quality facts but not intelligence
+- rich quality metadata side-channel
+- source traceability with transform_stage
+- replay as first-class capability
+- hybrid review engine (continuous + scheduled + event-triggered)
+- first-class data contract registry
+- detailed Floor 2 -> Floor 3 handoff contracts
+- review engine contracts
+- 4-level Captain-summary data health signal
+- strong computed-ready hooks without crossing into Floor 3 territory
+- dynamic retention contracts
+- mandatory source health metadata
+- non-intelligent truth-layer boundary preserved
+
+This floor is now complete at architecture/planning level,
+subject only to future Floor 1 wiring refinements.
+
+================================================================================
+NEXT FLOOR TO PLAN:
+ FLOOR 1 - MARKET CONNECTION
+================================================================================
+
+================================================================================
+SECTION 28 - V1.1 FINALIZATION INTENT
+================================================================================
+
+This V1.1 file is not a redesign.
+This V1.1 file does not add new architecture.
+This V1.1 file does not add floors or sides.
+This V1.1 file does not change ownership.
+This V1.1 file only tightens weak or implicit contracts so that Floor 2 becomes:
+- Architecture Safe
+- Ownership Safe
+- Integration Safe
+- Replay Safe
+- Side A aligned
+- Side B aligned
+- Side C aligned
+- Audit Ready
+- Implementation Ready
+
+Minimal change rule:
+The existing Floor 2 draft remains the base.
+Only weak or ambiguous contract areas are clarified.
+
+
+================================================================================
+SECTION 29 - TRUTH OWNERSHIP AND CANONICAL TRUTH CLARIFICATION
+================================================================================
+
+Floor 2 already holds the role of Truth Layer.
+V1.1 clarifies how truth ownership works inside that role.
+
+Truth ownership split:
+- original source truth enters from Floor 1
+- Floor 2 preserves original truth as original raw
+- Floor 2 may create cleaned and structured truth forms
+- these are canonical operational truth forms for upper floors
+- Floor 2 still does NOT create intelligence, opinion, or decisions
+
+Important distinction:
+- Original Raw = preserved source truth
+- Normalized Raw Envelope = operationally wrapped source truth
+- Cleaned Layer = validation-passed and corrected truth form
+- Structured Layer = canonical upper-floor operational truth form
+
+Why this clarification matters:
+“Canonical” here does NOT mean interpreted market meaning.
+It means the trusted structured form that higher layers use as their truth base.
+
+This keeps Floor 2 as Truth Layer only.
+It does not move Floor 2 into Floor 3 territory.
+
+
+================================================================================
+SECTION 30 - DUPLICATE GOVERNANCE BOUNDARY CLARIFICATION
+================================================================================
+
+Floor 2 already owns validation.
+V1.1 clarifies duplicate-handling ownership more explicitly.
+
+Rule:
+- Floor 1 may preserve identifiers useful for duplicate detection
+- Floor 2 owns duplicate validation and duplicate-governance decisions
+- Floor 2 may reject, isolate, tag, or route duplicates according to validation contracts
+- higher floors should never be forced to guess whether duplicate cleanup already happened
+
+Why this matters:
+Duplicate handling is a truth-governance responsibility, not a connection or
+intelligence responsibility.
+
+This clarification strengthens:
+- raw truth preservation
+- cleaned truth reliability
+- structured truth trust
+- replay/debug consistency
+
+
+================================================================================
+SECTION 31 - PACKET LINEAGE / TRUTH RECONSTRUCTION CLARIFICATION
+================================================================================
+
+Floor 2 already stores traceability metadata.
+V1.1 clarifies the purpose of packet lineage and truth reconstruction.
+
+Minimum lineage support remains:
+- source
+- fetched_at
+- validated_at
+- review_status
+- transform_stage
+
+Lineage purpose:
+- reconstruct how a packet moved from ingress to structured truth
+- explain whether a packet was raw / validated / cleaned / structured
+- support replay and audit reconstruction
+- support source dispute resolution
+
+Truth reconstruction principle:
+A later operator/reviewer should be able to answer:
+- where did this packet come from?
+- what stage did it pass through?
+- what truth form was finally used upstream?
+
+This does NOT require Floor 2 to interpret the packet.
+It requires Floor 2 to preserve enough lineage so later reconstruction is possible.
+
+
+================================================================================
+SECTION 32 - REPLAY FOUNDATION REINFORCEMENT
+================================================================================
+
+Replay was already first-class in Floor 2.
+V1.1 strengthens why it is foundational.
+
+Replay foundation responsibilities of Floor 2 include:
+- preserve replay-capable storage layout
+- preserve stage-distinct replay ability
+  - raw replay
+  - cleaned replay
+  - structured replay
+- preserve enough metadata so replay truth remains auditable
+- preserve references usable by Side C and Side B review/replay surfaces
+
+Why this matters:
+Without a strong replay foundation, later:
+- debugging weakens
+- forensic review weakens
+- historical reconstruction weakens
+- architecture verification weakens
+
+This does not add replay intelligence.
+It reinforces replay as truth-preserving infrastructure.
+
+
+================================================================================
+SECTION 33 - SIDE C COMPATIBILITY CLARIFICATION
+================================================================================
+
+Floor 2 already emits truth/governance/review/replay facts upward.
+V1.1 clarifies Side C compatibility explicitly.
+
+Floor 2 may emit into Side C memory/governance paths:
+- data health events
+- review references
+- replay references
+- structured truth availability references
+- review light signal references where applicable
+
+Important rule:
+Floor 2 remains the truth/governance owner of those facts.
+Side C remains storage/memory owner only.
+
+Why this matters:
+It preserves the exact separation:
+- Floor 2 = truth and governance facts
+- Side C = memory and traceability persistence
+
+This is compatibility clarification, not an ownership shift.
+
+
+================================================================================
+SECTION 34 - DASHBOARD COMPATIBILITY CLARIFICATION
+================================================================================
+
+Floor 2 does not speak to the dashboard as a decision layer.
+But its facts must remain dashboard-compatible through higher-level consumption.
+
+Dashboard-relevant Floor 2 outputs include:
+- data health light signal
+- validation/review summary facts
+- source health summary facts (through the governed chain)
+- replay/review availability markers
+- structured truth availability markers
+
+Why this matters:
+The operator terminal must be able to reveal truth/governance health,
+without making the dashboard the owner of those facts.
+
+This preserves:
+- Floor 2 truth/governance role
+- Side B operator-terminal role
+- higher-level summary paths
+
+
+================================================================================
+SECTION 35 - DATA VERSIONING / REFERENCE STABILITY NOTE
+================================================================================
+
+Floor 2 already relies on contracts and traceability.
+V1.1 clarifies the importance of stable data contracts over time.
+
+Meaning:
+- structured truth outputs should remain contract-stable where possible
+- metadata side-channel should remain contract-stable where possible
+- computed-ready hooks should protect future Floor 3 evolution
+- review/replay references should remain stable enough for later lookup
+
+Why this matters:
+A strong truth layer is not only about storing data.
+It is also about making that stored and emitted truth remain usable across later
+system evolution.
+
+This is a contract-stability clarification,
+not a new versioning architecture.
+
+
+================================================================================
+SECTION 36 - AUDITABILITY CLARIFICATION
+================================================================================
+
+Floor 2 was already designed to be auditable.
+V1.1 makes that auditability expectation more explicit.
+
+Critical auditability expectations include:
+- raw vs structured verification remains reconstructable
+- validation outcomes remain inspectable
+- retention decisions remain traceable
+- review signals remain attributable to the truth/governance path
+- packet lineage remains usable for forensic reconstruction
+
+Why this matters:
+Floor 2 is the system’s trust backbone.
+If it is not auditable,
+all higher-layer confidence becomes weaker.
+
+This does not add decision logic.
+It clarifies why Floor 2’s factual metadata matters.
+
+
+================================================================================
+SECTION 37 - FLOOR 2 V1.1 FINAL STATUS
+================================================================================
+
+Floor 2 V1.1 Final preserves:
+- existing Floor 2 architecture
+- existing Truth Layer identity
+- existing validation ownership
+- existing cleaning ownership
+- existing structured truth model
+- existing replay-first foundation
+- existing contract registry role
+- existing metadata side-channel role
+- existing review engine role
+- existing retention model
+- existing Side C / dashboard compatibility direction
+
+And explicitly tightens:
+- truth ownership clarification
+- canonical operational truth clarification
+- duplicate governance boundary
+- packet lineage / truth reconstruction clarity
+- replay foundation reinforcement
+- Side C compatibility clarification
+- dashboard compatibility clarification
+- contract stability / auditability notes
+
+This file is therefore:
+- not a redesign
+- not a new data architecture
+- not an intelligence shift
+- not an ownership change
+
+It is the finalized contract-tightened Floor 2 planning file.
+
+================================================================================
+END OF FLOOR 2 V1.1 FINALIZATION ADDITIONS
+================================================================================

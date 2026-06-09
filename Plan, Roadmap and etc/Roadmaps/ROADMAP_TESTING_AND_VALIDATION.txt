@@ -1,0 +1,972 @@
+================================================================================
+ ROADMAP_TESTING_AND_VALIDATION — SYSTEM-WIDE TESTING GATES
+================================================================================
+ Canonical Phase Template v1.0 | Phase 10 of 11 | Validation Phase
+================================================================================
+
+----------------------------------------------------------------------
+SECTION 1 — PURPOSE
+----------------------------------------------------------------------
+
+Phase 10 is the system-wide validation gate between full integration
+(Phase 9) and production readiness (Phase 11).  Every module, every
+contract, every path, every edge case is tested under realistic
+conditions before real capital is at risk.
+
+This is a TEST INFRASTRUCTURE build phase.  No new system logic, no
+new features, no new business rules.  The test harness (scenario
+runner, profilers, comparator, simulation runner) is infrastructure
+code — it orchestrates validation without adding system behaviour.
+
+Phase 10 is the gauntlet the system must run to prove it is safe,
+correct, and performant enough for production.
+
+Primary goals (in priority order):
+
+  1. ACHIEVE ≥80% code coverage across ALL modules (unit tests)
+  2. VERIFY every floor/side pair integration path (integration tests)
+  3. VERIFY deterministic replay: 1+ day of market data produces
+     identical outputs on replay
+  4. VERIFY edge case resilience: empty data, corrupt data, disconnects,
+     timeouts, max load, duplicate feeds
+  5. VERIFY performance: tick processing latency within acceptable
+     bounds, heavy cycle under 30 seconds
+  6. VERIFY stress tolerance: high-volume tick bursts, sustained load
+  7. VERIFY paper mode: 100+ simulated trades with ZERO critical failures
+  8. GENERATE a test completion report with pass/fail metrics per gate
+
+----------------------------------------------------------------------
+SECTION 2 — COMPONENT ARCHITECTURE
+----------------------------------------------------------------------
+
+Phase 10 adds NO new system components.  It introduces a testing
+infrastructure layer that wraps the existing system:
+
+  test_harness/
+  ├── conftest.py                    # Shared pytest fixtures, mock generators
+  ├── mock_data/
+  │   ├── recorded_ticks/            # 3 sets of 3-hour NSE tick recordings
+  │   ├── recorded_candles/          # Derived OHLCV from recorded ticks
+  │   └── corrupt_samples/           # Known-bad data for edge cases
+  ├── scenarios/
+  │   ├── normal_market.py           # Normal market conditions
+  │   ├── high_volatility.py         # Rapid price movement
+  │   ├── low_liquidity.py           # Thin order book
+  │   ├── disconnect_reconnect.py    # Network interruption
+  │   ├── duplicate_feeds.py         # Duplicate tick injection
+  │   ├── corrupt_feeds.py           # Corrupt/malformed packets
+  │   ├── empty_session.py           # No data session
+  │   ├── burst_load.py              # High-volume tick bursts
+  │   └── sustained_load.py          # Extended high-volume ticks
+  ├── paper_simulation/
+  │   ├── simulation_runner.py       # Orchestrates 100+ paper trades
+  │   ├── trade_scenarios.py         # Win/loss/partial/flat scenarios
+  │   └── results_analyzer.py        # Aggregates simulation results
+  ├── performance/
+  │   ├── latency_profiler.py        # Per-module latency measurement
+  │   ├── memory_profiler.py         # Memory usage tracking
+  │   └── cycle_timer.py             # Heavy/light cycle timing
+  ├── coverage/
+  │   ├── coverage_config.ini        # pytest-cov configuration
+  │   └── coverage_reporter.py       # Generates per-module coverage report
+  └── reports/
+      ├── gate_results.json          # Pass/fail per gate
+      ├── coverage_report.json       # Coverage by module
+      ├── performance_report.json    # Latency + memory metrics
+      ├── simulation_report.json     # Paper trade results
+      └── completion_certificate.json# Final Phase 10 sign-off
+
+CRITICAL RULE:
+The test harness is SEPARATE from the system code.  It does NOT
+import from floor_*/side_* modules directly in test infrastructure.
+It launches the system as a black box and verifies outputs through
+Side B data sources and Side C read models (for integration tests).
+Unit tests import modules directly with mocked dependencies.
+
+----------------------------------------------------------------------
+SECTION 3 — STEP-BY-STEP BUILD ORDER
+----------------------------------------------------------------------
+
+Phase 10 has 7 GATES.  Each gate is a validation stage — no gate
+may begin until the previous gate passes all checks.  Each gate
+produces a machine-readable results file.
+
+──────────────────────────────────────────────────────────────────────
+GATE 10.1 — UNIT TEST COVERAGE GATE
+──────────────────────────────────────────────────────────────────────
+
+PURPOSE:  Measure and enforce ≥80% code coverage across all modules.
+
+BUILD STEP 10.1.1 — coverage_config.ini
+  Purpose:  Configure pytest-cov to measure coverage across all
+            floor_*, side_*, and shared/ modules.
+  Content:  paths, exclude patterns, fail-under threshold (80%),
+            omit test files and __init__.py
+  Validation: pytest --cov runs without error
+
+BUILD STEP 10.1.2 — coverage_reporter.py
+  Purpose:  Parse pytest-cov JSON output and generate per-module
+            coverage report with pass/fail indicators.
+  Input:    pytest-cov JSON output
+  Output:   coverage_report.json (per-module coverage % + overall)
+  Validation: known coverage data → correct report
+
+VERIFICATION CHECKLIST (GATE 10.1):
+  [ ] coverage_config.ini exists with correct paths
+  [ ] coverage_reporter.py parses pytest-cov output correctly
+  [ ] `pytest --cov --cov-report=json -x` runs without error
+  [ ] ALL modules have ≥80% coverage
+  [ ] coverage_report.json generated and saved
+  [ ] Any module below 80% flagged with specific file list
+
+FAILURE ACTION:
+  If coverage < 80%: identify under-covered modules, add missing
+  unit tests, rerun gate.  Phase 10 does NOT proceed until ≥80%.
+
+──────────────────────────────────────────────────────────────────────
+GATE 10.2 — UNIT TEST INTEGRITY GATE
+──────────────────────────────────────────────────────────────────────
+
+PURPOSE:  Ensure every unit test is meaningful (tests assertions,
+          not just runs-without-error).
+
+This gate does NOT add new code.  It runs an audit pass:
+
+VERIFICATION CHECKLIST (GATE 10.2):
+  [ ] Every test file has ≥1 assertion (no assert-free tests)
+  [ ] Every test function has ≥1 assertion or pytest.raises
+  [ ] No tests skipped by default (unless explicitly documented why)
+  [ ] No tests using @pytest.mark.skip without comment
+  [ ] No tests catching all exceptions (bare `except:`)
+  [ ] Every mock fixture validates at least the expected call
+  [ ] Edge case tests exist for: None input, empty input, corrupt input
+  [ ] Error case tests exist for: exception propagation, fallback paths
+  [ ] No flaky tests identified (run each test 3×, all must pass)
+  [ ] All tests complete in < 30 seconds total
+
+FAILURE ACTION:
+  Fix or document each integrity violation.  Rerun gate.
+
+──────────────────────────────────────────────────────────────────────
+GATE 10.3 — INTEGRATION TEST GATE
+──────────────────────────────────────────────────────────────────────
+
+PURPOSE:  Verify every floor/side pair integration path produces
+          correct data flow end-to-end.
+
+BUILD STEP 10.3.1 — conftest.py (shared test fixtures)
+  Purpose:  Shared pytest fixtures for all integration tests.
+  Content:
+    - Mock Angel One WebSocket (inject recorded ticks)
+    - Mock broker endpoint (record outgoing orders, return canned responses)
+    - Fixture to start/stop all floors + sides (single session)
+    - Fixture to inject recorded market data
+    - Fixture to capture Side C events during test
+    - Fixture to capture Side B data source responses
+  Dependencies: All floors + sides must be importable
+  Validation: Fixtures create isolated test sessions
+
+VERIFICATION CHECKLIST (GATE 10.3):
+  [ ] conftest.py fixtures work correctly
+
+  Then run the 16 integration tests defined in Phase 9 (it_001-016):
+  [ ] it_001: Floor 1 → Floor 2 end-to-end (single tick)
+  [ ] it_002: Floor 1 → Floor 2 end-to-end (burst)
+  [ ] it_003: Floor 2 → Floor 3 end-to-end (all 3 engines)
+  [ ] it_004: Floor 3 → Floor 4 end-to-end (all 6 heads)
+  [ ] it_005: Floor 4 → Floor 5 end-to-end (full decision cycle)
+  [ ] it_006: Floor 5 → Side A end-to-end (intent → execution)
+  [ ] it_007: Side A PAPER broker end-to-end (order → fill → close)
+  [ ] it_008: Side A → Side C event logging (all 5 families)
+  [ ] it_009: Floor 1 → Side C health events
+  [ ] it_010: Side C → Side B read models
+  [ ] it_011: Side B UI rendering (all workspaces)
+  [ ] it_012: Full system: inject tick → broker fill → dashboard render
+  [ ] it_013: Full system: error injection → kill switch → recovery
+  [ ] it_014: Full system: replay → comparison report
+  [ ] it_015: Full system: operator override → execution
+  [ ] it_016: Full system: 3-loss lock → REAL lock → override → unlock
+
+  [ ] ALL 16 integration tests pass
+  [ ] Integration test results saved to gate_results.json
+
+FAILURE ACTION:
+  Fix failing integration path.  Rerun gate.
+
+──────────────────────────────────────────────────────────────────────
+GATE 10.4 — REPLAY VALIDATION GATE
+──────────────────────────────────────────────────────────────────────
+
+PURPOSE:  Verify deterministic replay across all floors and sides
+          using ≥1 day of recorded market data.
+
+BUILD STEP 10.4.1 — replay_comparator.py
+  Purpose:  Compare live vs replay output for a given data range.
+            Produces diff report showing any divergence points.
+  Input:    Live output records (from Side C), replay output records
+  Output:   Replay comparison report with:
+            - Total records compared
+            - Records matching
+            - Records diverging (with field-level diff)
+            - Non-deterministic modules flagged (broker, network)
+            - Overall verdict: PASS or FAIL (FAIL if any deterministic
+              module diverges)
+  Dependencies: Side C must have replay query support
+  Validation: Known identical data → PASS. Known different data → FAIL.
+
+VERIFICATION CHECKLIST (GATE 10.4):
+  [ ] replay_comparator.py works correctly
+
+  Then run the 10 replay tests defined in Phase 9 (rp_001-010):
+  [ ] rp_001: Floor 1 replay (raw data → cleaned data)
+  [ ] rp_002: Floor 2 replay (cleaned data → structured data)
+  [ ] rp_003: Floor 3 replay (structured data → calculated signals)
+  [ ] rp_004: Floor 4 replay (signals → head reports)
+  [ ] rp_005: Floor 5 replay (head reports → armed plans)
+  [ ] rp_006: Side A replay (execution events → position state)
+  [ ] rp_007: Side C replay (all events → read models)
+  [ ] rp_008: Full system replay (all floors + sides)
+  [ ] rp_009: Replay with partial data (test edge cases)
+  [ ] rp_010: Replay with error injection (test error recovery)
+
+  [ ] ALL 10 replay tests pass with ≥1 day of market data
+  [ ] Replay comparison reports saved for each test
+  [ ] replay_report.json generated
+
+CRITICAL:
+  If ANY deterministic module diverges between live and replay,
+  the replay gate FAILS.  Non-deterministic divergence (broker
+  latency, network jitter) is flagged but does NOT fail the gate.
+
+FAILURE ACTION:
+  Investigate divergence root cause.  Fix the module.  Re-record
+  market data run.  Rerun gate.
+
+──────────────────────────────────────────────────────────────────────
+GATE 10.5 — EDGE CASE + STRESS TEST GATE
+──────────────────────────────────────────────────────────────────────
+
+PURPOSE:  Verify system resilience under abnormal conditions.
+
+BUILD STEP 10.5.1 — scenario_runner.py
+  Purpose:  Orchestrate each test scenario, inject data, monitor
+            system health, and report results.
+  Input:    Scenario definition (data file, injector, expected outcomes)
+  Output:   Scenario results (pass/fail, system health during test,
+            Side C events captured, errors logged)
+  Dependencies: All floors + sides, recorded data, corrupt samples
+  Validation: Run a known-good scenario → PASS expected
+
+BUILD STEP 10.5.2 — scenario definitions (9 files)
+  normal_market.py: Normal market conditions (baseline)
+  high_volatility.py: Rapid price swings, wide spreads
+  low_liquidity.py: Thin order book, wide bid-ask spread
+  disconnect_reconnect.py: Floor 1 WebSocket drops → reconnects
+  duplicate_feeds.py: Duplicate ticks injected to Floor 2
+  corrupt_feeds.py: Malformed packets, NaN prices, negative strikes
+  empty_session.py: No data for entire trading session
+  burst_load.py: 10,000 ticks in 10 seconds (burst)
+  sustained_load.py: 50,000 ticks over 5 minutes (sustained)
+
+  Each scenario defines:
+    - Data injection method
+    - Expected system behavior (no crash, correct health events)
+    - Expected Side C events (correct severity for errors)
+    - Expected recovery path (if applicable)
+    - Pass/fail criteria
+
+VERIFICATION CHECKLIST (GATE 10.5):
+  [ ] scenario_runner.py works correctly
+  [ ] All 9 scenario files created with correct definitions
+
+  Run all 9 scenarios:
+  [ ] normal_market: PASS (baseline — no errors expected)
+  [ ] high_volatility: PASS (system handles rapid movement)
+  [ ] low_liquidity: PASS (system handles thin markets)
+  [ ] disconnect_reconnect: PASS (Floor 1 reconnects gracefully)
+  [ ] duplicate_feeds: PASS (Floor 2 deduplicates correctly)
+  [ ] corrupt_feeds: PASS (Floor 2 validates correctly)
+  [ ] empty_session: PASS (system handles no-data session)
+  [ ] burst_load: PASS (system processes burst without crash)
+  [ ] sustained_load: PASS (system processes sustained volume)
+
+  [ ] ALL 9 scenarios pass
+  [ ] No system crash in any scenario
+  [ ] Correct Side C health events for error scenarios
+  [ ] Correct recovery on disconnect/reconnect
+  [ ] scenario_results.json generated
+
+FAILURE ACTION:
+  Fix the module that fails under the specific scenario.  Rerun gate.
+
+──────────────────────────────────────────────────────────────────────
+GATE 10.6 — PERFORMANCE TEST GATE
+──────────────────────────────────────────────────────────────────────
+
+PURPOSE:  Verify system meets latency and memory requirements.
+
+BUILD STEP 10.6.1 — latency_profiler.py
+  Purpose:  Measure per-module latency for tick processing,
+            heavy cycle, and light cycle.
+  Input:    Recorded market data (burst + sustained)
+  Output:   Per-module latency report (p50, p95, p99, max)
+  Dependencies: All floors + sides
+  Validation: Known data → measurable timing output
+
+BUILD STEP 10.6.2 — memory_profiler.py
+  Purpose:  Track memory usage during normal operation and replay.
+  Input:    Recorded market data (sustained load scenario)
+  Output:   Memory usage report (baseline, peak, leak detection if
+            memory grows unbounded over 5+ minutes)
+  Dependencies: psutil library
+  Validation: Runs without error
+
+BUILD STEP 10.6.3 — cycle_timer.py
+  Purpose:  Measure heavy cycle and light cycle execution times.
+  Input:    Floor 4 → Floor 5 cycle data (real or simulated)
+  Output:   Heavy cycle time (total + per-step) and light cycle time
+  Dependencies: Floor 4 + Floor 5
+  Validation: Known data → measurable timing output
+
+VERIFICATION CHECKLIST (GATE 10.6):
+  [ ] latency_profiler.py works
+  [ ] memory_profiler.py works
+  [ ] cycle_timer.py works
+
+  Run performance tests:
+  [ ] nf_001: Heavy cycle < 30 seconds end-to-end
+  [ ] nf_002: Light cycle < 1 second
+  [ ] nf_003: Memory < 2GB during normal operation
+  [ ] nf_004: Memory < 4GB during replay
+  [ ] nf_005: Side B page load < 3 seconds
+  [ ] nf_006: Side B refresh within HOT/WARM/COLD tolerances
+      (500ms HOT, 3s WARM, 30s COLD)
+  [ ] nf_007: Floor 1 tick → Floor 2 validated < 100ms (p95)
+  [ ] nf_008: Floor 2 → Floor 3 signal < 500ms (p95)
+
+  [ ] ALL 8 non-functional tests pass
+  [ ] performance_report.json generated
+
+FAILURE ACTION:
+  Profile the slowest step.  Optimize.  Rerun gate.
+  If memory leaks detected: fix leak, rerun with longer duration.
+
+──────────────────────────────────────────────────────────────────────
+GATE 10.7 — PAPER MODE SIMULATION GATE
+──────────────────────────────────────────────────────────────────────
+
+PURPOSE:  Verify the system can execute 100+ simulated paper trades
+          without any critical failure.  This is the FINAL gate before
+          production readiness.
+
+BUILD STEP 10.7.1 — simulation_runner.py
+  Purpose:  Orchestrate 100+ paper trades across multiple sessions.
+            Feeds recorded market data, lets Captain decide, routes
+            through Side A paper broker, tracks results.
+  Input:    Recorded market data (multiple sessions)
+  Output:   Simulation results (trade count, win/loss, critical
+            failures, exceptions, risk gate rejections)
+  Dependencies: All floors + sides must be fully operational
+  Validation: Runs through 10 trades → results expected
+
+BUILD STEP 10.7.2 — trade_scenarios.py
+  Purpose:  Define specific trade scenarios to exercise the system:
+            - Winning trades (price moves in favor)
+            - Losing trades (price moves against, SL hit)
+            - Partial fills (only part of order fills)
+            - No-fill scenarios (order not filled)
+            - Protection triggers (SL/TP hit correctly)
+            - Psychology block active (no trades expected)
+            - Loss lock triggers (3 losses → REAL lock)
+            - Operator override scenarios
+  Content:  For each scenario: data range, expected outcome,
+            verification criteria
+
+BUILD STEP 10.7.3 — results_analyzer.py
+  Purpose:  Aggregate simulation results and produce final report.
+  Input:    Simulation runner output
+  Output:   simulation_report.json with:
+            - Total trades attempted
+            - Total trades executed
+            - Win/loss count + ratio
+            - Average trade duration
+            - Average P&L per trade
+            - Risk gate rejection count (by check type)
+            - Kill switch activations
+            - Critical failures (ZERO required)
+            - Exceptions (ZERO required)
+            - Loss lock activations
+            - Override count
+            - Overall verdict: PASS or FAIL
+  Dependencies: simulation_runner.py output
+  Validation: Known simulation data → correct analysis
+
+VERIFICATION CHECKLIST (GATE 10.7):
+  [ ] simulation_runner.py works
+  [ ] trade_scenarios.py contains all required scenarios
+  [ ] results_analyzer.py works
+
+  Run paper simulation:
+  [ ] 100+ paper trades executed
+  [ ] ZERO critical failures (system crash, data loss, wrong execution)
+  [ ] ZERO unhandled exceptions
+  [ ] Winning trades produce correct P&L
+  [ ] Losing trades hit SL correctly
+  [ ] Partial fills handled correctly (position = filled qty)
+  [ ] No-fill scenarios expire correctly
+  [ ] Protection model triggers SL/TP correctly
+  [ ] Psychology block prevents trades when active
+  [ ] Loss lock activates after 3 consecutive losses
+  [ ] Operator override executes correctly
+  [ ] Kill switch blocks new trades / flattens position
+  [ ] All events logged to Side C correctly
+  [ ] Side B renders simulation data correctly
+  [ ] simulation_report.json generated
+
+FAILURE ACTION:
+  Fix any critical failure.  Rerun ALL 100+ trades.
+  Non-critical failures (e.g., a losing trade) are expected and
+  do NOT fail the gate.  Only CRITICAL failures fail.
+
+----------------------------------------------------------------------
+SECTION 4 — INPUT/OUTPUT CONTRACTS
+----------------------------------------------------------------------
+
+4.1  Input contracts
+
+  The testing phase consumes:
+    - Recorded market data (3 sets of 3-hour NSE tick data from Phase 9)
+    - Corrupt/malformed data samples (created for edge case gate)
+    - All floor/side modules (already built, compiled, and wired)
+    - Side C event stores (populated from Phase 9+)
+    - Side B data sources (exposed endpoints)
+
+4.2  Output contracts
+
+  The testing phase produces:
+    - coverage_report.json   (per-module coverage % + pass/fail)
+    - gate_results.json      (pass/fail per gate + per-test detail)
+    - replay_report.json     (replay comparison results)
+    - scenario_results.json  (edge case + stress scenario results)
+    - performance_report.json(latency + memory metrics)
+    - simulation_report.json (paper trade results + verdict)
+    - completion_certificate.json (final Phase 10 sign-off with
+      ALL gates pass/fail, overall verdict)
+
+4.3  Completion certificate schema
+
+  {
+    "phase": 10,
+    "gate": "testing_and_validation",
+    "timestamp": "<ISO datetime>",
+    "gates": {
+      "10.1_unit_coverage": {
+        "status": "PASS|FAIL",
+        "coverage_percent": 85.3,
+        "below_threshold": ["floor_3/smc_engine.py: 72%"]
+      },
+      "10.2_unit_integrity": {
+        "status": "PASS|FAIL",
+        "issues_found": 0,
+        "flaky_tests": 0
+      },
+      "10.3_integration": {
+        "status": "PASS|FAIL",
+        "tests_pass": 16,
+        "tests_fail": 0
+      },
+      "10.4_replay": {
+        "status": "PASS|FAIL",
+        "market_data_days": 1.5,
+        "tests_pass": 10,
+        "divergences": 0
+      },
+      "10.5_edge_case_stress": {
+        "status": "PASS|FAIL",
+        "scenarios_pass": 9,
+        "scenarios_fail": 0
+      },
+      "10.6_performance": {
+        "status": "PASS|FAIL",
+        "nf_tests_pass": 8,
+        "nf_tests_fail": 0
+      },
+      "10.7_paper_simulation": {
+        "status": "PASS|FAIL",
+        "trades_executed": 100,
+        "critical_failures": 0,
+        "exceptions": 0
+      }
+    },
+    "overall_verdict": "PASS",
+    "next_phase": "ROADMAP_DEPLOYMENT_AND_OPERATIONS"
+  }
+
+----------------------------------------------------------------------
+SECTION 5 — DEPENDENCY MAP
+----------------------------------------------------------------------
+
+Gate                          Depends On                        Blocks
+────────────────────────────────────────────────────────────────────────
+10.1 — Unit Coverage          Phase 9 complete (all floors +     10.2
+                               sides built + wired)
+10.2 — Unit Integrity         10.1 pass                          10.3
+10.3 — Integration            10.2 pass                          10.4
+10.4 — Replay Validation      10.3 pass + ≥1 day recorded data   10.5
+10.5 — Edge Case + Stress     10.4 pass + corrupt data samples   10.6
+10.6 — Performance            10.5 pass                          10.7
+10.7 — Paper Simulation       10.6 pass                          11 (Phase 11)
+
+ALL gates are SERIAL — no parallel execution in Phase 10.
+Each gate builds confidence for the next.  A failure in any gate
+means the system is not ready for the next level of validation.
+
+TESTING INFRASTRUCTURE DEPENDENCIES:
+  - pytest (core test framework)
+  - pytest-cov (coverage measurement)
+  - psutil (memory profiling)
+  - time / perf_counter (latency measurement)
+  - json / pathlib (report generation)
+
+  These are Python standard library + common packages.
+  NO external services required.
+
+----------------------------------------------------------------------
+SECTION 6 — WIRING DIAGRAM
+----------------------------------------------------------------------
+
+Phase 10 test harness connects to the system as a black-box consumer:
+
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │                        TEST HARNESS                                  │
+  │                                                                      │
+  │  Unit Tests ────► [import modules] ────► assertions ────► coverage   │
+  │                                                                      │
+  │  Integration ───► [inject data] ────► [system processes]            │
+  │                     │                     │                          │
+  │                     ▼                     ▼                          │
+  │                Recorded ticks         Side C events                  │
+  │                Corrupt samples        Side B responses               │
+  │                Scenario data          Broker records                 │
+  │                                                                      │
+  │  Replay ──────────► [load replay data] ────► [compare]              │
+  │                        │                         │                   │
+  │                        ▼                         ▼                   │
+  │                   Side C query                Diff report            │
+  │                                                                      │
+  │  Edge Case ──────► [inject scenario] ────► [monitor health]          │
+  │                                                                      │
+  │  Performance ────► [run workload] ────► [measure latency/memory]     │
+  │                                                                      │
+  │  Paper Sim ──────► [feed data] ────► [let system trade]             │
+  │                        │                         │                   │
+  │                        ▼                         ▼                   │
+  │                   Recorded ticks             Side A paper            │
+  │                   Market data                broker results          │
+  └──────────────────────────────────────────────────────────────────────┘
+                         │
+                         ▼
+              ┌─────────────────────┐
+              │   Report Generator   │
+              │   (gate_results.json │
+              │    coverage_report   │
+              │    simulation_report)│
+              └─────────────────────┘
+                         │
+                         ▼
+              ┌─────────────────────┐
+              │  Gate Decision:     │
+              │  PASS → Phase 11    │
+              │  FAIL → Fix + Rerun │
+              └─────────────────────┘
+
+CRITICAL WIRING RULES:
+  - Test harness does NOT modify system state
+  - Each test creates its own isolated data
+  - Tests run in temporary directories (no persistent state)
+  - Mock data is read-only (never overwritten)
+  - System is started fresh for each integration test
+  - Replay tests do NOT interfere with live state
+
+----------------------------------------------------------------------
+SECTION 7 — DATA FLOW
+----------------------------------------------------------------------
+
+7.1  Unit test data flow
+
+  [test file] ──► import module ──► create mock input ──►
+      call function ──► assert output matches expected
+
+  Data is synthetic.  No recorded market data needed.
+  Each unit test creates its own input data inline.
+
+7.2  Integration test data flow
+
+  [conftest.py fixture] ──► start all floors + sides ──►
+      inject recorded tick ──► wait for processing ──►
+      read Side C events + Side B data sources ──►
+      assert correct events/output ──► stop system ──►
+      clean up temporary data
+
+  Data is recorded market data (from Phase 9 preparation).
+  Each integration test injects fresh data into a fresh system instance.
+
+7.3  Replay data flow
+
+  [replay test] ──► run system with recorded data (live run) ──►
+      capture all outputs ──► run replay with same data ──►
+      capture all outputs ──► compare live vs replay ──►
+      report divergence (if any)
+
+  Data is recorded market data (≥1 day).
+  Replay reads from Side C REPLAY_REF; does NOT re-ingest from Floor 1.
+
+7.4  Edge case data flow
+
+  [scenario] ──► start system ──► inject abnormal data ──►
+      monitor system health (no crash) ──► check Side C events ──►
+      check recovery (if applicable) ──► stop system
+
+  Data is corrupt/abnormal samples or specific injection patterns.
+
+7.5  Performance data flow
+
+  [profiler] ──► start system ──► inject high-volume data ──►
+      measure per-module latency ──► measure memory ──►
+      record results ──► stop system
+
+  Data is recorded burst/sustained load data.
+
+7.6  Paper simulation data flow
+
+  [simulation] ──► start system ──► feed multi-session data ──►
+      let Captain decide ──► Side A paper broker executes ──►
+      track every trade ──► analyze results ──►
+      report pass/fail ──► clean up
+
+  Data is recorded market data from multiple sessions.
+  System runs autonomously — no human intervention during simulation.
+
+----------------------------------------------------------------------
+SECTION 8 — VALIDATION MATRIX
+----------------------------------------------------------------------
+
+8.1  Test environment
+
+  All Phase 10 tests run against:
+    - Local in-memory data (no external API calls during test)
+    - Recorded market data (3 sets of 3-hour NSE tick data)
+    - PAPER broker only (REAL broker not used in Phase 10)
+    - Fresh system instance per test (no shared state)
+    - Single laptop (no distributed testing)
+
+8.2  Gate-level validation
+
+  Gate                   Validation Type        Count    Pass Criteria
+  ────────────────────────────────────────────────────────────────────
+  10.1 Unit Coverage     Automated (pytest-cov)   all    ≥80% per module
+  10.2 Unit Integrity    Automated (pytest audit) all    No violations
+  10.3 Integration       Automated (pytest)       16    ALL pass
+  10.4 Replay            Automated (comparator)    10    ALL pass
+  10.5 Edge Case+Stress  Automated (scenarios)     9     ALL pass
+  10.6 Performance       Automated (profiling)     8     ALL within bounds
+  10.7 Paper Simulation  Automated (runner)     100+    ZERO critical failures
+
+8.3  Coverage targets
+
+  Module                    Minimum Coverage
+  ─────────────────────────────────────────
+  shared/types.py           95%
+  shared/config.py          90%
+  shared/logging.py         85%
+  floor_1/*                 80%
+  floor_2/*                 80%
+  floor_3/*                 80%
+  floor_4/*                 80%
+  floor_5/*                 80%
+  side_a/*                  85% (capital-critical)
+  side_b/*                  75% (UI-heavy, harder to unit test)
+  side_c/*                  85%
+
+  Overall: ≥80%
+
+8.4  Performance bounds
+
+  Test ID   Metric                              Bound
+  ────────────────────────────────────────────────────────────
+  nf_001    Heavy cycle (end-to-end)            < 30 seconds
+  nf_002    Light cycle                         < 1 second
+  nf_003    Memory (normal operation)           < 2GB
+  nf_004    Memory (replay)                     < 4GB
+  nf_005    Side B page load                    < 3 seconds
+  nf_006    Side B HOT/WARM/COLD refresh        500ms/3s/30s ±tolerance
+  nf_007    Floor 1 tick → Floor 2 validated    < 100ms (p95)
+  nf_008    Floor 2 → Floor 3 signal            < 500ms (p95)
+
+8.5  Simulation success criteria
+
+  Metric                              Target
+  ────────────────────────────────────────────────
+  Trades executed                     ≥100
+  Critical failures                   0
+  Unhandled exceptions                0
+  System crashes                      0
+  Data loss incidents                 0
+  Wrong execution direction           0
+  Wrong execution quantity            0
+  Risk gate bypasses                  0
+  Loss lock violations                0
+  Override bypasses                   0
+
+----------------------------------------------------------------------
+SECTION 9 — CROSS-COMPONENT IMPACTS
+----------------------------------------------------------------------
+
+9.1  Impact on Floor 1
+
+  - Floor 1 must be testable with recorded data (not live WebSocket)
+  - Floor 1 reconnect logic verified in edge case scenarios
+  - Floor 1 timing measured in performance gate
+
+9.2  Impact on Floor 2
+
+  - Floor 2 duplicate detection verified with duplicate feed scenario
+  - Floor 2 corruption detection verified with corrupt data scenario
+  - Floor 2 replay must be deterministic for replay gate
+
+9.3  Impact on Floor 3
+
+  - Floor 3 must produce identical signals on replay (deterministic)
+  - Floor 3 performance measured in performance gate
+  - Floor 3 must handle empty data (empty session scenario)
+
+9.4  Impact on Floor 4
+
+  - Floor 4 must produce identical head reports on replay
+  - Floor 4 stale detection verified with empty/partial data
+  - Floor 4 NO_SETUP enforcement verified in integration tests
+
+9.5  Impact on Floor 5
+
+  - Floor 5 must produce identical decisions on replay
+  - Floor 5 psychology block verified in simulation
+  - Floor 5 loss lock verified in simulation
+  - Floor 5 heavy/light cycle timing measured in performance gate
+
+9.6  Impact on Side A
+
+  - Side A paper broker must produce realistic results in simulation
+  - Side A risk gate verified with 12 failure mode tests
+  - Side A kill switch verified in disconnect scenario
+  - Side A state machine verified in simulation transitions
+  - Side A reconciliation verified in simulation
+
+9.7  Impact on Side C
+
+  - Side C event emission verified in every integration test
+  - Side C replay query verified in replay gate
+  - Side C read models verified in integration + simulation
+  - Side C retention NOT tested in Phase 10 (requires multi-day run)
+
+9.8  Impact on Side B
+
+  - Side B data sources verified in integration tests
+  - Side B UI rendering NOT tested programmatically in Phase 10
+    (manual verification in Phase 11 production readiness)
+  - Side B command handlers verified in simulation gate
+
+9.9  Impact on test infrastructure
+
+  - Test harness consumes about 500MB disk for recorded data
+  - Test harness requires ~10GB disk for replay data (1+ day)
+  - Test run time: approximately 2-4 hours for full Phase 10
+    (dominated by paper simulation at ~1-2 hours)
+
+----------------------------------------------------------------------
+SECTION 10 — COMMON MISTAKES
+----------------------------------------------------------------------
+
+10.1 Architecture-breaking mistakes (will fail Phase 10)
+
+  Mistake 1: Measuring coverage but not fixing gaps
+    Prevention: Gate 10.1 fails if coverage < 80%.  No workaround.
+    Detection:   coverage_report.json shows per-module gaps
+
+  Mistake 2: Integration tests that pass without meaningful assertions
+    Prevention: Gate 10.2 requires ≥1 assertion per test
+    Detection:   pytest-audit finds assert-free tests
+
+  Mistake 3: Using synthetic data for all replay tests
+    Prevention: Gate 10.4 requires ≥1 day of recorded market data
+    Detection:   replay_report.json shows data_source = synthetic
+
+  Mistake 4: Ignoring replay divergence
+    Prevention: Gate 10.4 fails if deterministic module diverges
+    Detection:   replay comparator finds field-level differences
+
+  Mistake 5: Running edge case tests with data that doesn't trigger
+             the edge case
+    Prevention: Each scenario defines expected system behavior;
+                test fails if expected behavior not observed
+    Detection:   scenario_results.json shows expected=observed mismatch
+
+  Mistake 6: Running performance tests on a non-idle machine
+    Prevention: Performance gate specifies baseline conditions:
+                - No other heavy processes running
+                - CPU idle > 90% before test
+                - Memory available > 8GB
+    Detection:   performance_report.json flags if baseline conditions
+                 not met
+
+  Mistake 7: Paper simulation with too few trades
+    Prevention: Gate 10.7 requires ≥100 trades minimum
+    Detection:   simulation_report.json shows trade count < 100
+
+  Mistake 8: Ignoring critical failures in paper simulation
+    Prevention: Gate 10.7 fails on ANY critical failure
+    Detection:   simulation_report.json shows critical_failures > 0
+
+  Mistake 9: Running Phase 10 while still making code changes
+    Prevention: Phase 10 is validation-only.  Any code change during
+                Phase 10 requires restarting from Gate 10.1.
+    Detection:   git diff shows uncommitted changes
+
+10.2 What creates rework later (and how to prevent it)
+
+  Rework 1: Low coverage discovered late
+    Fix:      Add unit tests for uncovered modules, rerun gate
+    Prevent:  Run coverage locally after every Phase 0-8 module build
+
+  Rework 2: Integration tests that depend on test order
+    Fix:      Make each test independent, rerun
+    Prevent:  conftest.py creates fresh system instance per test
+
+  Rework 3: Replay divergence caused by non-deterministic code
+    Fix:      Make module deterministic (seed random, fix time), rerun
+    Prevent:  Use deterministic randomness (seeded) in all modules
+
+  Rework 4: Edge case not covered by existing scenarios
+    Fix:      Add scenario, rerun gate
+    Prevent:  Review edge case list before building scenarios
+
+  Rework 5: Performance regression from recent change
+    Fix:      Profile, identify bottleneck, optimize, rerun
+    Prevent:  Run performance tests after every significant change
+
+  Rework 6: Paper simulation failures due to risk gate configuration
+    Fix:      Adjust risk gate parameters, rerun simulation
+    Prevent:  Test risk gate configuration with small simulation first
+
+  Rework 7: Test infrastructure itself has bugs
+    Fix:      Fix test harness, rerun gate
+    Prevent:  Unit test the test harness (test conftest fixtures,
+              test scenario runner, test comparator logic)
+
+----------------------------------------------------------------------
+SECTION 11 — READY-TO-CODE CHECKLIST
+----------------------------------------------------------------------
+
+11.1 Entry criteria (Phase 10 may begin when ALL are true)
+
+  [ ] Phase 9 complete: full system integration verified
+  [ ] ROADMAP_FULL_SYSTEM_INTEGRATION signed off
+  [ ] All floors and sides built and wired (Phases 0-8)
+  [ ] All 53 contract tests pass (from Phase 9)
+  [ ] All 10 replay tests pass (from Phase 9)
+  [ ] All 16 integration tests pass (from Phase 9)
+  [ ] All 6 non-functional tests pass (from Phase 9)
+  [ ] Contracts frozen at version 1.0
+  [ ] Recorded market data ready (3 sets of 3-hour NSE tick data)
+  [ ] Corrupt/malformed data samples prepared for edge case gate
+  [ ] pytest installed and configured
+  [ ] pytest-cov installed and configured
+  [ ] psutil installed and configured
+  [ ] System runs without errors on a single laptop
+  [ ] Git working tree clean (no uncommitted changes)
+
+11.2 Per-gate verification
+
+  Gate 10.1 — Unit Coverage:
+    [ ] coverage_config.ini created
+    [ ] coverage_reporter.py created
+    [ ] pytest --cov runs without error
+    [ ] ALL modules ≥80% coverage
+    [ ] Below-threshold modules identified (if any)
+    [ ] coverage_report.json saved
+
+  Gate 10.2 — Unit Integrity:
+    [ ] All test files have ≥1 assertion
+    [ ] No skipped tests without documentation
+    [ ] No bare except clauses
+    [ ] Mock fixtures validate expected calls
+    [ ] Edge case tests exist (None, empty, corrupt)
+    [ ] Error case tests exist (exception propagation)
+    [ ] No flaky tests identified (3× run)
+    [ ] All tests complete in < 30 seconds
+
+  Gate 10.3 — Integration:
+    [ ] conftest.py fixtures work correctly
+    [ ] it_001-016 all pass
+    [ ] gate_results.json updated
+
+  Gate 10.4 — Replay Validation:
+    [ ] replay_comparator.py works
+    [ ] rp_001-010 all pass (≥1 day market data)
+    [ ] No deterministic module divergence
+    [ ] replay_report.json saved
+
+  Gate 10.5 — Edge Case + Stress:
+    [ ] scenario_runner.py works
+    [ ] 9 scenario files created
+    [ ] ALL 9 scenarios pass
+    [ ] No system crash in any scenario
+    [ ] scenario_results.json saved
+
+  Gate 10.6 — Performance:
+    [ ] latency_profiler.py works
+    [ ] memory_profiler.py works
+    [ ] cycle_timer.py works
+  [ ] nf_001-008 all within bounds
+  [ ] performance_report.json saved
+
+  Gate 10.7 — Paper Simulation:
+    [ ] simulation_runner.py works
+    [ ] trade_scenarios.py complete
+    [ ] results_analyzer.py works
+    [ ] 100+ paper trades executed
+    [ ] ZERO critical failures
+    [ ] ZERO unhandled exceptions
+    [ ] simulation_report.json saved
+
+11.3 Integration verification
+
+  [ ] ALL 7 gates pass
+  [ ] ALL 53 contract tests pass (re-verified from Phase 9)
+  [ ] ALL 10 replay tests pass
+  [ ] ALL 16 integration tests pass
+  [ ] ALL 8 non-functional tests pass
+  [ ] ALL 9 scenarios pass
+  [ ] 100+ paper trades with ZERO critical failures
+  [ ] No system crashes during any test
+  [ ] No unhandled exceptions during any test
+  [ ] All reports generated and saved
+
+11.4 Exit criteria (Phase 10 complete when ALL are true)
+
+  [ ] ALL 7 gates pass verification
+  [ ] Overall coverage ≥80%
+  [ ] All integration tests pass
+  [ ] Replay deterministic with ≥1 day of market data
+  [ ] All edge case + stress scenarios pass
+  [ ] All 8 performance tests within bounds (nf_001-008)
+  [ ] Paper simulation: 100+ trades, ZERO critical failures
+  [ ] completion_certificate.json generated with PASS verdict
+  [ ] Documentation updated:
+      - Roadmap/ROADMAP_TESTING_AND_VALIDATION_COMPLETED.txt created
+      - Any test infrastructure changes documented
+  [ ] System is ready for Phase 11 — Production Readiness
+  [ ] Final sign-off obtained
+
+================================================================================
+ END OF ROADMAP_TESTING_AND_VALIDATION
+================================================================================

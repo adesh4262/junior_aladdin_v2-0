@@ -1,0 +1,9 @@
+env: "production"
+
+logging:
+  level: "WARNING"
+
+capital:
+  paper_limit: 100000
+  real_limit: 50000
+  max_loss_per_trade: 5000

@@ -1,0 +1,14 @@
+env: "test"
+
+logging:
+  level: "DEBUG"
+
+capital:
+  paper_limit: 1000000
+  real_limit: 50000
+  max_loss_per_trade: 5000
+
+thresholds:
+  confidence_min: 0.3
+  conviction_min: 30
+  freshness_max_age_seconds: 600

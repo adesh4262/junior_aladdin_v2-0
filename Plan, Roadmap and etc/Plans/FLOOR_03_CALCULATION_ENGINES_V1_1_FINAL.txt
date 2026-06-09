@@ -1,0 +1,2019 @@
+================================================================================
+ JUNIOR ALADDIN - FLOOR 3 CALCULATION ENGINES PLAN
+ (Detailed Planning + Coding Blueprint Draft)
+================================================================================
+
+PURPOSE OF THIS FILE
+-------------------------------------------------------------------------------
+This file is the detailed planning and coding blueprint for FLOOR 3:
+CALCULATION ENGINES.
+
+This file is not a loose concept note.
+It is meant to serve as:
+- implementation reference
+- design reference
+- review reference
+- future upgrade reference
+
+This floor is one of the most important floors in the entire system because it is
+where clean market data is transformed into structured market intelligence.
+
+But this floor has strict boundaries.
+It must become an intelligence factory.
+It must NOT become:
+- a Head
+- a Captain
+- a trade decision engine
+- a confidence engine
+- a conviction engine
+- a trade approval engine
+
+This file is written Captain-V2 aligned and Floor-4 aligned.
+
+
+================================================================================
+SECTION 1 - FLOOR 3 IDENTITY
+================================================================================
+
+One-line identity:
+FLOOR 3 = Structured Intelligence Factory
+
+Meaning:
+- Floor 2 gives clean, verified, replay-friendly data
+- Floor 3 converts that data into rich structured analytical intelligence
+- Floor 4 interprets that intelligence into expert opinion
+- Floor 5 judges and decides
+
+This floor exists because raw data alone is not usable.
+But raw calculations alone are also not enough.
+So Floor 3 must sit in the middle and generate structured intelligence that is:
+- rich
+- reusable
+- debuggable
+- domain-preserving
+- non-opinionated
+
+Floor 3 is not allowed to say:
+- BUY
+- SELL
+- Strong Bullish Trade
+- Captain should act now
+- conviction = 85
+- confidence = 70
+
+That would break architecture.
+
+
+================================================================================
+SECTION 2 - FLOOR 3 GUARDRAILS (STRICTLY LOCKED)
+================================================================================
+
+RULE 1
+Floor 3 will never generate:
+- confidence
+- conviction
+- trade approval
+- final bias
+
+These belong to:
+- Confidence -> Floor 4
+- Conviction -> Floor 5
+- Trade approval -> Floor 5
+
+RULE 2
+Floor 3 may generate setup candidates.
+It may NOT generate trade commands.
+Allowed examples:
+- Potential Bullish FVG Retest Candidate
+- Potential Sweep Reclaim Candidate
+- Potential Trend Continuation Candidate
+
+Not allowed:
+- Buy now
+- Sell now
+- Strong Bullish Trade
+- Approved Long Entry
+
+RULE 3
+Every domain must clearly define these 5 output layers:
+- Raw Outputs
+- Structured States
+- Maps
+- Scores
+- Candidate Outputs
+
+RULE 4
+Tier 1 domains must receive the most engineering attention and detail:
+- Market Structure
+- SMC
+- ICT
+
+RULE 5
+Common Market State Projection must be an independent builder section.
+It must have clear:
+- ownership
+- inputs
+- outputs
+- purpose
+
+RULE 6
+Floor 4 Consumption must be explicit.
+Every Head should know what it consumes from Floor 3.
+
+RULE 7
+Captain Consumption must be explicit.
+Captain should not accidentally depend on direct Floor 3 packets as its normal
+operating path.
+
+RULE 8
+Architecture law must remain visible and unbroken:
+
+QUALITY   = FLOOR 3
+CONFIDENCE = FLOOR 4
+CONVICTION = FLOOR 5
+
+RULE 9
+Internal Maps and Active Maps flow must be explicitly documented.
+
+RULE 10
+This file must remain coding-blueprint oriented.
+Not only WHAT, but WHY must be explained.
+
+
+================================================================================
+SECTION 3 - ARCHITECTURE LAW OF FLOORS 3, 4, 5
+================================================================================
+
+This is one of the most important architectural laws in the entire system.
+It must remain visible and explicit:
+
+QUALITY   = FLOOR 3
+CONFIDENCE = FLOOR 4
+CONVICTION = FLOOR 5
+
+Meaning:
+- Floor 3 measures and structures quality of analytical conditions
+- Floor 4 interprets those structured conditions and expresses expert confidence
+- Floor 5 judges everything together and creates final conviction
+
+Why this separation matters:
+If Floor 3 starts generating confidence or conviction,
+then Heads become weak and Captain becomes pointless.
+If Floor 4 starts generating conviction,
+then Captain becomes a messenger instead of a judge.
+If Floor 5 starts recomputing quality,
+then Floor 3 becomes redundant and Captain becomes bloated.
+
+This separation must never be broken.
+
+
+================================================================================
+SECTION 4 - FLOOR 3 DOMAIN STRUCTURE
+================================================================================
+
+Locked domain split = Classic 6 domains
+
+1. Market Structure
+2. SMC
+3. ICT
+4. Technical
+5. Options
+6. Macro
+
+Price Action placement = Hybrid
+- basic candle pattern logic lives under Technical domain
+- contextual rejection / displacement / reclaim candle behavior lives under
+  SMC / ICT interpretation logic
+
+Psychology is NOT a full Floor 3 domain.
+Psychology support metrics exist in Floor 3 as minimal support outputs only.
+Interpretation of those metrics belongs to Floor 4 Psychology Head.
+
+
+================================================================================
+SECTION 5 - ENGINEERING PRIORITY TIERS
+================================================================================
+
+Tier 1 (Highest Priority / Core Edge)
+-------------------------------------------------------------------------------
+- Market Structure
+- SMC
+- ICT
+
+Why Tier 1 is highest:
+The rebuilt architecture is fundamentally built around:
+- structure
+- smart money context
+- ICT/institutional delivery logic
+
+Captain V2 and Floor 4 both depend on these as the core truth backbone.
+If these are weak, the whole system becomes decorative.
+
+Tier 2 (Strong Support Domains)
+-------------------------------------------------------------------------------
+- Options
+- Technical
+
+Why Tier 2 matters:
+These domains provide powerful confirmation, contradiction, and context shaping.
+They are not the core edge foundation, but they are extremely important support
+layers for decision quality.
+
+Tier 3 (Support / Gate Domains)
+-------------------------------------------------------------------------------
+- Macro
+- Psychology support metrics
+
+Why Tier 3 is lighter:
+These domains shape permission, caution, and external risk context.
+They should not become the main alpha engine.
+
+This tiered priority must be visible in future coding order and engineering care.
+Focus must not drift away from Tier 1.
+
+
+================================================================================
+SECTION 6 - FLOOR 3 FOLDER STRUCTURE
+================================================================================
+
+Proposed rebuilt structure:
+
+floor_3_calculations/
+│
+├── __init__.py
+├── calc_types.py
+├── calc_packet_schema.py
+├── common_market_state_projection.py
+├── map_lifecycle_manager.py
+├── candidate_formatter.py
+│
+├── market_structure/
+│   ├── __init__.py
+│   ├── structure_engine.py
+│   ├── swing_engine.py
+│   ├── break_engine.py
+│   ├── trend_state_engine.py
+│   └── structure_scores.py
+│
+├── smc/
+│   ├── __init__.py
+│   ├── ob_engine.py
+│   ├── fvg_engine.py
+│   ├── liquidity_engine.py
+│   ├── sweep_engine.py
+│   ├── mitigation_engine.py
+│   └── smc_scores.py
+│
+├── ict/
+│   ├── __init__.py
+│   ├── premium_discount_engine.py
+│   ├── displacement_engine.py
+│   ├── mss_engine.py
+│   ├── delivery_context_engine.py
+│   └── ict_scores.py
+│
+├── technical/
+│   ├── __init__.py
+│   ├── ema_engine.py
+│   ├── vwap_engine.py
+│   ├── atr_engine.py
+│   ├── rsi_engine.py
+│   ├── adx_engine.py
+│   ├── mtf_alignment_engine.py
+│   ├── candle_pattern_engine.py
+│   └── technical_states.py
+│
+├── options/
+│   ├── __init__.py
+│   ├── oi_engine.py
+│   ├── pcr_engine.py
+│   ├── iv_engine.py
+│   ├── wall_engine.py
+│   ├── max_pain_engine.py
+│   ├── options_pressure_engine.py
+│   └── options_states.py
+│
+├── macro/
+│   ├── __init__.py
+│   ├── vix_state_engine.py
+│   ├── fii_dii_engine.py
+│   ├── global_cues_engine.py
+│   ├── calendar_state_engine.py
+│   └── macro_states.py
+│
+└── support_metrics/
+    ├── __init__.py
+    ├── trap_metrics_engine.py
+    ├── loss_metrics_engine.py
+    ├── cooldown_metrics_engine.py
+    └── overtrade_metrics_engine.py
+
+Why this structure is strong:
+- domain identity is preserved
+- Tier 1 domains get clear, visible priority
+- Common Market State Projection is independent, as locked
+- support metrics remain support metrics, not fake domains
+- raw outputs, states, maps, scores, and candidates can be kept separated clearly
+
+
+================================================================================
+SECTION 7 - COMMON OUTPUT MODEL OF FLOOR 3
+================================================================================
+
+Locked output model:
+Domain Packets Primary + Common Market State Projection Secondary
+
+Meaning:
+- each domain publishes its own rich structured packet
+- Floor 3 also builds one shared cross-domain projection
+- domain identity stays intact
+- heads get depth
+- system gets a common normalized state snapshot
+
+Primary output layer:
+- Domain Packets
+
+Secondary output layer:
+- Common Market State Projection
+
+Why this is the strongest balance:
+- domain packets preserve richness and debugging depth
+- common projection gives a shared market snapshot
+- Floor 4 does not need to reconstruct common state from scratch
+- Captain should still operate mainly through Floor 4, not directly through domain packets
+
+
+================================================================================
+SECTION 8 - RAW OUTPUTS vs STRUCTURED STATES vs MAPS vs SCORES vs CANDIDATES
+================================================================================
+
+Every domain in Floor 3 must expose output in 5 clearly separated forms.
+This is one of the most important implementation rules.
+
+1. Raw Outputs
+-------------------------------------------------------------------------------
+These are calculation results or direct derived values.
+Examples:
+- EMA values
+- RSI values
+- swing highs/lows
+- OB coordinates
+- FVG coordinates
+- PCR values
+- IV values
+
+Why keep them:
+- debugging
+- transparency
+- future model changes
+- future logic re-use
+
+2. Structured States
+-------------------------------------------------------------------------------
+These are non-opinionated state labels.
+Examples:
+- trend_state = strong_up / weak_up / range / weak_down / strong_down
+- smc_state = ob_active / fvg_active / sweep_confirmed / sweep_failed
+- ict_state = discount_active / premium_active / displacement_valid / mss_active
+- options_state = bullish_pressure / bearish_pressure / wall_near / pressure_neutral
+- macro_state = calm / caution / event_risk
+
+Why states matter:
+- they reduce raw-number reading burden on Heads
+- they do not force opinions
+- they preserve structured intelligence
+
+3. Maps
+-------------------------------------------------------------------------------
+Maps represent spatial market intelligence.
+Examples:
+- ob_map
+- fvg_map
+- liquidity_map
+- level_map
+- wall_map
+
+Maps must exist in two forms:
+- full internal maps
+- active public maps
+
+Why:
+- full internal maps preserve depth and debugging
+- active public maps reduce noise for Head consumption
+
+4. Scores
+-------------------------------------------------------------------------------
+Scores are allowed in Floor 3,
+but only as quality/state scores, not confidence or conviction.
+
+Locked:
+Tier 1 domains must have domain quality scores.
+Examples:
+- structure_strength_score
+- smc_quality_score
+- ict_delivery_score
+
+Tier 2 / Tier 3 scores are optional.
+
+Why scores are useful:
+- they help Heads rank quality
+- they support Captain indirectly through Head interpretation
+- they do not replace confidence
+
+5. Candidate Outputs
+-------------------------------------------------------------------------------
+Floor 3 may generate setup candidates.
+This is locked.
+
+But candidate output must remain non-opinionated.
+Allowed examples:
+- Potential Bullish FVG Retest Candidate
+- Potential Sweep Reclaim Candidate
+- Potential Continuation Candidate
+
+Not allowed:
+- Buy Now
+- Strong Bullish Trade
+- Approved Long
+
+Why candidate outputs matter:
+- they help Heads focus
+- they reduce duplicate setup detection logic in Floor 4
+- they preserve Head value because Heads still interpret and prioritize
+
+
+================================================================================
+SECTION 9 - COMMON MARKET STATE PROJECTION (INDEPENDENT BUILDER)
+================================================================================
+
+Locked:
+Common Market State Projection must be defined as an independent builder.
+
+Ownership
+-------------------------------------------------------------------------------
+Owner = Floor 3
+Not Floor 4.
+Not Captain.
+
+Why ownership matters:
+This is a secondary Floor 3 output.
+If Floor 4 or Captain builds it, responsibility becomes blurred.
+
+Purpose
+-------------------------------------------------------------------------------
+To create a shared, lightweight, normalized market-state layer that multiple
+consumers can use without flattening domain identity.
+
+It does NOT replace domain packets.
+It complements them.
+
+Inputs
+-------------------------------------------------------------------------------
+From Floor 3 domain outputs, projection builder consumes a selected subset of:
+- price_state
+- volatility_state
+- session_state
+- regime_state
+- key_levels
+
+Optional derived references from domain states can be included only if they remain
+lightweight and common.
+
+Outputs
+-------------------------------------------------------------------------------
+Common Market State Projection fields:
+- price_state
+- volatility_state
+- session_state
+- regime_state
+- key_levels
+
+This is intentionally narrow.
+It should not become a giant everything-container.
+
+Why this narrow scope is correct:
+Because domain identity must remain preserved.
+Common projection should remain small and useful, not replace the domain packets.
+
+Builder role
+-------------------------------------------------------------------------------
+common_market_state_projection.py should:
+1. read selected outputs from all relevant domains
+2. normalize them into shared common state
+3. expose them as a lightweight projection packet
+
+This projection will later help:
+- heads in shared context reading
+- floor summary creation
+- dashboard lightweight state display
+- debugging consistency
+
+
+================================================================================
+SECTION 10 - TIER 1 DOMAIN FLOW
+================================================================================
+
+Locked answer:
+Tier 1 execution order = Hybrid
+
+Meaning:
+Structure first mandatory
+↓
+Shared Structure State
+↓
+SMC + ICT parallel interpretation
+
+Why this is strongest:
+- Structure is the foundation
+- SMC builds on structure
+- ICT also needs structural context
+- forcing SMC and ICT into full serial dependency adds unnecessary coupling
+- forcing all three parallel from scratch weakens structure discipline
+
+Therefore the strongest balance is:
+Structure builds foundational truth first,
+then SMC and ICT interpret in parallel using that foundation.
+
+This must be explicitly visible in coding order and domain dependency order.
+
+
+================================================================================
+SECTION 11 - MARKET STRUCTURE DOMAIN
+================================================================================
+
+Purpose
+-------------------------------------------------------------------------------
+Market Structure domain exists to build the foundational structural truth of the market.
+
+It must answer:
+- what is the current structural direction?
+- where are meaningful swing highs/lows?
+- has structure continued or broken?
+- is market trending, transitioning, or compressing?
+
+Why this domain exists:
+Because both SMC and ICT depend on structure.
+If structure is weak, later domains become unstable.
+
+Inputs (from Floor 2 clean data)
+-------------------------------------------------------------------------------
+- clean candles across relevant timeframes
+- validated timestamps
+- validated OHLCV streams
+- session key level references
+
+Raw Outputs
+-------------------------------------------------------------------------------
+- swing_highs
+- swing_lows
+- break points
+- prior structure references
+- trend leg measurements
+
+Structured States
+-------------------------------------------------------------------------------
+- structure_state
+- trend_structure_state
+- break_state
+- continuity_state
+
+Maps
+-------------------------------------------------------------------------------
+- full_structure_map
+- active_structure_map
+- active_level_map
+
+Scores
+-------------------------------------------------------------------------------
+- structure_strength_score   (locked Tier 1 score)
+
+Candidate Outputs
+-------------------------------------------------------------------------------
+- potential continuation candidate
+- potential structure failure candidate
+- potential reclaim candidate
+
+Why no trade output:
+Structure domain only identifies structural opportunity potential.
+It does not approve trades.
+
+
+================================================================================
+SECTION 12 - SMC DOMAIN
+================================================================================
+
+Purpose
+-------------------------------------------------------------------------------
+SMC domain exists to build smart-money-oriented structural opportunity maps.
+
+It must answer:
+- where are order blocks?
+- where are FVGs?
+- where are liquidity pools?
+- was there a sweep?
+- is there mitigation?
+- is current interaction meaningful or weak?
+
+Why this domain exists:
+SMC is one of the system’s core edge domains.
+Captain and Floor 4 both depend on strong SMC intelligence quality.
+
+Inputs
+-------------------------------------------------------------------------------
+- shared structure state
+- candles
+- swing structure outputs
+- level interactions
+- displacement/rejection context as needed
+
+Raw Outputs
+-------------------------------------------------------------------------------
+- raw_ob_list
+- raw_fvg_list
+- raw_liquidity_points
+- raw_sweep_events
+- raw_mitigation_events
+
+Structured States
+-------------------------------------------------------------------------------
+- smc_state
+- ob_state
+- fvg_state
+- liquidity_state
+- sweep_state
+- mitigation_state
+
+Maps
+-------------------------------------------------------------------------------
+Internal full maps:
+- full_ob_map
+- full_fvg_map
+- full_liquidity_map
+
+Active public maps:
+- active_ob_map
+- active_fvg_map
+- active_liquidity_map
+
+Scores
+-------------------------------------------------------------------------------
+- smc_quality_score   (locked Tier 1 score)
+
+Candidate Outputs
+-------------------------------------------------------------------------------
+- potential bullish FVG retest candidate
+- potential liquidity reclaim candidate
+- potential OB bounce candidate
+- potential sweep failure candidate
+
+Important note:
+These are candidate outputs, not trade approvals.
+
+
+================================================================================
+SECTION 13 - ICT DOMAIN
+================================================================================
+
+Purpose
+-------------------------------------------------------------------------------
+ICT domain exists to calculate institutional delivery context.
+
+It must answer:
+- is price in premium or discount?
+- was displacement meaningful?
+- did MSS occur meaningfully?
+- is delivery context aligned?
+- is setup context institutionally attractive?
+
+Why this domain exists:
+ICT is one of the system’s core edge domains.
+It complements SMC but should remain separate and strongly linked.
+
+Inputs
+-------------------------------------------------------------------------------
+- shared structure state
+- candles
+- level references
+- displacement-related values
+- session context inputs
+
+Raw Outputs
+-------------------------------------------------------------------------------
+- premium_discount_values
+- displacement_events
+- mss_events
+- delivery_context markers
+
+Structured States
+-------------------------------------------------------------------------------
+- ict_state
+- premium_discount_state
+- displacement_state
+- mss_state
+- delivery_context_state
+
+Maps
+-------------------------------------------------------------------------------
+Internal full maps:
+- full_pd_map
+- full_displacement_map
+- full_delivery_map
+
+Active public maps:
+- active_pd_map
+- active_displacement_map
+- active_delivery_map
+
+Scores
+-------------------------------------------------------------------------------
+- ict_delivery_score   (locked Tier 1 score)
+
+Candidate Outputs
+-------------------------------------------------------------------------------
+- potential discount reaction candidate
+- potential displacement reclaim candidate
+- potential MSS continuation candidate
+
+Important note:
+These are candidate outputs, not Captain-level trade instructions.
+
+
+================================================================================
+SECTION 14 - TECHNICAL DOMAIN
+================================================================================
+
+Purpose
+-------------------------------------------------------------------------------
+Technical domain exists to calculate technical condition and momentum structure.
+
+It must answer:
+- trend/momentum state
+- VWAP relation
+- EMA alignment
+- ATR/ADX environment
+- MTF alignment support
+- basic candle pattern state
+
+Why this domain exists:
+Technical domain is a strong support layer.
+It should not dominate the architecture,
+but it should provide consistent measurable condition quality.
+
+Inputs
+-------------------------------------------------------------------------------
+- clean candles
+- volume data
+- timeframe alignment references
+
+Raw Outputs
+-------------------------------------------------------------------------------
+- ema_values
+- vwap_values
+- atr_values
+- rsi_values
+- adx_values
+- mtf_alignment values
+- candle_pattern raw detections
+
+Structured States
+-------------------------------------------------------------------------------
+- trend_state
+- momentum_state
+- technical_condition_state
+- mtf_state
+- candle_pattern_state
+
+Maps
+-------------------------------------------------------------------------------
+Internal full maps:
+- full_technical_level_map
+
+Active public maps:
+- active_technical_level_map
+
+Scores
+-------------------------------------------------------------------------------
+Optional score only if useful later.
+No mandatory Tier 1 score here.
+
+Candidate Outputs
+-------------------------------------------------------------------------------
+- potential VWAP pullback continuation candidate
+- potential trend continuation candidate
+- potential technical reclaim candidate
+
+Note:
+Basic candle patterns live here.
+Contextual candle meaning belongs to SMC/ICT interpretation.
+
+
+================================================================================
+SECTION 15 - OPTIONS DOMAIN
+================================================================================
+
+Purpose
+-------------------------------------------------------------------------------
+Options domain exists to convert options-chain and derivatives pressure into
+structured derivative intelligence.
+
+It must answer:
+- where are important walls?
+- what is PCR state?
+- what is IV condition?
+- is pressure supportive or conflicting?
+- is options pressure expanding or collapsing?
+
+Why this domain exists:
+Options is a strong support/confirmation domain.
+It becomes especially important on expiry-sensitive and derivatives-heavy sessions.
+
+Inputs
+-------------------------------------------------------------------------------
+- OI data
+- PCR values
+- IV values
+- max pain values
+- wall calculations
+- recent options flow states
+
+Raw Outputs
+-------------------------------------------------------------------------------
+- raw_pcr
+- raw_oi_change
+- raw_iv
+- raw_wall_levels
+- raw_max_pain
+
+Structured States
+-------------------------------------------------------------------------------
+- options_state
+- pressure_state
+- wall_state
+- iv_state
+
+Maps
+-------------------------------------------------------------------------------
+Internal full maps:
+- full_wall_map
+- full_options_pressure_map
+
+Active public maps:
+- active_wall_map
+- active_options_pressure_map
+
+Scores
+-------------------------------------------------------------------------------
+Optional support score if useful later.
+No mandatory Tier 1 score.
+
+Candidate Outputs
+-------------------------------------------------------------------------------
+- potential wall bounce candidate
+- potential pressure continuation candidate
+- potential pressure collapse candidate
+
+Again:
+No trade orders.
+Only structured candidate intelligence.
+
+
+================================================================================
+SECTION 16 - MACRO DOMAIN
+================================================================================
+
+Purpose
+-------------------------------------------------------------------------------
+Macro domain exists to produce state/gate/risk context,
+not setup generation.
+
+Locked role:
+Macro = State / Gate / Risk Layer
+
+Why this domain exists:
+Captain and Macro Head need external environment awareness,
+but macro must not become a fake directional setup machine.
+
+Inputs
+-------------------------------------------------------------------------------
+- macro_support_packets (structured macro support packets received from Floor 2)
+- VIX data
+- FII/DII state
+- global cues
+- event calendar state
+
+Raw Outputs
+-------------------------------------------------------------------------------
+- raw_vix_state
+- raw_fii_dii_state
+- raw_global_cues_state
+- raw_event_state
+
+Structured States
+-------------------------------------------------------------------------------
+- macro_state
+- caution_state
+- event_risk_state
+- environment_state
+
+Maps
+-------------------------------------------------------------------------------
+No major trade maps required.
+Keep this domain light.
+
+Scores
+-------------------------------------------------------------------------------
+Optional support score only if needed later.
+
+Candidate Outputs
+-------------------------------------------------------------------------------
+Locked answer:
+NO setup candidates
+
+Why:
+Macro should not generate trade ideas.
+It should shape permission, caution, and environmental understanding.
+
+
+================================================================================
+SECTION 17 - PSYCHOLOGY SUPPORT METRICS (FLOOR 3 SUPPORT ONLY)
+================================================================================
+
+Purpose
+-------------------------------------------------------------------------------
+Floor 3 does NOT host a full Psychology domain.
+It only hosts minimal psychological support metrics.
+
+Why:
+Psychology interpretation belongs to Floor 4.
+Floor 3 should not overcompute behavior.
+
+Inputs
+-------------------------------------------------------------------------------
+- trade history stream
+- session counters
+- loss counters
+- trap counters
+- cooldown references
+
+Raw Outputs
+-------------------------------------------------------------------------------
+- trap_count
+- recent_loss_count
+- cooldown_timer
+- overtrade_flag
+
+Structured States
+-------------------------------------------------------------------------------
+- support_psych_state_basic
+
+Maps
+-------------------------------------------------------------------------------
+No major maps.
+
+Scores
+-------------------------------------------------------------------------------
+None required.
+
+Candidate Outputs
+-------------------------------------------------------------------------------
+None.
+
+Why this stays minimal:
+This floor should support Psychology Head,
+not replace it.
+
+
+================================================================================
+SECTION 18 - INTERNAL MAPS vs ACTIVE MAPS FLOW
+================================================================================
+
+Locked answer:
+Use both.
+- full internal maps
+- active public maps
+
+Why this is strong:
+- full maps preserve depth, transparency, future upgrades, debugging
+- active maps keep Head consumption focused and low-noise
+
+Textual flow:
+
+Clean Data
+  -> Domain Detection Engines
+  -> FULL INTERNAL MAPS created
+      (all OBs / all FVGs / all liquidity points / all levels / all walls)
+  -> Relevance / Activity Filtering
+  -> ACTIVE PUBLIC MAPS created
+      (only currently relevant / valid / head-consumable subset)
+  -> Heads consume ACTIVE MAPS primarily
+  -> Debug/review/future upgrades can still access FULL INTERNAL MAPS
+
+This is one of the strongest implementation decisions in Floor 3.
+
+
+================================================================================
+SECTION 19 - FLOOR 4 CONSUMPTION MAP
+================================================================================
+
+This section explicitly defines what each Head should consume from Floor 3.
+This is required by locked Rule 6.
+
+Technical Head consumes:
+- trend_state
+- momentum_state
+- technical_condition_state
+- mtf_state
+- candle_pattern_state
+- active_technical_level_map
+- selected raw indicator values if needed
+
+SMC Head consumes:
+- shared structure state
+- smc_state
+- ob_state
+- fvg_state
+- liquidity_state
+- sweep_state
+- mitigation_state
+- active_ob_map
+- active_fvg_map
+- active_liquidity_map
+- smc_quality_score
+- setup candidates from SMC domain
+
+ICT Head consumes:
+- shared structure state
+- ict_state
+- premium_discount_state
+- displacement_state
+- mss_state
+- delivery_context_state
+- active_pd_map
+- active_displacement_map
+- active_delivery_map
+- ict_delivery_score
+- setup candidates from ICT domain
+
+Options Head consumes:
+- options_state
+- pressure_state
+- wall_state
+- iv_state
+- active_wall_map
+- active_options_pressure_map
+- options candidates
+
+Macro Head consumes:
+- macro_state
+- caution_state
+- event_risk_state
+- environment_state
+- selected raw macro values where useful
+
+Psychology Head consumes:
+- trap_count
+- recent_loss_count
+- cooldown_timer
+- overtrade_flag
+
+Why this section matters:
+Without explicit Floor 4 consumption mapping,
+Floor 3 outputs remain abstract and coding later becomes confusing.
+
+
+================================================================================
+SECTION 20 - CAPTAIN CONSUMPTION RULES
+================================================================================
+
+Locked Rule 7 requires explicit Captain consumption behavior.
+
+Captain normal operating path:
+Floor 3 Domain Packets
+   -> Floor 4 Heads
+   -> Floor Summary + Individual Head Reports
+   -> Captain
+
+Normal Captain path:
+Captain should NOT directly consume raw Floor 3 domain packets as its routine
+runtime decision path.
+
+Why:
+If Captain directly consumes domain packets in normal operation,
+Floor 4 loses meaning and Captain absorbs too much interpretation burden.
+
+Captain may indirectly rely on Floor 3 through:
+- Floor Summary built from Head outputs
+- Head Reports built from domain packets
+
+Captain may access Floor 3 direct packets only in exceptional cases such as:
+- debugging
+- snapshot enrichment
+- deep diagnostics
+- future audit tools
+
+But not as routine runtime decision input.
+
+This preserves the architecture cleanly.
+
+
+================================================================================
+SECTION 21 - QUALITY vs CONFIDENCE vs CONVICTION (LOCKED LAW REPEATED)
+================================================================================
+
+This law must appear again because it is the most important architecture guardrail.
+
+QUALITY   = FLOOR 3
+CONFIDENCE = FLOOR 4
+CONVICTION = FLOOR 5
+
+Implications:
+- Floor 3 may score candidate quality
+- Floor 3 may score structure quality
+- Floor 3 may score delivery quality
+- Floor 3 may NOT create confidence
+- Floor 3 may NOT create conviction
+
+Why this must be repeated:
+Because this is the point where teams often accidentally break architecture during coding.
+This floor must never slide upward into opinion.
+
+
+================================================================================
+SECTION 22 - WHY FLOOR 3 IS THE SYSTEM'S INTELLIGENCE FACTORY
+================================================================================
+
+Floor 3 is where the system becomes powerful.
+But only if it stays disciplined.
+
+If Floor 3 is too raw:
+- Heads become overloaded
+- duplicate logic moves upward
+- architecture becomes messy
+
+If Floor 3 becomes opinionated:
+- Heads lose value
+- Captain loses value
+- system becomes tightly coupled and hard to trust
+
+Therefore the strongest version is:
+Rich Structured Intelligence
+without
+Final Opinion
+
+This is why the phrase is locked:
+Floor 3 = Structured Intelligence Factory
+Floor 4 = Domain Experts
+Floor 5 = Supreme Judge
+
+
+================================================================================
+SECTION 23 - FLOOR 3 COMPLETE STATUS
+================================================================================
+
+Floor 3 is now planned with the following locked elements:
+- classic 6 domains
+- hybrid price action placement
+- Domain Packets Primary + Common Market State Projection Secondary
+- Common Market State Projection as independent builder
+- rich structured but not opinionated output philosophy
+- Tier 1 priority explicitly visible
+- Structure first mandatory, SMC + ICT parallel interpretation
+- Tier 1 quality scores mandatory
+- setup ingredients + setup candidates
+- no confidence / no conviction / no trade approval
+- Macro as state/gate/risk layer only
+- minimal psychology support metrics only
+- full internal maps + active public maps
+- explicit Floor 4 consumption mapping
+- explicit Captain consumption boundary
+- architecture law repeated and locked
+
+This floor is now complete at architecture/planning level,
+subject only to future Floor 2/Floor 1 wiring refinements.
+
+
+================================================================================
+NEXT FLOOR TO PLAN:
+ FLOOR 2 - DATA CENTER
+================================================================================
+
+================================================================================
+SECTION 24 - V1.1 CONTRACT TIGHTENING INTENT
+================================================================================
+
+This V1.1 edition is NOT a rewrite.
+This V1.1 edition is NOT a new Floor 3 architecture.
+This V1.1 edition does NOT change the domain philosophy.
+This V1.1 edition does NOT change the tier model.
+This V1.1 edition does NOT change the folder structure.
+This V1.1 edition does NOT remove outputs.
+This V1.1 edition does NOT shift responsibilities upward or downward.
+
+This V1.1 edition exists only to:
+- make contracts explicit
+- make ownership explicit
+- make dependency wiring explicit
+- make consumption boundaries explicit
+- close audit gaps without redesign
+
+Target identity:
+Floor 3 V1
+->
+Floor 3 V1.1 Contract Tightened Edition
+
+Architecture changed?
+- NO
+
+
+================================================================================
+SECTION 25 - V1.1 CHANGE SUMMARY
+================================================================================
+
+Updated file name:
+- ASSEMBLY_PLAN_03_FLOOR_3_V1_1_CONTRACT_TIGHTENED.txt
+
+Added sections list:
+- Section 24 - V1.1 Contract Tightening Intent
+- Section 25 - V1.1 Change Summary
+- Section 26 - Common Market State Projection Contract Tightening
+- Section 27 - Tier 1 Dependency Contract Tightening
+- Section 28 - Candidate Grade Contract Tightening
+- Section 29 - Internal Maps vs Active Maps Contract Tightening
+- Section 30 - Floor 4 Consumption Mapping Contract Tightening
+- Section 31 - Captain Consumption Boundary Tightening
+- Section 32 - Quality Ownership Law Tightening
+- Section 33 - Audit Closure and Alignment Verification
+
+Modified sections list:
+- No existing section deleted
+- No existing section shortened
+- No existing section replaced
+- No destructive rewrite performed
+- Existing design preserved, only contract-tightening sections appended
+
+Audit gaps resolved list:
+- Common Market State Projection ownership/consumer ambiguity
+- Tier 1 dependency ambiguity
+- candidate_grade meaning ambiguity
+- internal vs active maps propagation ambiguity
+- Floor 4 consumption mapping explicitness
+- Captain direct-consumption boundary ambiguity
+- quality ownership law visibility
+- cross-floor alignment verification
+
+Architecture changed?
+- NO
+
+
+================================================================================
+SECTION 26 - COMMON MARKET STATE PROJECTION CONTRACT TIGHTENING
+================================================================================
+
+This section tightens Section 9 without replacing it.
+
+Common Market State Projection remains a secondary Floor 3 output.
+Its role is now made more explicit.
+
+Projection fields (locked):
+- price_state
+- volatility_state
+- session_state
+- regime_state
+- key_levels
+
+Ownership
+-------------------------------------------------------------------------------
+Owner = Floor 3
+Builder = common_market_state_projection.py
+
+It is not built by Floor 4.
+It is not built by Captain.
+
+Why ownership is important:
+This projection is a normalized market-state artifact created from Floor 3
+intelligence.  If ownership moves upward, responsibility blur appears.
+
+Refresh Policy
+-------------------------------------------------------------------------------
+Projection refresh follows the broader Floor 3 hybrid refresh philosophy.
+Meaning:
+- it is refreshed when the relevant underlying domain states refresh
+- it is not a totally independent free-floating engine
+- 1m base refresh can update it
+- deeper 5m/15m structural refresh can enrich parts of it through source states
+
+This does not create a new cadence.
+It formalizes existing ownership.
+
+Consumers
+-------------------------------------------------------------------------------
+Primary conceptual consumers:
+- Floor 4 heads (shared context support where relevant)
+- floor summary construction support
+- dashboard lightweight state consumption
+- debugging / state consistency tracing
+
+Captain boundary note:
+Captain does not directly consume this projection as a routine runtime path.
+Captain consumes Floor 4 outputs.
+This projection supports Floor 4 and shared state understanding.
+
+Why this tightening was required:
+The audit correctly identified that projection was defined but its ownership and
+runtime consumer role were not explicit enough.
+
+
+================================================================================
+SECTION 27 - TIER 1 DEPENDENCY CONTRACT TIGHTENING
+================================================================================
+
+This section tightens Section 10 without changing the domain architecture.
+
+Locked dependency flow:
+
+Structure
+  ↓
+Shared Structure State
+  ↓
+SMC + ICT Parallel Interpretation
+
+Meaning:
+- Structure remains mandatory foundation
+- SMC and ICT remain independent domains
+- SMC and ICT are strongly linked to structure
+- SMC and ICT do not need to be fully serial to each other
+
+Why this is the strongest contract:
+- Structure should not be merged into SMC
+- SMC should not swallow Structure
+- ICT should not be forced into unnecessary serial dependency behind SMC
+- but both SMC and ICT need structural truth first
+
+So the contract is:
+- Structure publishes foundational structural outputs and shared structure state
+- SMC consumes that foundation and interprets smart-money structure context
+- ICT consumes that foundation and interprets institutional delivery context
+- SMC and ICT remain strongly linked, but parallel after structural foundation
+
+Why this tightening was required:
+The audit needed dependency clarity so implementation does not drift into either:
+- fully merged confusion
+or
+- wasteful isolated duplication
+
+
+================================================================================
+SECTION 28 - CANDIDATE GRADE CONTRACT TIGHTENING
+================================================================================
+
+This section formalizes candidate_grade as an explicit contract concept.
+
+candidate_grade means:
+- candidate quality only
+
+candidate_grade is NOT:
+- confidence
+- conviction
+- trade approval
+- final bias
+
+This must remain explicit.
+
+Typical conceptual levels:
+- A = candidate quality high
+- B = candidate quality medium
+- C = candidate quality weak
+
+Why this matters:
+If candidate_grade is confused with confidence or conviction,
+then Floor 3 starts drifting into Head/Captain territory.
+
+Therefore the architecture law here is:
+- candidate_grade helps rank candidate quality
+- Floor 4 turns quality into confidence
+- Floor 5 turns confidence + context into conviction
+
+This section does not add new calculations.
+It only tightens the meaning of an already discussed concept.
+
+
+================================================================================
+SECTION 29 - INTERNAL MAPS vs ACTIVE MAPS CONTRACT TIGHTENING
+================================================================================
+
+This section tightens Section 18.
+
+Locked internal map concepts include examples such as:
+- full_ob_map
+- full_fvg_map
+- full_liquidity_map
+- full_level_map
+
+Locked active map concepts include examples such as:
+- active_ob_map
+- active_fvg_map
+- active_liquidity_map
+- active_level_map
+
+Propagation contract:
+
+Step 1:
+Floor 3 domain engines detect and maintain FULL INTERNAL MAPS.
+These keep:
+- complete domain depth
+- debugging support
+- historical structural richness
+- future extension support
+
+Step 2:
+Relevance/activity filtering is applied.
+This selects the currently important subset.
+
+Step 3:
+ACTIVE MAPS are produced from FULL INTERNAL MAPS.
+These are cleaner, lower-noise, and head-consumable.
+
+Step 4:
+Floor 4 Heads consume ACTIVE MAPS as their normal map input.
+
+Step 5:
+FULL INTERNAL MAPS remain available for:
+- debugging
+- review
+- future extensions
+- internal lifecycle management
+
+Why this tightening was required:
+The audit correctly found that internal vs active maps idea was good but needed
+an explicit propagation rule.
+
+This does not change map architecture.
+It clarifies the flow.
+
+
+================================================================================
+SECTION 30 - FLOOR 4 CONSUMPTION MAPPING CONTRACT TIGHTENING
+================================================================================
+
+This section tightens Section 19 by formalizing the mapping as a contract.
+
+Each Head has a defined Floor 3 consumption contract.
+That contract must remain stable unless architecture is consciously revised.
+
+TECHNICAL HEAD CONSUMES
+-------------------------------------------------------------------------------
+States:
+- trend_state
+- momentum_state
+- technical_condition_state
+- mtf_state
+- candle_pattern_state
+
+Maps:
+- active_technical_level_map
+
+Scores:
+- optional technical support score if later added
+
+Candidates:
+- technical continuation / reclaim candidates if exposed
+
+SMC HEAD CONSUMES
+-------------------------------------------------------------------------------
+States:
+- shared structure state
+- smc_state
+- ob_state
+- fvg_state
+- liquidity_state
+- sweep_state
+- mitigation_state
+
+Maps:
+- active_ob_map
+- active_fvg_map
+- active_liquidity_map
+
+Scores:
+- smc_quality_score
+
+Candidates:
+- SMC setup candidates
+- candidate_grade for those candidates where applicable
+
+ICT HEAD CONSUMES
+-------------------------------------------------------------------------------
+States:
+- shared structure state
+- ict_state
+- premium_discount_state
+- displacement_state
+- mss_state
+- delivery_context_state
+
+Maps:
+- active_pd_map
+- active_displacement_map
+- active_delivery_map
+
+Scores:
+- ict_delivery_score
+
+Candidates:
+- ICT setup candidates
+- candidate_grade for those candidates where applicable
+
+OPTIONS HEAD CONSUMES
+-------------------------------------------------------------------------------
+States:
+- options_state
+- pressure_state
+- wall_state
+- iv_state
+
+Maps:
+- active_wall_map
+- active_options_pressure_map
+
+Scores:
+- optional support score if present
+
+Candidates:
+- options setup candidates if exposed
+
+MACRO HEAD CONSUMES
+-------------------------------------------------------------------------------
+States:
+- macro_state
+- caution_state
+- event_risk_state
+- environment_state
+
+Maps:
+- none major by default
+
+Scores:
+- optional only
+
+Candidates:
+- none (locked)
+
+PSYCHOLOGY HEAD CONSUMES
+-------------------------------------------------------------------------------
+States:
+- support_psych_state_basic (if used in implementation)
+
+Maps:
+- none
+
+Scores:
+- none
+
+Candidates:
+- none
+
+Why this tightening was required:
+The audit required explicit consumer mapping so that future coding does not
+silently duplicate logic or shift responsibilities.
+
+
+================================================================================
+SECTION 31 - CAPTAIN CONSUMPTION BOUNDARY TIGHTENING
+================================================================================
+
+This section tightens Section 20.
+
+Captain direct Floor 3 consumption boundary is now explicitly locked:
+
+Captain is NOT a direct routine consumer of Floor 3 domain packets.
+
+Captain routine consumption path is:
+Floor 3
+  -> Floor 4 Heads
+  -> Floor Summary + Head Reports
+  -> Captain
+
+Captain may only touch Floor 3 artifacts indirectly through:
+- Floor 4 outputs
+- summary-supporting structures already elevated by Floor 4
+- exceptional debugging/audit tooling outside routine runtime decision flow
+
+Why this matters:
+If Captain starts consuming Floor 3 packets directly during routine runtime,
+then:
+- Floor 4 loses value
+- Captain gets overloaded with interpretation burden
+- architecture boundaries collapse
+
+This tightening preserves Captain V2.1 exactly as intended.
+
+
+================================================================================
+SECTION 32 - QUALITY OWNERSHIP LAW TIGHTENING
+================================================================================
+
+This section repeats and hardens the architecture law.
+
+QUALITY   = FLOOR 3
+CONFIDENCE = FLOOR 4
+CONVICTION = FLOOR 5
+
+Explicit implications:
+- Floor 3 may output candidate quality and quality scores
+- Floor 3 may NOT output confidence
+- Floor 3 may NOT output conviction
+- Floor 4 may interpret quality into confidence
+- Floor 5 may combine confidence and context into conviction
+
+Why this tightening was required:
+The audit and cross-floor planning both showed that this law must stay visible
+and inviolable, otherwise architecture drift will happen during coding.
+
+
+================================================================================
+SECTION 33 - AUDIT CLOSURE AND ALIGNMENT VERIFICATION
+================================================================================
+
+Cross-floor chain:
+Captain V2.1
+↕
+Floor 4 V1.1
+↕
+Floor 3 V1.1
+
+Alignment verification:
+
+1. Common Market State Projection Contract
+- ownership explicit -> YES
+- builder explicit -> YES
+- refresh policy explicit -> YES
+- consumers explicit -> YES
+
+2. Tier 1 Dependency Contract
+- Structure -> Shared Structure State -> SMC + ICT parallel interpretation
+  explicit -> YES
+
+3. candidate_grade Contract
+- quality-only meaning explicit -> YES
+- not confidence / conviction / approval explicit -> YES
+
+4. Floor 4 Consumption Mapping
+- per-head states/maps/scores/candidates explicit -> YES
+
+5. Captain Consumption Boundary
+- direct Floor 3 routine consumption blocked explicitly -> YES
+
+6. Internal Maps vs Active Maps Contract
+- propagation rule explicit -> YES
+
+7. Quality Ownership Law
+- repeated and tightened -> YES
+
+Architecture changed?
+- NO
+
+Meaning of this closure:
+The audit gaps for Floor 3 are now closed through contract-tightening,
+not through architecture replacement.
+
+
+================================================================================
+SECTION 34 - FINAL STATUS OF FLOOR 3 V1.1 CONTRACT TIGHTENED EDITION
+================================================================================
+
+Floor 3 V1.1 preserves:
+- existing philosophy
+- existing domains
+- existing tier structure
+- existing folder structure
+- existing outputs
+- existing responsibilities
+
+And explicitly tightens:
+- projection ownership
+- dependency wiring
+- candidate_grade meaning
+- internal/active map propagation
+- Floor 4 consumption mapping
+- Captain consumption boundary
+- quality ownership law
+- cross-floor alignment verification
+
+This is therefore:
+NOT a redesign
+NOT a simplification
+NOT an output removal
+BUT
+Floor 3 V1.1 Contract Tightened Edition
+
+================================================================================
+END OF FLOOR 3 V1.1 CONTRACT TIGHTENING ADDITIONS
+================================================================================
+
+================================================================================
+SECTION 35 - V1.1 FINALIZATION INTENT
+================================================================================
+
+This V1.1 Final file is not a redesign.
+This V1.1 Final file does not add new architecture.
+This V1.1 Final file does not add floors or sides.
+This V1.1 Final file does not change ownership.
+This V1.1 Final file only tightens weak or implicit contracts so that Floor 3
+becomes:
+- Architecture Safe
+- Ownership Safe
+- Integration Safe
+- Replay Safe
+- Side A aligned
+- Side B aligned
+- Side C aligned
+- Audit Ready
+- Implementation Ready
+
+Minimal change rule:
+The existing Floor 3 V1.1 contract-tightened file remains the base.
+Only weak or ambiguous contract areas are clarified.
+
+
+================================================================================
+SECTION 36 - ENGINE OWNERSHIP AND COMPUTATION OWNERSHIP CLARIFICATION
+================================================================================
+
+Floor 3 is the computation and intelligence factory layer.
+V1.1 Final clarifies that engine ownership and computation ownership remain
+strictly within Floor 3 and do not drift upward or downward.
+
+Ownership clarification:
+- Floor 3 owns computation
+- Floor 3 owns quality/state/map/candidate generation
+- Floor 3 does NOT own confidence
+- Floor 3 does NOT own conviction
+- Floor 3 does NOT own trade approval
+- Floor 3 does NOT own interpretation of domain meaning as expert opinion
+
+Why this matters:
+It preserves the architecture law:
+- quality belongs here
+- confidence belongs to Floor 4
+- conviction belongs to Floor 5
+
+This is not a new rule.
+It is a final ownership reinforcement.
+
+
+================================================================================
+SECTION 37 - FLOOR 2 DEPENDENCY REINFORCEMENT
+================================================================================
+
+Floor 3 depends on Floor 2 for truth, not intelligence.
+V1.1 Final makes this dependency more explicit in final form.
+
+Floor 2 provides:
+- validated_tick_stream
+- validated_candle_streams
+- options_snapshots
+- session_packets
+- macro_support_packets
+- metadata side-channel
+- computed-ready hooks
+
+Floor 3 responsibility is to transform this into structured intelligence,
+not to redo truth-layer duties.
+
+Why this matters:
+If Floor 3 re-absorbs truth preparation,
+then Floor 2 loses meaning and Floor 3 becomes bloated.
+
+This final clarification reinforces the handoff boundary.
+
+
+================================================================================
+SECTION 38 - ENGINE OUTPUT CONTRACT REINFORCEMENT
+================================================================================
+
+Each Floor 3 domain must remain an engine that outputs:
+- Raw Outputs
+- Structured States
+- Maps
+- Scores
+- Candidate Outputs
+
+V1.1 Final clarification:
+These outputs are not optional style choices.
+They are the engine output contract model.
+
+Why this matters:
+Without this explicit reinforcement,
+later implementation may reduce an engine to only raw values or only states,
+causing inconsistency across domains.
+
+This applies to:
+- Market Structure
+- SMC
+- ICT
+- Technical
+- Options
+- Macro
+- support metrics where relevant in limited support form
+
+
+================================================================================
+SECTION 39 - CONFIDENCE / SCORING BOUNDARY FINAL CLARIFICATION
+================================================================================
+
+The architecture law is already explicit.
+V1.1 Final clarifies the scoring boundary further.
+
+Allowed in Floor 3:
+- quality scores
+- state scores
+- candidate grades
+- domain quality metrics
+
+Not allowed in Floor 3:
+- confidence
+- conviction
+- trade approval
+- interpretive confidence language
+
+Why this matters:
+If Floor 3 starts speaking in confidence,
+Floor 4 becomes weaker.
+If Floor 3 starts speaking in conviction,
+Captain becomes weaker.
+
+This final clarification protects the strongest architecture split.
+
+
+================================================================================
+SECTION 40 - REPLAY COMPATIBILITY FINAL CLARIFICATION
+================================================================================
+
+Replay compatibility already exists strongly.
+V1.1 Final clarifies why it is implementation-critical.
+
+Replay compatibility in Floor 3 means:
+- domain outputs must remain reproducible from replayable truth
+- Common Market State Projection must remain rebuildable
+- active maps and internal maps must remain reconstructable
+- candidate outputs should be traceable back to replayable inputs
+
+Why this matters:
+Floor 3 is where replay becomes analytically valuable.
+If Floor 3 outputs cannot be rebuilt during replay,
+future debugging and architecture verification become weak.
+
+This is not replay ownership.
+Replay ownership remains downstream/upstream aligned.
+This is replay compatibility clarification only.
+
+
+================================================================================
+SECTION 41 - SIDE C COMPATIBILITY FINAL CLARIFICATION
+================================================================================
+
+Floor 3 is not a memory owner.
+But some of its outputs may later be linked or referenced through Side C.
+
+V1.1 Final clarification:
+- Floor 3 does not store memory
+- Floor 3 does not own Side C journals
+- Floor 3 outputs should remain referenceable where needed for later review,
+  replay, or audit support
+
+Examples of Side C compatibility relevance:
+- candidate outputs may later be referenced in review contexts
+- state transitions may later be correlated indirectly
+- projection and map outputs may later support debugging references
+
+Why this matters:
+This preserves Side C compatibility without turning Floor 3 into Side C.
+
+
+================================================================================
+SECTION 42 - DASHBOARD COMPATIBILITY FINAL CLARIFICATION
+================================================================================
+
+Floor 3 is a major input provider to Side B, especially for:
+- chart-ready streams
+- states
+- maps
+- session packets
+- Common Market State Projection
+
+V1.1 Final clarification:
+Floor 3 should remain dashboard-compatible without becoming a display layer.
+
+Meaning:
+- Floor 3 outputs must be stable enough to support chart surfaces and context surfaces
+- but Floor 3 does not own display logic
+- dashboard consumes, Floor 3 computes
+
+Why this matters:
+It preserves the line between intelligence generation and visual rendering.
+
+
+================================================================================
+SECTION 43 - EXPLAINABILITY SUPPORT CLARIFICATION
+================================================================================
+
+Floor 3 is not an explainability layer,
+but it is one of the foundations that makes explainability possible.
+
+Why:
+- raw outputs preserve transparency
+- structured states preserve readable meaning without opinion
+- maps preserve spatial reasoning support
+- candidate outputs preserve what the engine saw as possible
+
+V1.1 Final clarification:
+Floor 3 supports explainability by preserving rich structured intelligence,
+not by generating explanations itself.
+
+This distinction is important.
+Floor 4 and Floor 5 explain.
+Floor 3 supports explainability by being reconstructable and traceable.
+
+
+================================================================================
+SECTION 44 - DATA LINEAGE PRESERVATION CLARIFICATION
+================================================================================
+
+Floor 3 is downstream of truth lineage and upstream of expert interpretation.
+V1.1 Final clarifies lineage preservation expectation.
+
+Meaning:
+Floor 3 outputs should remain traceable backward to:
+- Floor 2 structured truth
+- Floor 2 session packets
+- Floor 2 macro support packets
+- Floor 2 metadata side-channel context where relevant
+
+Why this matters:
+If later someone asks:
+"Why did this candidate/state exist?"
+there should be a path back to the structured truth source.
+
+This is not a new lineage system.
+It is a final clarification that Floor 3 must remain reconstructable.
+
+
+================================================================================
+SECTION 45 - AUDITABILITY CLARIFICATION
+================================================================================
+
+Floor 3 is one of the most important layers for future technical review.
+V1.1 Final clarifies its auditability expectation.
+
+Critical expectations:
+- domain outputs remain inspectable
+- quality scores remain explainable in source terms
+- candidate outputs remain reconstructable
+- map propagation remains reviewable
+- Common Market State Projection remains understandable as a derived common layer
+
+Why this matters:
+If Floor 3 becomes a black box,
+then Floor 4 confidence and Captain conviction become much harder to trust.
+
+This does not make Floor 3 a review engine.
+It makes Floor 3 auditable.
+
+
+================================================================================
+SECTION 46 - FLOOR 3 V1.1 FINAL STATUS
+================================================================================
+
+Floor 3 V1.1 Final preserves:
+- existing Floor 3 architecture
+- existing domain structure
+- existing tier priority model
+- existing Common Market State Projection design
+- existing raw/state/map/score/candidate output model
+- existing Floor 4 consumption model
+- existing Captain consumption boundary
+- existing quality ownership law
+
+And explicitly tightens:
+- engine ownership clarification
+- Floor 2 dependency reinforcement
+- engine output contract reinforcement
+- confidence/scoring boundary final clarification
+- replay compatibility reinforcement
+- Side C compatibility clarification
+- dashboard compatibility clarification
+- explainability support clarification
+- data lineage preservation clarification
+- auditability clarification
+
+This file is therefore:
+- not a redesign
+- not a new intelligence architecture
+- not an ownership change
+- not an interpretation shift
+
+It is the finalized contract-tightened Floor 3 planning file.
+
+================================================================================
+END OF FLOOR 3 V1.1 FINALIZATION ADDITIONS
+================================================================================

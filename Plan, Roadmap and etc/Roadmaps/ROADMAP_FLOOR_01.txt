@@ -1,0 +1,936 @@
+================================================================================
+ JUNIOR ALADDIN - ROADMAP FLOOR 01: MARKET CONNECTION
+ Implementation Execution Document
+================================================================================
+
+DOCUMENT IDENTITY
+--------------------------------------------------------------------------------
+This is NOT an architecture document.
+This is an IMPLEMENTATION EXECUTION DOCUMENT.
+
+This document does NOT:
+- redefine architecture
+- change ownership
+- change contracts
+- change dataflow
+- change wiring
+- change sequencing
+
+This document DOES:
+- provide the exact step-by-step build order for Floor 1
+- define every file, its contract, its dependencies, and its validation
+- serve as the daily coding reference during Floor 1 build
+
+================================================================================
+SECTION 1 - PURPOSE
+================================================================================
+
+One-line identity:
+FLOOR 1 = Connection Layer — the system's window to the external market.
+
+Why this floor exists:
+- Without reliable market data ingress, ALL upper floors become blind.
+- Floor 1 is the only floor that connects to external broker/exchange APIs.
+- If Floor 1 fails, the entire system goes dark.
+- Floor 1 must be simple, stable, observable, and recoverable.
+- Floor 1 must NOT become smart — no validation, no cleaning, no intelligence.
+
+What Floor 1 creates:
+- Angel One authentication (login, token, refresh)
+- WebSocket + REST source connectivity
+- Feed-specific adapters (Spot, Options, VIX, Macro, Calendar)
+- Packet envelope system (raw packet → enveloped packet)
+- Source health monitoring with graded lifecycle (5 states)
+- Manual ingress lane (calendar, event, override packets)
+- Floor 2 handoff (5 payload families: raw packet, envelope, routing, health, manual tags)
+- Reconnect/recovery loop
+
+What Floor 1 explicitly does NOT create:
+- Any data validation (Floor 2 owns this)
+- Any data cleaning (Floor 2 owns this)
+- Any intelligence or setup detection (Floor 3+ owns this)
+- Any trade execution logic (Side A owns this)
+- Any persistence or storage logic (Floor 2 owns this)
+
+CRITICAL ARCHITECTURE RULES (must never be violated):
+- PacketEnvelope is the ONLY cross-floor envelope. No other envelope types may be created.
+- No envelope stacking — envelopes must never contain other envelopes.
+- No orphan envelopes — every envelope must have a valid source + connection_id.
+- Floor 1 imports ONLY from shared/. No floor_2+ imports allowed. Circular dependency prevention.
+
+================================================================================
+SECTION 2 - COMPONENT ARCHITECTURE
+================================================================================
+
+FOLDER STRUCTURE:
+
+junior_aladdin/floor_1_connection/
+│
+├── __init__.py
+├── auth_manager.py
+├── source_adapters.py
+├── feed_adapters.py
+├── packet_envelope.py
+├── source_health.py
+├── floor2_handoff.py
+├── ingress_router.py
+├── manual_ingress.py
+└── shared_utils.py
+
+MODULE RESPONSIBILITIES:
+
+File: __init__.py
+- Package init. Expose main classes/functions for import.
+
+File: auth_manager.py
+- Angel One API login handling
+- Token generation, storage, and refresh
+- Session management
+- Auth failure detection
+- Reads: config.get('angel_one.client_id'), .api_key, .pin
+
+File: source_adapters.py
+- AngelOneAdapter: WebSocket + REST connectivity
+- Source lifecycle management: CONNECT → HEALTHY → DEGRADED → STALE → AUTH_FAILED → DISCONNECTED → RECONNECT
+- Reconnect loop with configurable retry
+- Heartbeat monitoring
+- Connection_id generation per session
+- Future backup source adapter slots (architecture-ready, not active)
+
+File: feed_adapters.py
+- SpotFeedAdapter: NIFTY 50 LTP, OHLC (1m from tick stream)
+- OptionsFeedAdapter: Option chain, OI, premium
+- VixFeedAdapter: India VIX
+- MacroFeedAdapter: FII/DII, global cues (stubs initially)
+- CalendarFeedAdapter: Holiday/expiry/event (manual + derived)
+
+File: packet_envelope.py
+- Raw packet → envelope transformation
+- Envelope fields: source, feed_type, connection_id, packet_id, routing_id, received_at, source_timestamp
+- NO interpretation — pure operational wrapping
+
+File: source_health.py
+- Track: lifecycle_state, latency, heartbeat_age, reconnect_count
+- Emit health facts: HEALTHY/DEGRADED/STALE/AUTH_FAILED/DISCONNECTED
+- Health facts travel to Floor 2 as metadata
+
+File: floor2_handoff.py
+- Assembles all 5 payload families for Floor 2:
+  1. original_raw_packet
+  2. minimal_source_envelope
+  3. feed_routing_identity
+  4. source_health_facts
+  5. manual_source_tags (where applicable)
+
+File: ingress_router.py
+- Accepts packets from all source adapters
+- Routes through correct feed adapter
+- Applies envelope
+- Forwards to Floor 2 handoff
+
+File: manual_ingress.py
+- Manual calendar events, manual overrides
+- Manual packets still get envelope + source tag
+- Types: MANUAL_CALENDAR, MANUAL_EVENT, MANUAL_OVERRIDE
+
+File: shared_utils.py
+- Shared utilities: retry helpers, connection utilities, common packet wrappers
+- NOT for validation, cleaning, or intelligence logic
+
+================================================================================
+SECTION 3 - STEP-BY-STEP BUILD ORDER
+================================================================================
+
+BUILD ORDER: Files must be built in this exact order with these contracts.
+
+----------------------------------------------------------------------
+STEP 1.1 — AUTH MANAGER (auth_manager.py)
+----------------------------------------------------------------------
+File: floor_1_connection/auth_manager.py
+
+Purpose: Handle Angel One API authentication lifecycle.
+
+Input contract:
+- Config.get('angel_one.client_id') — str, required
+- Config.get('angel_one.api_key') — str, required
+- Config.get('angel_one.pin') — str, required
+
+Output contract:
+- login() → token (str) | raises ConnectionError on failure
+- get_token() → current valid token or None
+- refresh_token() → new token (str) | raises ConnectionError
+- is_authenticated() → bool
+- logout() → None
+- get_session_expiry() → datetime | None
+
+Dependencies: Phase 0 (types.py, config.py, errors.py, logging.py)
+Validation:
+- login() with valid creds → returns non-None token
+- login() with invalid creds → raises ConnectionError with message
+- refresh_token() → returns new valid token
+- is_authenticated() → True after login, False after logout
+- All operations logged via get_logger('auth_manager')
+
+----------------------------------------------------------------------
+STEP 1.2 — SHARED UTILITIES (shared_utils.py)
+----------------------------------------------------------------------
+File: floor_1_connection/shared_utils.py
+
+Purpose: Shared utilities used by multiple Floor 1 modules.
+
+Output contract:
+- generate_connection_id() → str (unique per session, e.g., uuid4)
+- generate_packet_id() → str (unique per packet)
+- retry_with_backoff(func, max_retries=3, base_delay=1.0) → result | raises after max retries
+- is_websocket_healthy(ws) → bool
+- serialize_for_handoff(data: dict) → str (JSON serialization)
+
+Dependencies: Step 1.1 (auth_manager.py for types)
+Validation:
+- generate_connection_id() returns unique strings
+- retry_with_backoff succeeds on eventual success, fails after max retries
+- serialize_for_handoff produces valid JSON
+
+----------------------------------------------------------------------
+STEP 1.3 — SOURCE HEALTH MONITOR (source_health.py)
+----------------------------------------------------------------------
+File: floor_1_connection/source_health.py
+
+Purpose: Track connection lifecycle state and emit factual health metrics.
+
+Input contract:
+- connection_id (from shared_utils)
+- Initial state (HEALTHY)
+
+Output contract:
+- SourceHealth dataclass fields: lifecycle_state, latency_ms, heartbeat_age_s, reconnect_count
+- get_state() → SourceHealth
+- update_latency(ms: float) → None
+- update_heartbeat() → None
+- transition_to(new_state: LifecycleState) → None | raises ValueError if invalid transition
+- get_health_facts() → dict (for Floor 2 handoff)
+- LifecycleState enum: HEALTHY, DEGRADED, STALE, AUTH_FAILED, DISCONNECTED
+
+Allowed transitions:
+HEALTHY ↔ DEGRADED
+DEGRADED ↔ STALE
+HEALTHY → AUTH_FAILED → DISCONNECTED
+STALE → DISCONNECTED
+DISCONNECTED → HEALTHY (after reconnect)
+AUTH_FAILED → HEALTHY (after re-auth)
+
+Dependencies: Step 1.1 (config for thresholds), Step 1.2 (shared_utils)
+Validation:
+- Initial state = HEALTHY with latency=0, heartbeat=0, reconnect_count=0
+- Invalid transition raises ValueError (e.g., HEALTHY → DISCONNECTED without going through STALE)
+- All transitions logged
+- get_health_facts() returns dict with all mandatory fields
+
+----------------------------------------------------------------------
+STEP 1.4 — PACKET ENVELOPE BUILDER (packet_envelope.py)
+----------------------------------------------------------------------
+File: floor_1_connection/packet_envelope.py
+
+Purpose: Wrap raw packets in standardized operational envelope.
+
+Input contract:
+- raw_payload: dict (raw data from source)
+- source: str (e.g., "angel_one")
+- feed_type: str (e.g., "spot_tick")
+- connection_id: str
+- source_timestamp: datetime | None
+
+Output contract:
+- build_envelope(raw_payload, source, feed_type, connection_id, source_timestamp=None) → PacketEnvelope
+- PacketEnvelope fields:
+  - source: str
+  - feed_type: str
+  - connection_id: str
+  - packet_id: str (unique, generated)
+  - routing_id: str (source + "::" + feed_type)
+  - received_at: datetime (utcnow)
+  - source_timestamp: datetime | None
+  - payload: dict (raw data, unmodified)
+
+Dependencies: Step 1.2 (shared_utils for packet_id), Phase 0 types (PacketEnvelope)
+Validation:
+- build_envelope returns PacketEnvelope with ALL mandatory fields populated
+- packet_id is unique per call
+- received_at = current UTC time
+- payload is UNMODIFIED (exact copy of input raw_payload)
+- NO interpretation, NO transformation of payload content
+
+----------------------------------------------------------------------
+STEP 1.5 — FEED ADAPTERS (feed_adapters.py)
+----------------------------------------------------------------------
+File: floor_1_connection/feed_adapters.py
+
+Purpose: Handle feed identity and packet routing after source acquisition.
+
+Input contract:
+- Raw data streams from source adapter (WebSocket or REST)
+
+Output contract (per feed adapter):
+- SpotFeedAdapter:
+  - feed_type = "spot_tick"
+  - subscribe(callback) → None
+  - on_tick(data) → envelope-ready dict
+- OptionsFeedAdapter:
+  - feed_type = "options_snapshot"
+  - subscribe(callback) → None
+  - on_snapshot(data) → envelope-ready dict
+- VixFeedAdapter:
+  - feed_type = "vix_tick"
+  - subscribe(callback) → None
+  - on_tick(data) → envelope-ready dict
+- MacroFeedAdapter:
+  - feed_type = "macro_data"
+  - Stub initially (returns mock data)
+- CalendarFeedAdapter:
+  - feed_type = "calendar_event"
+  - Stub initially (manual input supported)
+
+Each adapter: feed identity tagging + routing classification only.
+No validation, no cleaning, no transformation beyond envelope-ready dicts.
+
+Dependencies: Step 1.2 (shared_utils), Step 1.4 (packet_envelope)
+Validation:
+- SpotFeedAdapter returns envelope-ready dict with feed_type="spot_tick"
+- OptionsFeedAdapter returns envelope-ready dict with feed_type="options_snapshot"
+- MacroFeedAdapter stub returns expected format even with empty data
+- CalendarFeedAdapter stub handles holiday/expiry date input
+
+----------------------------------------------------------------------
+STEP 1.6 — SOURCE ADAPTERS (source_adapters.py)
+----------------------------------------------------------------------
+File: floor_1_connection/source_adapters.py
+
+Purpose: Handle source-specific connectivity protocols.
+
+Input contract:
+- Config: Angel One API settings
+- AuthManager instance (from Step 1.1)
+- SourceHealth instance (from Step 1.3)
+
+Output contract:
+- AngelOneAdapter:
+  - connect() → bool | raises ConnectionError
+  - disconnect() → None
+  - reconnect() → bool (uses retry_with_backoff)
+  - is_connected() → bool
+  - get_lifecycle_state() → LifecycleState
+  - subscribe_feeds(feed_types: list[str]) → None
+  - on_data(callback) → None (received data handler)
+- Future backup adapter slot: BackupAdapter (stub, raises NotImplementedError)
+- ManualSourceAdapter: handles manual ingress packets
+
+Dependencies: Step 1.1 (auth_manager), Step 1.3 (source_health), Step 1.2 (shared_utils)
+Validation:
+- connect() after valid auth → returns True, state = HEALTHY
+- disconnect() → state = DISCONNECTED
+- reconnect() after disconnect → state returns to HEALTHY (with mocked Angel One)
+- subscribe_feeds with multiple feeds → all feed callbacks receive data
+- ManualSourceAdapter accepts dict input and returns envelope-ready
+
+----------------------------------------------------------------------
+STEP 1.7 — MANUAL INGRESS LANE (manual_ingress.py)
+----------------------------------------------------------------------
+File: floor_1_connection/manual_ingress.py
+
+Purpose: Handle manually entered calendar events, overrides, and special inputs.
+
+Input contract:
+- event_type: str (MANUAL_CALENDAR, MANUAL_EVENT, MANUAL_OVERRIDE)
+- data: dict (event details)
+- source_tag: str (manual source identifier)
+
+Output contract:
+- create_manual_packet(event_type, data, source_tag) → dict
+  Returns envelope-ready dict with:
+  - source = "manual"
+  - feed_type = event_type (e.g., "MANUAL_CALENDAR")
+  - manual_source_tag = source_tag
+  - payload = data
+
+Governance:
+- All manual packets get standard envelope treatment (via packet_envelope.py)
+- Source tag preserved for traceability
+- Timestamp preserved for audit
+
+Dependencies: Step 1.4 (packet_envelope for envelope wrapping)
+Validation:
+- MANUAL_CALENDAR packet → source="manual", feed_type="MANUAL_CALENDAR"
+- MANUAL_EVENT packet → source="manual", feed_type="MANUAL_EVENT"
+- MANUAL_OVERRIDE packet → source="manual", feed_type="MANUAL_OVERRIDE"
+- All packets have received_at timestamp
+- All packets pass through packet_envelope.py (same as live data)
+
+----------------------------------------------------------------------
+STEP 1.8 — INGRESS ROUTER (ingress_router.py)
+----------------------------------------------------------------------
+File: floor_1_connection/ingress_router.py
+
+Purpose: Central ingress routing — accept packets from all sources, apply envelope, forward.
+
+Input contract:
+- SourceAdapter instances (AngelOneAdapter, ManualSourceAdapter)
+- FeedAdapter instances
+
+Output contract:
+- route_packet(source_adapter_name, feed_type, raw_data) → None
+  - Accepts raw data from source adapter
+  - Passes through correct feed adapter for identity tagging
+  - Applies packet envelope
+  - Forwards to Floor 2 handoff
+- start_routing() → None (starts listening on all sources)
+- stop_routing() → None (stops all sources)
+
+Dependencies: Steps 1.1-1.7
+Validation:
+- route_packet with valid data → data reaches floor2_handoff
+- route_packet with unknown source → logged error, no crash
+- start_routing() → all adapters begin receiving
+- stop_routing() → all adapters stop gracefully
+
+----------------------------------------------------------------------
+STEP 1.9 — FLOOR 2 HANDOFF (floor2_handoff.py)
+----------------------------------------------------------------------
+File: floor_1_connection/floor2_handoff.py
+
+Purpose: Assemble and send all 5 payload families to Floor 2.
+
+Output contract (5 payload families):
+
+1. original_raw_packet:
+   - raw data as received from source (unmodified)
+
+2. minimal_source_envelope:
+   - source: str
+   - feed_type: str
+   - connection_id: str
+   - packet_id: str
+   - routing_id: str
+   - received_at: datetime
+
+3. feed_routing_identity:
+   - One of: SPOT_FEED, OPTIONS_FEED, VIX_FEED, CALENDAR_FEED, MACRO_FEED
+   - Plus sub-type where applicable
+
+4. source_health_facts:
+   - lifecycle_state: LifecycleState
+   - latency_ms: float
+   - heartbeat_age_s: float
+   - reconnect_count: int
+
+5. manual_source_tags (where applicable):
+   - manual_source_tag: str | None
+   - Only populated for manual ingress packets
+
+Send method:
+- send_to_floor2(handoff_payload: dict) → None
+- Uses logger for traceability
+- Raises ContractViolationError if mandatory fields missing
+
+Dependencies: Steps 1.3 (source_health), 1.4 (packet_envelope), 1.7 (manual_ingress)
+Validation:
+- send_to_floor2 with ALL 5 families → succeeds
+- send_to_floor2 with missing mandatory field → ContractViolationError
+- send_to_floor2 with manual packet → manual_source_tags populated
+- send_to_floor2 with live packet → manual_source_tags = None
+- All fields match Phase 0 types.py contracts
+
+----------------------------------------------------------------------
+STEP 1.10 — FULL FLOOR 1 INTEGRATION TEST
+----------------------------------------------------------------------
+Purpose: Verify the complete Floor 1 chain works end-to-end.
+
+Integration test chain:
+1. auth_manager.login() → token obtained
+2. source_adapters.AngelOneAdapter.connect() → connected, state = HEALTHY
+3. source_adapters.AngelOneAdapter.subscribe_feeds(["spot", "options"])
+4. feed_adapters.SpotFeedAdapter.on_tick(mock_tick) → envelope-ready dict
+5. ingress_router.route_packet("angel_one", "spot_tick", mock_tick) → forwarded
+6. floor2_handoff.send_to_floor2(...) → all 5 families present
+7. Simulate disconnect → source_health transition: HEALTHY → DEGRADED → STALE → DISCONNECTED
+8. Reconnect → DISCONNECTED → HEALTHY
+9. Manual ingress → manual packet with envelope
+
+Validation:
+- pytest tests/test_floor_1/ -v → all tests pass
+- Full chain test: mock tick → envelope → handoff
+- Disconnect/reconnect cycle test: all state transitions correct
+- Manual ingress test: manual packet has correct source tag
+
+================================================================================
+SECTION 4 - INPUT/OUTPUT CONTRACTS
+================================================================================
+
+FLOOR 1 AS A WHOLE:
+
+INPUT CONTRACT:
+- Angel One API credentials (from config)
+- Angel One WebSocket data stream (external)
+- Angel One REST API responses (external)
+- Manual ingress data (from operator)
+
+OUTPUT CONTRACT (to Floor 2):
+Five payload families per packet:
+1. original_raw_packet: dict (unmodified source truth)
+2. minimal_source_envelope: PacketEnvelope (governance fields)
+3. feed_routing_identity: str (SPOT_FEED / OPTIONS_FEED / etc.)
+4. source_health_facts: dict (lifecycle_state, latency, heartbeat, reconnect_count)
+5. manual_source_tags: dict | None (if manual ingress)
+
+ERROR CONTRACT:
+- Connection failure: ConnectionError raised by auth_manager/source_adapters
+- Auth failure: AUTH_FAILED lifecycle state + logged error
+- Reconnect failure: continues retry loop, state stays DISCONNECTED
+- Envelope failure: logged, packet not forwarded (no crash)
+- Invalid manual input: logged, rejected gracefully
+
+PER-MODULE CONTRACTS:
+
+| Module               | Input                       | Output                          | Error                        |
+|----------------------|-----------------------------|---------------------------------|------------------------------|
+| auth_manager.py      | Config (API creds)          | Token, session state            | ConnectionError              |
+| shared_utils.py      | None (utility)              | Helpers (id gen, retry, etc.)   | ValueError on invalid params |
+| source_health.py     | Connection state updates    | SourceHealth facts              | ValueError on invalid trans  |
+| packet_envelope.py   | Raw data + source info      | PacketEnvelope                  | ValueError on missing field  |
+| feed_adapters.py     | Source data streams         | Envelope-ready dicts            | Logged, no crash             |
+| source_adapters.py   | Config + AuthManager        | Connection lifecycle            | ConnectionError              |
+| manual_ingress.py    | Manual event data           | Envelope-ready dict             | ValueError on invalid input  |
+| ingress_router.py    | Source + feed data          | Routed to handoff               | Logged, no crash             |
+| floor2_handoff.py    | 5 payload families          | Forwarded to Floor 2            | ContractViolationError       |
+
+================================================================================
+SECTION 5 - DEPENDENCY MAP
+================================================================================
+
+UPSTREAM DEPENDENCIES (must exist before Floor 1 can start):
+- Phase 0 complete:
+  - shared/types.py (PacketEnvelope, LifecycleState enum, DataHealth)
+  - shared/config.py (angel_one section with API keys)
+  - shared/logging.py (get_logger for all modules)
+  - shared/errors.py (ConnectionError for auth/network failures)
+  - shared/testing.py (generate_mock_tick for tests)
+  - shared/contracts.py (base contract definitions)
+- Python packages:
+  - smartapi-python (Angel One SDK)
+  - websockets or built-in asyncio WebSocket
+
+DOWNSTREAM DEPENDENCIES (Floor 1 blocks these later):
+- Phase 2 (Floor 2 — Data Center): needs Floor 1 raw packets + envelope
+- Side C Health Events: needs Floor 1 connection lifecycle events
+- Side A (Execution): needs Floor 1 broker connectivity for REAL mode
+
+MOCK REQUIREMENTS:
+- Mock Angel One API for unit tests (testing.py generates mock ticks)
+- Mock WebSocket for connection/disconnection simulation
+- Mock auth failures for AUTH_FAILED state testing
+- All Floor 1 modules testable WITHOUT real Angel One credentials
+
+================================================================================
+SECTION 6 - WIRING DIAGRAM
+================================================================================
+
+FLOOR 1 INTERNAL WIRING:
+
+```
+auth_manager.py (no dependencies within floor)
+    |
+    v
+source_adapters.py (depends on auth_manager, source_health, shared_utils)
+    |
+    +--------> feed_adapters.py (depends on shared_utils)
+    |               |
+    v               v
+ingress_router.py (depends on source_adapters, feed_adapters, packet_envelope)
+    |
+    v
+packet_envelope.py (depends on shared_utils)
+    |
+    v
+manual_ingress.py (depends on packet_envelope)
+    |
+    v
+floor2_handoff.py (depends on source_health, packet_envelope, manual_ingress)
+    |
+    v
+source_health.py (depends on shared_utils)
+    |
+    v
+[FLOOR 2 — Data Center]
+```
+
+FLOOR 1 → FLOOR 2 WIRING:
+
+```
+Floor 1 produces → Floor 2 consumes:
+original_raw_packet         → raw store (original_raw_store.py)
+minimal_source_envelope     → raw store (normalized_raw_store.py)
+feed_routing_identity       → validation router (for classification)
+source_health_facts         → metadata side-channel
+manual_source_tags          → raw store (governance metadata)
+```
+
+FLOOR 1 → SIDE C WIRING:
+
+```
+Floor 1 emits (through Floor 2 → Side C path):
+- connection lifecycle events
+- auth failure events
+- reconnect events
+- degraded/stale/disconnected transitions
+- source health events
+```
+
+================================================================================
+SECTION 7 - DATA FLOW
+================================================================================
+
+LIVE MARKET DATA FLOW:
+
+```
+MARKET (NIFTY 50)
+    |
+    v
+Angel One WebSocket / REST (external)
+    |
+    v
+source_adapters.AngelOneAdapter
+    - Receives raw packet from WebSocket
+    - Tags with connection_id
+    - Updates source_health heartbeat
+    |
+    v
+ingress_router.route_packet()
+    - Identifies feed type (spot_tick, options_snapshot, etc.)
+    - Routes to correct feed adapter
+    |
+    v
+feed_adapters.SpotFeedAdapter
+    - Tags with feed_type identity
+    - Returns envelope-ready dict
+    |
+    v
+packet_envelope.build_envelope()
+    - Wraps in standardized PacketEnvelope
+    - Adds: source, feed_type, connection_id, packet_id,
+            routing_id, received_at, source_timestamp
+    |
+    v
+floor2_handoff.send_to_floor2()
+    - Assembles all 5 payload families
+    - Original raw packet preserved (unmodified)
+    - Source health facts attached
+    - Forwards to Floor 2
+```
+
+MANUAL DATA FLOW:
+
+```
+Operator enters manual event
+    |
+    v
+manual_ingress.create_manual_packet()
+    - Tags as MANUAL_CALENDAR / MANUAL_EVENT / MANUAL_OVERRIDE
+    - Assigns manual source tag
+    |
+    v
+packet_envelope.build_envelope()
+    - Standard envelope applied (same as live data)
+    |
+    v
+floor2_handoff.send_to_floor2()
+    - manual_source_tags populated
+    - All other families present
+    - Forwards to Floor 2
+```
+
+DISCONNECT/RECONNECT FLOW:
+
+```
+WebSocket disconnects
+    |
+    v
+source_adapters.AngelOneAdapter
+    - Detects disconnect
+    - Updates SourceHealth: HEALTHY → DEGRADED → STALE → DISCONNECTED
+    |
+    v
+source_health.transition_to(DISCONNECTED)
+    - Logs disconnect event
+    - Updates lifecycle_state
+    - Reconnect count incremented
+    |
+    v
+source_adapters.AngelOneAdapter.reconnect()
+    - retry_with_backoff executes
+    - On success: auth_manager.login() → token
+    - State returns: DISCONNECTED → HEALTHY
+    - On failure: stays DISCONNECTED, retry continues
+    |
+    v
+floor2_handoff (health facts emitted with each state change)
+```
+
+================================================================================
+SECTION 8 - VALIDATION MATRIX
+================================================================================
+
+UNIT VALIDATION (isolated tests for each module):
+
+auth_manager.py:
+- Test: login with valid credentials → token returned (mock Angel One)
+- Test: login with invalid credentials → ConnectionError raised
+- Test: refresh_token → new token differs from old
+- Test: is_authenticated → True after login, False after logout
+- Test: token expiry → refresh_token called automatically
+
+source_adapters.py:
+- Test: AngelOneAdapter.connect() → state = HEALTHY
+- Test: AngelOneAdapter.disconnect() → state = DISCONNECTED
+- Test: AngelOneAdapter.reconnect() → state returns to HEALTHY
+- Test: subscribe_feeds → all feed callbacks fire on data
+- Test: connect when already connected → no-op, logged
+
+feed_adapters.py:
+- Test: SpotFeedAdapter.feed_type = "spot_tick"
+- Test: OptionsFeedAdapter.feed_type = "options_snapshot"
+- Test: VixFeedAdapter.feed_type = "vix_tick"
+- Test: MacroFeedAdapter stub returns expected format
+- Test: CalendarFeedAdapter handles date input
+
+packet_envelope.py:
+- Test: ALL mandatory fields populated in output
+- Test: packet_id unique per call
+- Test: payload is unmodified (same as input)
+- Test: envelope with None source_timestamp → source_timestamp = None
+- Test: envelope with valid source_timestamp → preserved
+
+source_health.py:
+- Test: initial state = HEALTHY
+- Test: all valid state transitions work
+- Test: invalid transitions raise ValueError
+- Test: get_health_facts returns all mandatory fields
+- Test: decrement the HEALTHY → AUTH_FAILED → DISCONNECTED path
+
+manual_ingress.py:
+- Test: MANUAL_CALENDAR → source="manual"
+- Test: MANUAL_EVENT → feed_type="MANUAL_EVENT"
+- Test: MANUAL_OVERRIDE → source tag preserved
+- Test: all packets have received_at timestamp
+
+ingress_router.py:
+- Test: route_packet with valid data → reaches floor2_handoff
+- Test: route_packet with unknown source → logged, no crash
+- Test: start_routing() → all sources active
+- Test: stop_routing() → all sources stopped
+
+floor2_handoff.py:
+- Test: ALL 5 payload families present in output
+- Test: original_raw_packet preserved unmodified
+- Test: feed_routing_identity is correct string
+- Test: manual_source_tags = None for live data, populated for manual
+- Test: missing mandatory field → ContractViolationError
+
+CONTRACT VALIDATION (cross-module checks):
+- Verify floor2_handoff output matches Floor 2 expected input format
+- Verify PacketEnvelope fields match shared/types.py
+- Verify LifecycleState values match enum definition
+- Verify all exceptions raised are from errors.py hierarchy
+- Verify all logger calls use correct module name
+
+REPLAY VALIDATION:
+- N/A for Floor 1 — Floor 1 is live data ingress only
+- Floor 1 preserves identifiers (connection_id, packet_id) for downstream replay
+
+INTEGRATION VALIDATION:
+- Full chain: mock tick → Auth → Source → Feed → Envelope → Handoff (all 5 families)
+- Disconnect/reconnect full cycle: all state transitions verified
+- Manual ingress: manual packet → envelope → handoff with source tag
+- `pytest tests/test_floor_1/ -v` — all tests pass
+- `python -c "from junior_aladdin.floor_1_connection import *"` — zero import errors
+
+================================================================================
+SECTION 9 - CROSS-COMPONENT IMPACTS
+================================================================================
+
+REPLAY IMPACT:
+- Floor 1 does NOT own replay capability (Floor 2 owns)
+- During replay, Floor 1 must NOT connect to Angel One — it receives replay data from Floor 2's recorded store
+- Floor 1 MUST have a replay mode flag that disables live connections and accepts injected data
+- Floor 1 preserves ingress identifiers: connection_id, packet_id, routing_id
+- source_timestamp preserved where available for replay timing
+- Manual ingress timestamps preserved for replay governance
+- These identifiers are sufficient for Floor 2 replay traceability
+- All Floor 1 modules must remain importable and routable WITHOUT Angel One connectivity
+
+DASHBOARD IMPACT:
+- Floor 1 exposes operational facts for dashboard, NOT trading judgments:
+  - connection lifecycle state (HEALTHY / DEGRADED / STALE / AUTH_FAILED / DISCONNECTED)
+  - source health: latency, heartbeat_age, reconnect_count
+  - auth failure visibility
+  - reconnect attempt tracking
+- Dashboard must NOT treat these as trading signals
+- Dashboard may show Floor 1 health in Health Surface panel
+
+MEMORY IMPACT (Side C):
+- Floor 1 emits observability events (through Floor 2 → Side C path):
+  - connection lifecycle events (HEALTHY → DEGRADED → etc.)
+  - auth failure events
+  - reconnect events
+  - degraded/stale/disconnected transitions
+  - source health events
+- Floor 1 does NOT store Side C memory — only emits its own connection truth
+- Approved emitter for Side C health events family
+
+EXECUTION IMPACT (Side A):
+- Floor 1 broker connectivity is required for Side A REAL mode execution
+- Side A uses Floor 1's Angel One connectivity for order placement
+- Floor 1 does NOT do any execution logic
+- If Floor 1 is disconnected, Side A cannot place REAL orders
+
+================================================================================
+SECTION 10 - COMMON MISTAKES + ANTI-PATTERNS
+================================================================================
+
+WHAT CAN BREAK ARCHITECTURE IN THIS FLOOR:
+
+Mistake 1: Validation logic in Floor 1
+- Problem: Checking packet validity, removing duplicates, or cleaning data in Floor 1
+- Architecture violation: Floor 2 owns validation. Floor 1 = connection only.
+- Prevention: If you're writing "if data is valid:" in Floor 1 code → stop. Move to Floor 2.
+- Detection: Code review catches validation logic outside Floor 2.
+
+Mistake 2: Market interpretation in envelope
+- Problem: Adding market meaning to packet_envelope (e.g., "this tick suggests bullish move")
+- Architecture violation: Floor 3+ owns intelligence. Envelope = pure operational wrapping.
+- Prevention: PacketEnvelope fields are metadata ONLY (source, time, identity). No market fields.
+- Detection: Any field with "bias", "signal", "setup", "confidence" in Floor 1 → P0 bug.
+
+Mistake 3: Hardcoding API credentials
+- Problem: Putting client_id, api_key, pin directly in source code
+- Architecture violation: Security breach + no rotation capability
+- Prevention: ALL credentials go through config.py → .env file (not .env.example)
+- Detection: `git diff` shows API keys in code.
+
+Mistake 3b: Ignoring 9:15 snapshot timing + daily token expiry
+- Problem: Angel One session token expires daily at ~3:15 PM. SNAP request (9:15 AM snapshot) uses same token.
+- On next day at 9:15 AM, stale token causes SNAP failure and floor goes blind.
+- Architecture violation: Token refresh must happen BEFORE 9:15 snapshot request.
+- Prevention: auth_manager must auto-refresh token before market open. Implement `refresh_if_expired()` check.
+- Detection: SNAP request fails at 9:15 AM, system has no opening snapshot data all day.
+
+Mistake 3c: WebSocket without auto-reconnect
+- Problem: WebSocket disconnects silently, system stops receiving ticks without alert.
+- Architecture violation: Floor 1 must be observable and self-recovering.
+- Prevention: Implement auto-reconnect loop with retry_with_backoff. Log every reconnect attempt.
+- Detection: Ticks stop arriving, Floor 1 state stays HEALTHY (should transition to DEGRADED → STALE → DISCONNECTED).
+
+Mistake 3d: Token not refreshed after AUTH_FAILED
+- Problem: AUTH_FAILED state recovery doesn't refresh token — just reconnects Socket with stale token.
+- Architecture violation: Auth failure recovery pathway must call auth_manager.login() not just reconnect().
+- Prevention: AUTH_FAILED recovery path: login() → refresh_token() → reconnect(). Separate from DISCONNECTED recovery.
+- Detection: reconnect() succeeds but auth fails again within seconds.
+
+Mistake 4: Not distinguishing AUTH_FAILED from DISCONNECTED
+- Problem: Both treated as generic "disconnected" state
+- Architecture violation: AUTH_FAILED needs different recovery path (re-auth vs reconnect)
+- Prevention: Use AUTH_FAILED lifecycle state explicitly. Different recovery path.
+- Detection: SourceHealth transitions don't include AUTH_FAILED.
+
+Mistake 5: Floor 1 depending on Floor 2+ types
+- Problem: Importing Floor 2 types in Floor 1 code
+- Architecture violation: Circular dependency. Floor 1 should only depend on shared/.
+- Prevention: ALL Floor 1 imports come from shared/. No floor_2_* imports.
+- Detection: `grep "from junior_aladdin.floor_2" floor_1_connection/` returns nothing.
+
+Mistake 6: WebSocket buffer without backpressure
+- Problem: Letting WebSocket data pile up in memory without limit
+- Architecture violation: Data loss risk. System becomes unstable.
+- Prevention: Configurable buffer size. Backpressure handling. Log warnings at threshold.
+- Detection: Memory usage grows unbounded during high-volume ticks.
+
+Mistake 7: Trying to parse/reformat data before envelope
+- Problem: Modifying packet format before wrapping in envelope
+- Architecture violation: Original raw truth lost. Downstream debugging impossible.
+- Prevention: original_raw_packet = EXACT copy of received data. No reformatting.
+- Detection: Envelope payload differs from raw received data.
+
+WHAT CREATES REWORK LATER:
+- Not implementing reconnect loop → system goes blind on temporary disconnect
+  Fix: Implement in Step 1.6 with retry_with_backoff
+- Not generating unique packet_id → traceability lost in Floor 2
+  Fix: Use generate_packet_id() from shared_utils.py
+- Not handling AUTH_FAILED separately → wrong recovery path
+  Fix: Explicit AUTH_FAILED state in source_health.py
+- Letting Floor 1 accumulate configuration → config sprawl
+  Fix: Only Angel One + connection config in Floor 1. Other configs in their floors.
+
+================================================================================
+SECTION 11 - READY-TO-CODE CHECKLIST
+================================================================================
+
+BEFORE CODING STARTS (entry criteria):
+
+[ ] Phase 0 exit criteria met (shared/types.py, config.py, logging.py, errors.py, testing.py)
+[ ] All Phase 0 imports work: `from junior_aladdin.shared import *`
+[ ] Angel One API credentials obtained (client_id, api_key, pin)
+[ ] smartapi-python SDK installed: `pip install smartapi-python`
+[ ] WebSocket library available (websockets or built-in)
+[ ] Network connectivity to Angel One servers verified
+[ ] FLOOR_01_MARKET_CONNECTION_V1_1_FINAL.txt read and understood
+[ ] ROADMAP_MASTER.txt read for build context
+[ ] ROADMAP_FLOOR_01.txt open for daily reference
+[ ] Mock Angel One tick generator available in shared/testing.py
+[ ] First module to build identified: auth_manager.py
+[ ] Build order confirmed: auth → shared_utils → source_health → packet_envelope → feed_adapters → source_adapters → manual_ingress → ingress_router → floor2_handoff
+
+DURING BUILD (build criteria):
+
+[ ] Each module independently testable with mocked Angel One
+[ ] Packet envelope created BEFORE any data transformation
+[ ] Source health monitoring wired from day one (not retrofitted)
+[ ] Manual ingress treated as first-class (not a hack)
+[ ] NO validation/cleaning logic in any Floor 1 module
+[ ] ALL modules import only from shared/ (no floor_2+ dependencies)
+[ ] ALL credentials go through config.py → .env
+[ ] Every module has at least 1 unit test
+
+VERIFICATION TESTS (run at end of each step):
+
+Step 1.1: [ ] auth_manager.login() → token (mock)
+          [ ] auth_manager.login() with bad creds → ConnectionError
+Step 1.2: [ ] generate_connection_id() → unique strings
+          [ ] retry_with_backoff() → works on eventual success
+Step 1.3: [ ] source_health initial state = HEALTHY
+          [ ] Invalid transitions raise ValueError
+Step 1.4: [ ] packet_envelope.build_envelope() → ALL mandatory fields populated
+          [ ] payload unmodified (exact copy)
+Step 1.5: [ ] SpotFeedAdapter.feed_type = "spot_tick"
+          [ ] OptionsFeedAdapter.feed_type = "options_snapshot"
+Step 1.6: [ ] AngelOneAdapter.connect() → state = HEALTHY
+          [ ] AngelOneAdapter.disconnect() → state = DISCONNECTED
+          [ ] reconnect() → state returns to HEALTHY
+Step 1.7: [ ] MANUAL_CALENDAR → source="manual"
+Step 1.8: [ ] route_packet → data reaches floor2_handoff
+Step 1.9: [ ] ALL 5 payload families present in handoff
+
+EXIT CRITERIA (Phase 1 / Floor 1 complete):
+
+[ ] Angel One login succeeds (with mock)
+[ ] WebSocket subscribes to NIFTY 50 ticks (with mock)
+[ ] Mock ticks received, enveloped, routed, handed off
+[ ] Source health states change correctly (simulate disconnect → HEALTHY → DEGRADED → STALE → DISCONNECTED → RECONNECT → HEALTHY)
+[ ] Manual ingress lane accepts and envelopes packets
+[ ] Floor 2 handoff produces ALL 5 required payload families
+[ ] Reconnect loop works after forced disconnection
+[ ] No validation/cleaning/intelligence logic in any Floor 1 module
+[ ] All Floor 1 tests pass: `pytest tests/test_floor_1/ -v`
+[ ] Zero dependency on floor_2+ code
+[ ] FLOOR_01_MARKET_CONNECTION_V1_1_FINAL.txt preserved (not modified)
+
+================================================================================
+END OF ROADMAP FLOOR 01: MARKET CONNECTION
+================================================================================

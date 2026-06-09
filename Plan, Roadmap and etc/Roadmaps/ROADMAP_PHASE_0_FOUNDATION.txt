@@ -1,0 +1,934 @@
+================================================================================
+ JUNIOR ALADDIN - ROADMAP PHASE 0: FOUNDATION
+ Implementation Execution Document
+================================================================================
+
+DOCUMENT IDENTITY
+--------------------------------------------------------------------------------
+This is NOT an architecture document.
+This is an IMPLEMENTATION EXECUTION DOCUMENT.
+
+This document does NOT:
+- redefine architecture
+- change ownership
+- change contracts
+- change dataflow
+- change wiring
+- change sequencing
+
+This document DOES:
+- provide the exact step-by-step build order for Phase 0
+- define every file, its contract, its dependencies, and its validation
+- serve as the daily coding reference for Phase 0
+
+================================================================================
+SECTION 1 - PURPOSE
+================================================================================
+
+One-line identity:
+PHASE 0 = Foundation Layer — the project skeleton that every subsequent phase
+depends on.
+
+Why this phase exists:
+- Nothing in the system can be built without a project skeleton.
+- Shared types, config, logging, and testing infrastructure are prerequisites
+  for every module in every phase.
+- This phase has zero dependencies — it's the starting point.
+- Every subsequent phase (Floors 1-5, Sides A-C) depends on Phase 0 being complete.
+
+What Phase 0 creates:
+- Project folder structure (all 8 blocks: 5 floors + 3 sides)
+- Shared enums, dataclasses, and base contracts (shared/types.py)
+- Configuration system (shared/config.py) — YAML + env var override
+- Centralized logging framework (shared/logging.py) — structured JSON
+- Mock generators and test utilities (shared/testing.py)
+- requirements.txt, pyproject.toml, .env.example, .gitignore, README.md
+- Basic CI/CD pipeline configuration
+
+What Phase 0 explicitly does NOT create:
+- Any business logic
+- Any floor/side implementation
+- Any dashboard UI
+- Any real broker integration
+- Any database schema (added in Phase 2)
+
+================================================================================
+SECTION 2 - COMPONENT ARCHITECTURE
+================================================================================
+
+FOLDER STRUCTURE:
+
+(root)/
+├── junior_aladdin/
+│   ├── __init__.py
+│   ├── floor_1_connection/
+│   │   └── __init__.py
+│   ├── floor_2_datacenter/
+│   │   └── __init__.py
+│   ├── floor_3_calculations/
+│   │   ├── __init__.py
+│   │   ├── market_structure/
+│   │   │   └── __init__.py
+│   │   ├── smc/
+│   │   │   └── __init__.py
+│   │   ├── ict/
+│   │   │   └── __init__.py
+│   │   ├── technical/
+│   │   │   └── __init__.py
+│   │   ├── options/
+│   │   │   └── __init__.py
+│   │   ├── macro/
+│   │   │   └── __init__.py
+│   │   └── support_metrics/
+│   │       └── __init__.py
+│   ├── floor_4_heads/
+│   │   └── __init__.py
+│   ├── floor_5_captain/
+│   │   └── __init__.py
+│   ├── side_a_execution/
+│   │   └── __init__.py
+│   ├── side_b_api/
+│   │   └── __init__.py
+│   ├── side_b_dashboard/
+│   │   └── __init__.py
+│   ├── side_c_memory/
+│   │   └── __init__.py
+│   └── shared/
+│       ├── __init__.py
+│       ├── types.py
+│       ├── contracts.py
+│       ├── errors.py
+│       ├── config.py
+│       ├── logging.py
+│       └── testing.py
+├── config/
+│   ├── default.yaml
+│   ├── production.yaml
+│   └── test.yaml
+├── tests/
+│   ├── conftest.py
+│   ├── test_floor_1/
+│   ├── test_floor_2/
+│   ├── test_floor_3/
+│   ├── test_floor_4/
+│   ├── test_floor_5/
+│   ├── test_side_a/
+│   ├── test_side_b/
+│   └── test_side_c/
+├── scripts/
+│   ├── setup.sh
+│   ├── run_all_tests.sh
+│   └── seed_test_data.py
+├── data/
+│   ├── raw/
+│   ├── clean/
+│   └── replay/
+├── requirements.txt
+├── setup.py
+├── pyproject.toml
+├── .env.example
+├── .gitignore
+└── README.md
+
+MODULE RESPONSIBILITIES:
+
+File: junior_aladdin/shared/__init__.py
+- Package init. Expose commonly used types and utilities.
+
+File: junior_aladdin/shared/types.py
+- Core enums: MarketPhase, SessionType, BiasType, TrendState, HeadState,
+  CaptainMood, DecisionType, TradeClass, ExecutionMode, DataHealth,
+  FreshnessTag, Severity
+- Core dataclasses: PacketEnvelope, HeadReport, FloorSummary, CaptainDecision,
+  ExecutionIntent, ArmedPlan, DecisionSnapshot, MemoryEvent
+
+File: junior_aladdin/shared/contracts.py
+- Base contract definitions (what every module must provide)
+- Input/output contract base classes
+- Error contract base classes
+
+File: junior_aladdin/shared/errors.py
+- Error hierarchy: JuniorAladdinError base class
+- Derived: ConnectionError, ValidationError, ConfigurationError,
+  ExecutionError, MemoryError, ContractViolationError
+
+File: junior_aladdin/shared/config.py
+- Config loader: YAML config files + environment variable override
+- Per-environment configs (default, production, test)
+- Required config schema (Angel One API keys, capital limits, thresholds)
+- .env file support
+
+File: junior_aladdin/shared/logging.py
+- Centralized logger factory
+- Structured JSON logging output
+- Per-module log levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- Log rotation
+- Sensitive data redaction (API keys, tokens, passwords)
+
+File: junior_aladdin/shared/testing.py
+- Mock Angel One tick generator
+- Mock Floor 2 structured data generator
+- Mock Floor 3 states/maps/scores generator
+- Mock Floor 4 head reports generator
+- Mock Floor 5 captain decision generator
+- In-memory test stores
+
+File: config/default.yaml
+- Default configuration values
+- Required fields with defaults
+- Environment names, logging levels, paths
+
+File: config/production.yaml
+- Production-specific overrides
+- Stricter logging levels, different paths
+
+File: config/test.yaml
+- Test-specific configuration
+- In-memory stores, verbose logging, test API keys
+
+File: tests/conftest.py
+- pytest configuration
+- Test fixtures: config, logger, mock generators
+- Test data directories
+
+File: requirements.txt
+- Python dependencies: smartapi-python, pyyaml, pytest, websockets, etc.
+
+File: .env.example
+- Template for environment variables
+- NO real keys (example placeholders only)
+- ALL required env vars documented with comments
+
+File: .gitignore
+- Ignore: .env, __pycache__, *.pyc, data/raw/*, data/clean/*, logs/*
+
+================================================================================
+SECTION 3 - STEP-BY-STEP BUILD ORDER
+================================================================================
+
+BUILD ORDER: Files must be built in this exact order with these contracts.
+
+----------------------------------------------------------------------
+STEP 0.1 — CREATE PROJECT FOLDER STRUCTURE
+----------------------------------------------------------------------
+Actions:
+- Create all directories listed in Section 2
+- Create __init__.py files (initially empty) for all packages
+- Create data/ directories (raw/, clean/, replay/) with .gitkeep
+- Initialize git repository
+
+Dependencies: None (first step)
+Validation:
+- `python -c "import junior_aladdin"` → ModuleNotFoundError expected until setup
+- `dir junior_aladdin/` → shows all subdirectories
+
+----------------------------------------------------------------------
+STEP 0.2 — CREATE PROJECT CONFIGURATION FILES
+----------------------------------------------------------------------
+Files:
+- pyproject.toml (project metadata, build system)
+- setup.py (installable package)
+- requirements.txt (dependencies)
+- .env.example (env var template)
+- .gitignore
+- README.md (project overview, setup instructions)
+
+Dependencies: Step 0.1 (folder structure exists)
+Validation:
+- `pip install -e .` → installs package
+- `pip install -r requirements.txt` → installs dependencies
+- `.env.example` has NO real keys
+
+----------------------------------------------------------------------
+STEP 0.3 — CREATE ERROR HIERARCHY (shared/errors.py)
+----------------------------------------------------------------------
+File: junior_aladdin/shared/errors.py
+
+Input contract: None (base utility)
+Output contract:
+- JuniorAladdinError (base, inherits Exception)
+- ConnectionError (source/connectivity failures)
+- ValidationError (data validation failures)
+- ConfigurationError (config loading failures)
+- ExecutionError (trade execution failures)
+- MemoryError (Side C storage failures)
+- ContractViolationError (contract mismatch detection)
+
+Each error must include:
+- message: str
+- details: dict (optional context)
+- original_exception: Exception | None (chaining)
+
+Dependencies: Step 0.1, 0.2
+Validation:
+- `from junior_aladdin.shared.errors import JuniorAladdinError` → succeeds
+- `raise JuniorAladdinError("test")` → raises correctly
+- All derived errors catchable via `except JuniorAladdinError`
+
+----------------------------------------------------------------------
+STEP 0.4 — CREATE SHARED TYPES (shared/types.py)
+----------------------------------------------------------------------
+File: junior_aladdin/shared/types.py
+
+Input contract: None (base definition file)
+Output contract:
+
+Enums:
+- MarketPhase: PRE_OPEN / OPEN / LUNCH / CLOSING / POST_CLOSE
+- SessionType: ASIA / LONDON / NY / ALL
+- BiasType: BULLISH / BEARISH / NEUTRAL
+- TrendState: STRONG_UP / WEAK_UP / RANGE / WEAK_DOWN / STRONG_DOWN
+- HeadState: READY / UNCERTAIN / STALE
+- CaptainMood: OBSERVER / PATIENT / AGGRESSIVE / DEFENSIVE / SILENT
+- DecisionType: TRADE / WAIT / BLOCKED
+- TradeClass: SCALP / CONTINUATION / REVERSAL / LIQUIDITY_RECLAIM / OPTIONS_PRESSURE
+- ExecutionMode: ALERT / PAPER / REAL
+- DataHealth: GOOD / CAUTION / DEGRADED / CRITICAL
+- FreshnessTag: FRESH / WARM / STALE
+- Severity: INFO / CAUTION / SEVERE / CRITICAL
+
+Core dataclasses:
+
+PacketEnvelope
+- source: str (e.g., "angel_one")
+- feed_type: str (e.g., "spot_tick")
+- connection_id: str
+- packet_id: str (unique per session)
+- routing_id: str
+- received_at: datetime (UTC)
+- source_timestamp: datetime | None
+- payload: dict (raw packet data)
+
+HeadReport
+- head_name: str
+- state: HeadState
+- freshness_score: float (0.0-1.0)
+- freshness_tag: FreshnessTag
+- last_deep_update: datetime
+- bias: BiasType
+- confidence: float (0.0-1.0)
+- dominant_tf: str
+- timeframe_view: str
+- primary_setup: str | None
+- backup_setup: str | None
+- active_zones: list[dict]
+- armed_triggers: list[dict]
+- invalidation: dict
+- bull_case: str
+- bear_case: str
+- confluence_note: str
+- witness_summary: str
+- timestamp: datetime
+
+FloorSummary
+- summary_timestamp: datetime
+- floor_bias_snapshot: dict
+- floor_confidence_snapshot: dict
+- active_setup_count: int
+- primary_setups_by_head: dict
+- backup_setups_by_head: dict
+- ready_heads_count: int
+- uncertain_heads_count: int
+- stale_heads_count: int
+- conflict_present: bool
+- stale_warning_present: bool
+- strongest_domain_signal: str
+- strongest_context_signal: str
+- strongest_risk_warning: str
+- data_health_signal: DataHealth
+- summary_witness_lines: list[str]
+- core_head_health_snapshot: dict
+- head_health_snapshot: dict
+- setup_presence: str | None ("HAS_SETUP" / "NO_SETUP" / None if unknown)
+- setup_absence_context: str | None ("READY_NO_SETUP" / "UNCERTAIN_NO_SETUP" /
+                                       "STALE_NO_SETUP" / None if setups present)
+- Note: setup_presence + setup_absence_context enable Captain to distinguish
+  healthy silence (NO_SETUP + READY) from degraded silence (NO_SETUP + STALE).
+  Captain V2.1 explicitly requires this distinction.
+
+CaptainDecision
+- decision: DecisionType
+- action: str (BUY / SELL)
+- option_side: str (CE / PE)
+- selected_strike: str
+- trade_class: TradeClass
+- permission_score: float
+- conviction_score: float
+- no_trade_score: float
+- entry_plan: dict
+- invalidation_level: float
+- stop_loss_plan: dict
+- target_plan: dict
+- reason_summary: str
+- silence_reason: str | None
+- snapshot_id: str
+- timestamp: datetime
+
+ExecutionIntent
+- trade_id: str
+- action: str (BUY / SELL)
+- option_side: str (CE / PE)
+- selected_strike: str
+- trade_class: TradeClass
+- entry_plan: dict
+- invalidation_level: float
+- stop_loss_plan: dict
+- target_plan: dict
+- capital_context: dict
+- mode: ExecutionMode
+- intervention_allowed: bool
+
+ArmedPlan
+- plan_id: str
+- direction: str (BUY / SELL)
+- setup_class: str
+- trigger_condition: dict
+- expiry_condition: dict
+- invalidation_level: float
+- originating_heads: list[str]
+- readiness: str (WATCHING / TRIGGERED / EXPIRED / INVALIDATED)
+- created_at: datetime
+
+DecisionSnapshot
+- snapshot_id: str
+- timestamp: datetime
+- market_story_summary: str
+- narrative_timeline_excerpt: list[str]
+- heads_summary: dict
+- armed_plan_reference: str | None
+- conviction_score: float
+- invalidation: dict
+- decision_reason: str
+- session_context: dict
+- capital_context: dict
+- mood: CaptainMood
+
+MemoryEvent
+- event_type: str
+- source: str (emitting floor/side)
+- family: str (must be one of: TRADE_JOURNAL / DECISION_JOURNAL / EXECUTION_EVENT /
+                 HEALTH_EVENT / OVERRIDE / REPLAY_REF / REVIEW_REF / BLOCKED_ACTION)
+  Note: Add a MemoryEventFamily enum or Literal type here during implementation
+  to prevent runtime typos. The 8 families are locked architecture.
+- timestamp: datetime
+- severity: Severity
+- payload: dict
+- refs: dict
+
+Dependencies: Step 0.3 (errors.py)
+Validation:
+- `from junior_aladdin.shared.types import *` → zero import errors
+- All enums have correct values
+- All dataclasses instantiable with required fields
+- `dataclasses.fields(PacketEnvelope)` returns correct fields
+
+----------------------------------------------------------------------
+STEP 0.5 — CREATE CONFIGURATION SYSTEM (shared/config.py)
+----------------------------------------------------------------------
+File: junior_aladdin/shared/config.py
+
+Input contract:
+- YAML config files (config/default.yaml, config/production.yaml, config/test.yaml)
+- Environment variables (from .env or system env)
+
+Output contract:
+- Config class with typed accessors
+- ConfigLoader: load from file + env var override
+- Environment detection (development / production / test)
+- Required config validation
+- Nested config access (config.get('angel_one.api_key'))
+
+Core config sections:
+- env: environment name
+- angel_one: { client_id, api_key, pin }
+- capital: { paper_limit, real_limit, max_loss_per_trade }
+- logging: { level, format, rotation }
+- paths: { data_dir, log_dir, replay_dir }
+- thresholds: { confidence_min, conviction_min, freshness_max_age }
+
+Dependencies: Step 0.3 (errors.py for ConfigurationError)
+Validation:
+- `from junior_aladdin.shared.config import Config; c = Config()` → loads defaults
+- `c.get('env')` → returns 'test' in test mode
+- `c.get('angel_one.api_key')` → returns from env var
+- Missing required config → ConfigurationError raised
+- Unknown key → None returned (graceful)
+
+----------------------------------------------------------------------
+STEP 0.6 — CREATE LOGGING FRAMEWORK (shared/logging.py)
+----------------------------------------------------------------------
+File: junior_aladdin/shared/logging.py
+
+Input contract:
+- Config (log level, format, rotation)
+- Module name (which module is logging)
+
+Output contract:
+- get_logger(name: str) → Logger instance
+- Logger methods: debug, info, warning, error, critical
+- Structured JSON output: { "timestamp": ..., "level": ..., "module": ..., "message": ..., "extra": {...} }
+- Per-module log level control
+- Sensitive data redaction (detects "key", "token", "password", "secret" in fields)
+- Log rotation (file size or time based)
+
+Dependencies: Step 0.4 (types), Step 0.5 (config)
+Validation:
+- `logger = get_logger("test"); logger.info("hello")` → writes JSON to stdout/file
+- JSON output parseable: `json.loads(log_output)`
+- Sensitive field redacted: "api_key_12345" → "[REDACTED]"
+- Different modules get different loggers
+
+----------------------------------------------------------------------
+STEP 0.7 — CREATE TESTING INFRASTRUCTURE (shared/testing.py + conftest.py)
+----------------------------------------------------------------------
+Files:
+- junior_aladdin/shared/testing.py
+- tests/conftest.py
+
+Input contract:
+- Shared types from types.py
+- Config system from config.py
+
+Output contract (testing.py):
+
+Mock generators:
+- generate_mock_tick(price: float = None) → Dict (simulated Angel One tick)
+- generate_mock_candle(open, high, low, close, volume) → Dict
+- generate_mock_head_report(head_name: str, bias: BiasType = None) → HeadReport
+- generate_mock_floor_summary() → FloorSummary
+- generate_mock_captain_decision() → CaptainDecision
+- generate_mock_memory_event(family: str) → MemoryEvent
+- generate_mock_tick_stream(count: int = 60) → List[Dict] (1 minute of ticks)
+
+In-memory test stores:
+- InMemoryStore: dict-based store for test data
+- put(key, value) / get(key) / delete(key) / clear()
+
+Seed data:
+- seed_1min_candles() → List[Dict] (known OHLCV for testing)
+- seed_options_chain() → List[Dict]
+- seed_macro_data() → Dict
+
+Output contract (conftest.py):
+- pytest fixtures:
+  - test_config: Config object for test environment
+  - test_logger: Logger for test output
+  - mock_tick_generator: callable producing mock ticks
+  - mock_data_dir: Path to test data directory
+
+Dependencies: Step 0.4 (types), Step 0.5 (config), Step 0.6 (logging)
+Validation:
+- `pytest tests/` → discovers tests, runs, all pass
+- Mock generators produce data matching shared types
+- `from junior_aladdin.shared.testing import *` → zero import errors
+- InMemoryStore put/get/delete/clear all work
+- conftest fixtures load in pytest session
+
+----------------------------------------------------------------------
+STEP 0.8 — CREATE CONFIG YAML FILES
+----------------------------------------------------------------------
+Files:
+- config/default.yaml
+- config/production.yaml
+- config/test.yaml
+
+Content structure:
+```yaml
+env: "development"  # default.yaml
+# env: "production"   # production.yaml
+# env: "test"         # test.yaml
+
+angel_one:
+  client_id: ""
+  api_key: ""
+  pin: ""
+
+capital:
+  paper_limit: 100000
+  real_limit: 50000
+  max_loss_per_trade: 5000
+
+logging:
+  level: "INFO"
+  format: "json"
+  rotation: "1 day"
+
+paths:
+  data_dir: "data/"
+  log_dir: "logs/"
+  replay_dir: "data/replay/"
+
+thresholds:
+  confidence_min: 0.6
+  conviction_min: 60
+  freshness_max_age_seconds: 300
+```
+
+Dependencies: Step 0.5 (config system)
+Validation:
+- Config.load('config/default.yaml') → succeeds
+- Config.load('config/test.yaml') → env='test'
+- `c.get('logging.level')` → returns correct value
+
+----------------------------------------------------------------------
+STEP 0.9 — CREATE INIT FILES + VERIFY IMPORT CHAIN
+----------------------------------------------------------------------
+Files: All __init__.py files with proper exports
+
+Actions:
+- Update each __init__.py to expose key classes/functions
+- Verify the import chain works end-to-end
+
+Import chain test:
+```
+from junior_aladdin.shared.errors import JuniorAladdinError, ConfigurationError
+from junior_aladdin.shared.types import (
+    MarketPhase, BiasType, HeadState, DecisionType, TradeClass,
+    PacketEnvelope, HeadReport, FloorSummary, CaptainDecision,
+    ExecutionIntent, ArmedPlan, DecisionSnapshot, MemoryEvent
+)
+from junior_aladdin.shared.config import Config
+from junior_aladdin.shared.logging import get_logger
+from junior_aladdin.shared.testing import (
+    generate_mock_tick, generate_mock_candle,
+    generate_mock_head_report, generate_mock_floor_summary
+)
+```
+
+Dependencies: Steps 0.1-0.8
+Validation:
+- `python -c "from junior_aladdin.shared import *"` → all imports succeed
+- `pytest tests/` → all tests pass
+- `python -c "c = Config(); print(c.get('env'))"` → prints 'test'
+
+================================================================================
+SECTION 4 - INPUT/OUTPUT CONTRACTS
+================================================================================
+
+PHASE 0 AS A WHOLE:
+
+INPUT CONTRACT:
+- Python 3.11+ installed
+- pip/poetry/conda available
+- Git installed
+- Empty directory (or new project)
+
+OUTPUT CONTRACT:
+- Importable project package (junior_aladdin)
+- All shared types, enums, dataclasses defined
+- Config loading from YAML + env vars
+- Logger producing structured JSON
+- Mock generators producing type-correct data
+- pytest discovering and running tests
+- .gitignore, .env.example, README.md
+
+ERROR CONTRACT:
+- Import errors = P0 bug (fix immediately)
+- Config loading failure = clear ConfigurationError with message
+- Logger failure = fallback to stderr (never crash on log failure)
+- Test failures = detailed pytest output
+
+PER-MODULE CONTRACTS:
+
+| Module               | Input                       | Output                          | Error                        |
+|----------------------|-----------------------------|---------------------------------|------------------------------|
+| shared/errors.py     | Nothing                     | Error hierarchy                 | N/A                          |
+| shared/types.py      | Nothing                     | Enums + dataclasses            | ImportError if missing       |
+| shared/config.py     | YAML files + env vars       | Config object                  | ConfigurationError           |
+| shared/logging.py    | Config + module name        | Logger instance                | Fallback to stderr           |
+| shared/testing.py    | Types + config              | Mock generators + stores       | AssertionError on mismatch   |
+| conftest.py          | All shared modules          | pytest fixtures                | pytest configuration error   |
+
+================================================================================
+SECTION 5 - DEPENDENCY MAP
+================================================================================
+
+UPSTREAM DEPENDENCIES (must exist before Phase 0 can start):
+- Python 3.11+ installed in PATH
+- pip/poetry/conda package manager available
+- Git installed and configured
+- Development environment set up (editor, terminal)
+- NIFTY 50 market understanding confirmed (system context)
+
+DOWNSTREAM DEPENDENCIES (blocks these later):
+- Phase 1 (Floor 1): needs types.py, config.py, logging.py, testing.py
+- Phase 2 (Floor 2): needs types.py, config.py, logging.py, testing.py
+- Phase 3 (Side C): needs types.py (MemoryEvent), config.py, logging.py, testing.py
+- Phase 4 (Floor 3): needs types.py (DomainStates), config.py, logging.py, testing.py
+- Phase 5 (Floor 4): needs types.py (HeadReport), config.py, logging.py, testing.py
+- Phase 6 (Floor 5): needs types.py (DecisionState), config.py, logging.py, testing.py
+- Phase 7 (Side A): needs types.py (ExecutionIntent), config.py, logging.py, testing.py
+- Phase 8 (Side B): needs types.py (DashboardTypes), config.py, logging.py
+
+MOCK REQUIREMENTS:
+- No mocking needed within Phase 0 (Phase 0 IS the mock foundation)
+- Phase 0 provides mocks for ALL subsequent phases
+
+================================================================================
+SECTION 6 - WIRING DIAGRAM
+================================================================================
+
+PHASE 0 INTERNAL WIRING (how files connect within Phase 0):
+
+```
+errors.py (foundation — no dependencies)
+    ↓
+types.py (depends on errors.py for error types)
+    ↓
+config.py (depends on errors.py for ConfigurationError)
+    ↓
+logging.py (depends on types.py for Severity enum, config.py for settings)
+    ↓
+testing.py (depends on types.py, config.py, logging.py)
+    ↑
+conftest.py (uses all shared modules for pytest fixtures)
+```
+
+PHASE 0 → ALL SUBSEQUENT PHASES WIRING:
+
+```
+shared/types.py         → Every floor/side imports enums + dataclasses
+shared/errors.py        → Every floor/side imports error hierarchy
+shared/config.py        → Every floor/side imports configuration
+shared/logging.py       → Every floor/side imports logger
+shared/testing.py       → Every floor/side uses mock generators for tests
+```
+
+================================================================================
+SECTION 7 - DATA FLOW
+================================================================================
+
+PHASE 0 does not process market data. It creates infrastructure.
+
+DATA FLOW WITHIN PHASE 0:
+
+```
+Developer writes code
+    → shared/errors.py created
+    → shared/types.py created using errors
+    → shared/config.py created using errors
+    → shared/logging.py created using types + config
+    → shared/testing.py created using types + config + logging
+    → config/*.yaml loaded by config.py
+    → .env.example used by developer to set env vars
+    → conftest.py provides fixtures to test files
+```
+
+DATA FLOW FROM PHASE 0 TO PHASE 1:
+
+```
+Phase 0 output:
+- types.py (PacketEnvelope, SourceHealth) → Floor 1 uses for packet wrapping
+- config.py (angel_one section) → Floor 1 uses for API keys
+- logging.py (get_logger) → Floor 1 uses for structured logging
+- testing.py (mock_tick_generator) → Floor 1 uses in tests
+- errors.py (ConnectionError) → Floor 1 uses for error handling
+```
+
+================================================================================
+SECTION 8 - VALIDATION MATRIX
+================================================================================
+
+UNIT VALIDATION (isolated tests for each module):
+
+shared/errors.py:
+- Test: import all error types
+- Test: raise and catch JuniorAladdinError
+- Test: error chaining (original_exception preserved)
+- Test: error message + details dict
+
+shared/types.py:
+- Test: all enums have correct values
+- Test: all dataclasses instantiable
+- Test: dataclass fields match expected schema
+- Test: default values work for optional fields
+- Test: type annotations match (int, str, datetime, etc.)
+
+shared/config.py:
+- Test: load default.yaml → Config object
+- Test: load with env var override → env var takes priority
+- Test: missing required config → ConfigurationError
+- Test: unknown key → None returned
+- Test: nested key access via dot notation
+- Test: per-environment config loading (test vs production)
+
+shared/logging.py:
+- Test: get_logger returns Logger instance
+- Test: logger.info() writes valid JSON
+- Test: parsed JSON has expected fields (timestamp, level, module, message)
+- Test: sensitive field redaction
+- Test: different modules have independent loggers
+- Test: log rotation configuration respected
+
+shared/testing.py:
+- Test: mock tick generator produces dict with expected keys
+- Test: mock candle generator produces valid OHLCV
+- Test: mock head report returns HeadReport dataclass
+- Test: mock floor summary returns FloorSummary dataclass
+- Test: mock captain decision returns CaptainDecision dataclass
+- Test: InMemoryStore put/get/delete/clear all functional
+- Test: seed data produces known values (e.g., seed_1min_candles has 60 entries)
+
+CONTRACT VALIDATION (cross-module checks):
+
+- Verify types.py imports from errors.py (error types used in dataclasses)
+- Verify config.py imports ConfigurationError from errors.py
+- Verify logging.py imports Severity from types.py
+- Verify testing.py imports all type classes from types.py
+- Verify conftest.py fixtures produce Config with env='test'
+
+REPLAY VALIDATION: N/A (no data in Phase 0)
+
+INTEGRATION VALIDATION:
+- `python -c "from junior_aladdin.shared.types import *"` → zero import errors
+- `python -c "from junior_aladdin.shared.config import Config; c = Config(); print(c.get('env'))"` → prints 'test'
+- `python -c "
+from junior_aladdin.shared.logging import get_logger
+from junior_aladdin.shared.types import BiasType, HeadReport
+logger = get_logger('test')
+logger.info('integration test')
+"` → JSON output without errors
+- `pytest tests/ -v` → discovers tests, all pass
+- `python -c "
+from junior_aladdin.shared.testing import generate_mock_tick
+tick = generate_mock_tick(19500.0)
+print(tick)
+"` → produces valid tick dict
+
+================================================================================
+SECTION 9 - CROSS-COMPONENT IMPACTS
+================================================================================
+
+REPLAY IMPACT:
+- Phase 0 has no replay impact (no data produced)
+- Phase 0 enables replay in later phases via shared/types.py contracts
+- replay_metadata field in PacketEnvelope reserved for Phase 2
+
+DASHBOARD IMPACT:
+- Phase 0 does NOT build any dashboard code
+- shared/types.py defines DashboardTypes concept that Side B will use
+- Enums like ExecutionMode, DataHealth, Severity directly used in dashboard
+
+MEMORY IMPACT (Side C):
+- shared/types.py defines MemoryEvent dataclass that Side C uses
+- Severity enum used for Side C event classification
+- EventFamily constants defined conceptually in types
+
+EXECUTION IMPACT (Side A):
+- shared/types.py defines ExecutionIntent dataclass that Side A uses
+- TradeClass, ExecutionMode enums used by Side A
+- Error hierarchy includes ExecutionError
+
+================================================================================
+SECTION 10 - COMMON MISTAKES + ANTI-PATTERNS
+================================================================================
+
+WHAT CAN BREAK ARCHITECTURE IN THIS PHASE:
+- Defining types that violate ownership boundaries
+  Example: Putting confidence fields in a Floor 3 type (confidence = Floor 4)
+  Example: Putting conviction fields in a Floor 4 type (conviction = Floor 5)
+- Creating config entries that hardcode values belonging in higher floors
+- Making mock generators too simplified (unrealistic test data misleads testing)
+- Not defining contracts early enough (causes contract drift in later phases)
+
+WHAT CREATES REWORK LATER:
+- Skipping mock generators → every module becomes hard to test
+  Prevention: Build testing.py as a core part of Phase 0, not an afterthought
+- Not setting up logging → debugging becomes blind
+  Prevention: get_logger() used in EVERY module, not just some
+- Hardcoding paths instead of using config → fragile code
+  Prevention: ALL paths go through config.py, never hardcoded
+- Not adding .env to .gitignore → credentials leaked
+  Prevention: .gitignore created in Step 0.2, verified before commit
+- Not setting up full folder structure → refactoring needed later
+  Prevention: ALL floor/side directories created even if empty
+- Not defining base contracts in shared/types.py → contract drift
+  Prevention: shared/types.py is the single source of truth for type definitions
+
+COMMON MISTAKES DURING BUILD:
+
+Mistake 1: Import cycles between shared modules
+- Symptom: ImportError when importing types.py
+- Prevention: errors.py has zero imports → safe base. types.py imports only errors.
+
+Mistake 2: Forgetting __init__.py files
+- Symptom: ModuleNotFoundError
+- Prevention: Every directory has __init__.py
+
+Mistake 3: Hardcoding real API keys in config files
+- Symptom: Keys committed to git
+- Prevention: .env.example has placeholders, .gitignore includes .env
+
+Mistake 4: Mock data too perfect (no realistic edge cases)
+- Symptom: Floor 1 tests pass with perfect mocks, fail with real Angel One data
+- Prevention: testing.py includes tick generators that produce realistic noise
+
+Mistake 5: Dataclass fields added without type annotations
+- Symptom: Mypy/type checker catches missing types
+- Prevention: ALL dataclass fields have explicit type annotations
+
+Mistake 6: Config keys defined in multiple places
+- Symptom: One module uses `angel_one.api_key`, another uses `angel_one.apikey`
+- Prevention: Config schema defined ONCE in config.py, consumed everywhere
+
+================================================================================
+SECTION 11 - READY-TO-CODE CHECKLIST
+================================================================================
+
+BEFORE CODING STARTS (entry criteria):
+
+[ ] Python 3.11+ installed and available in PATH
+[ ] pip/poetry/conda package manager available
+[ ] Git installed and repository initialized (`git init`)
+[ ] Development environment set up (editor, terminal, debugger)
+[ ] NIFTY 50 market understanding confirmed (this is a NIFTY 50-only system)
+[ ] All 9 canonical architecture files read and understood:
+    - MASTER_ASSEMBLY_PLAN_V1_1_FINAL.txt
+    - FLOOR_01 through FLOOR_05 final files
+    - SIDE_A, SIDE_B, SIDE_C final files
+    - IMPLEMENTATION_SEQUENCING_PLAN_V1_1_FINAL.txt read for Phase 0 context
+[ ] ROADMAP_MASTER.txt read for build context
+[ ] ROADMAP_PHASE_0_FOUNDATION.txt open for daily reference
+[ ] Project name confirmed (junior_aladdin)
+[ ] This roadmap file printed/open for daily reference
+
+DURING BUILD (build criteria):
+
+[ ] Every shared type is importable without errors
+[ ] Config loads from file AND from env vars
+[ ] Logger outputs structured JSON
+[ ] Mock generators produce data matching shared/types.py schemas
+[ ] Every shared utility has at least 1 unit test
+[ ] pytest discovers tests for all modules
+[ ] No business logic written yet
+[ ] No real API keys in code or config files
+
+VERIFICATION TESTS (run at end of each step):
+
+Step 0.1: [ ] `python -c "import junior_aladdin"` → succeeds (after setup.py)
+Step 0.3: [ ] `python -c "from junior_aladdin.shared.errors import JuniorAladdinError"` → succeeds
+Step 0.4: [ ] `python -c "from junior_aladdin.shared.types import PacketEnvelope, MarketPhase"` → succeeds
+          [ ] PacketEnvelope(source='test', feed_type='test', ...) creates instance
+Step 0.5: [ ] `python -c "from junior_aladdin.shared.config import Config; c = Config(); print(c.get('env'))"` → 'test'
+Step 0.6: [ ] Logger writes parseable JSON
+Step 0.7: [ ] `pytest tests/ -v` → all tests pass
+Step 0.8: [ ] Config loads all 3 YAML files without errors
+
+EXIT CRITERIA (Phase 0 complete):
+
+[ ] Project compiles/imports without errors
+[ ] Shared types imported and used correctly
+[ ] Config loads from file AND from env vars
+[ ] Logger writes structured JSON
+[ ] Mock generators produce realistic test data matching shared types
+[ ] pytest discovers and runs at least 1 test per module
+[ ] All tests pass
+[ ] .gitignore created with correct patterns
+[ ] .env.example created with NO real keys
+[ ] requirements.txt lists all dependencies
+[ ] README.md written with project overview + setup instructions
+[ ] Architecture plan files accessible for daily reference
+
+================================================================================
+END OF ROADMAP PHASE 0: FOUNDATION
+================================================================================

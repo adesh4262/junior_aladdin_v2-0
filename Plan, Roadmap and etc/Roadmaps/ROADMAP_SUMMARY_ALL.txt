@@ -1,0 +1,244 @@
+================================================================================
+ JUNIOR ALADDIN — MASTER BUILD SUMMARY (All 13 Roadmap Files)
+================================================================================
+ 13 Phases · 5 Floors · 3 Sides · 1 Laptop · Zero Paid Infra
+================================================================================
+
+BUILD PHILOSOPHY: Bottom-up. Each layer depends on the layer below.
+  GOLDEN CHAIN: QUALITY (F3) → CONFIDENCE (F4) → CONVICTION (F5)
+  ARCHITECTURE: 2-line bus: Floors (data→intelligence→decision) + Sides (execution|memory|display)
+
+================================================================================
+ PHASE 0 — FOUNDATION          [ROADMAP_PHASE_0_FOUNDATION]
+================================================================================
+Depends on: Nothing (starting point)
+Key deliverables: project skeleton, shared/types.py, shared/config.py,
+  shared/logging.py, shared/testing.py (mock generators), requirements.txt,
+  .env.example, .gitignore, CI/CD pipeline (basic)
+Critical rule: NO business logic. Every utility has ≥1 test.
+Exit: All shared modules compile + tested. Mock generators produce realistic data.
+
+================================================================================
+ PHASE 1 — FLOOR 1: MARKET CONNECTION  [ROADMAP_FLOOR_01]
+================================================================================
+Depends on: Phase 0
+Key deliverables: Angel One auth module, source adapter, feed adapters
+  (spot, options, VIX, macro, calendar), packet envelope builder, source
+  health monitor, manual ingress lane, Floor 2 handoff
+Critical rule: Connection layer ONLY. NO validation, NO intelligence.
+  Must survive disconnect/reconnect gracefully.
+Exit: Mock Angel One works. Real WebSocket connects. Data packet flows to Floor 2.
+
+================================================================================
+ PHASE 2 — FLOOR 2: DATA CENTER     [ROADMAP_FLOOR_02]
+================================================================================
+Depends on: Phase 1
+Key deliverables: Data contract registry, raw storage (original + normalized),
+  validation pipeline (5 validators: duplicate, timestamp, continuity, schema,
+  corruption), cleaning layer, structuring layer (tick streams, candles, options
+  snapshots, session packets), metadata side-channel, light review engine,
+  replay engine (3 levels), major/minor classification, Floor 3 handoff
+Critical rule: Truth layer. NO confidence/conviction/trade judgment.
+  13 build steps, 5 validators, 3-level replay, dual raw model.
+Exit: Raw→validated→cleaned→structured pipeline verified. Replay produces
+  identical output. DataHealth packets emit to Side C.
+
+================================================================================
+ PHASE 3 — SIDE C: MEMORY BASE      [ROADMAP_SIDE_C]
+================================================================================
+Depends on: Phase 2 data contracts (NOT Phase 2 complete — parallel-safe with Phases 4+)
+Key deliverables: 8 event families (TRADE_JOURNAL, DECISION_JOURNAL,
+  EXECUTION_EVENT, HEALTH_EVENT, OVERRIDE, REPLAY_REF, REVIEW_REF,
+  BLOCKED_ACTION), emitter registry + write contracts, ingest layer, event
+  router, 3 append-only stores (event, journal, reference), query layer,
+  read model builder (5 summary types), retention manager, read contracts
+Critical rule: Memory layer. NO scoring/ranking/recommend. Append-first only.
+  4 approved emitters (Floor 1/2: HEALTH, Floor 5: DECISION, Side A: 5 families).
+  Side B consumes read models ONLY — never raw stores.
+Exit: All 8 families accepted. Non-approved emitters rejected. Read models
+  queryable. Retention policies enforced.
+
+================================================================================
+ PHASE 4 — FLOOR 3: CALCULATION ENGINES  [ROADMAP_FLOOR_03]
+================================================================================
+Depends on: Phase 2
+Key deliverables: 3 domain engines — SMC (order blocks, FVGs, liquidity pools,
+  sweeps), ICT (premium/discount, displacement, MSS), Technical (RSI, MA, ATR,
+  VWAP, ADX, MTF, candle patterns); plus Volume Profile, Market Phase router
+  (PRE_MARKET/REGULAR/POST_MARKET/CLOSED), orchestration, output validation
+Critical rule: NO interpretation/confidence/conviction/setups. Domain isolation.
+  No cross-engine imports. numpy ALLOWED, pandas NOT ALLOWED.
+  12 build steps, 3 engines, 12 sub-calculators, 22 test files.
+Exit: All 3 engines produce valid signals. Market phase routing correct.
+  Replay produces identical output. FreshnessTag + DataHealth on every packet.
+
+================================================================================
+ PHASE 5 — FLOOR 4: DEPARTMENT HEADS  [ROADMAP_FLOOR_04]
+================================================================================
+Depends on: Phase 4
+Key deliverables: 6 heads — Technical, SMC, ICT, Options, Macro, Psychology;
+  head infrastructure (types, report schema, memory base, refresh policy, state
+  manager); Floor Summary Builder with dual health snapshots (head_health_snapshot
+  + core_head_health_snapshot); trigger/invalidation formatters
+Critical rule: Invalidation MANDATORY on every head. Macro/Psychology NO setups.
+  SMC/ICT context_quality_score MANDATORY. Max 2 setups per actionable head.
+  NO_SETUP intelligence: READY/UNCERTAIN/STALE variants.
+  15 build steps, 6 heads, 18 test files.
+Exit: All 6 heads produce valid reports. FloorSummary aggregates correctly.
+  NO_SETUP enforced. Replay identical. Floor 5 receives summary + reports.
+
+================================================================================
+ PHASE 6 — FLOOR 5: CAPTAIN         [ROADMAP_FLOOR_05]
+================================================================================
+Depends on: Phase 5
+Key deliverables: 22 modules — captain_types, session_policy, loss_lock,
+  override_guard, permission_gate, market_story, narrative_timeline, confluence,
+  opposite_case, conviction, personality, trade_class, setup_memory, armed_plan,
+  expiry, decay, trade_constructor, silence_reason, decision_snapshot,
+  active_trade_supervisor, intervention, captain_engine
+Critical rule: Two-speed brain — heavy cycle (24 steps on 1m candle close)
+  vs light cycle (4 steps on tick, NO heavy imports). 6 thinking layers:
+  Permission→Story→Confluence→Opposite→Conviction→Trade Construction.
+  One active trade. Psychology block non-overridable. 3 losses→REAL lock.
+  Conviction bands: 0-39 REJECT, 40-59 WEAK, 60-74 TRADABLE, 75-89 STRONG, 90+ ELITE.
+  22 build steps, 27 test files.
+Exit: Heavy cycle produces armed plans. Light cycle monitors without heavy
+  computation. Conviction engine calibrated. Permission gate blocks correctly.
+  Decision snapshots written to Side C.
+
+================================================================================
+ PHASE 7 — SIDE A: EXECUTION        [ROADMAP_SIDE_A]
+================================================================================
+Depends on: Phase 6 contracts + Phase 1 (Angel One for real_broker)
+Key deliverables: 19 build steps — captain_interface, mode_router (ALERT always
+  + PAPER/REAL switch), intent_fingerprint, risk_gate (12 checks), state_machine
+  (13 states), execution_core, order_lifecycle, position_manager, protection_model,
+  reconciliation_engine, paper_broker (realistic: slippage/fees/delay/rejection),
+  real_broker (Angel One: LIMIT+SL-LIMIT), kill_switch (SOFT/CRITICAL),
+  logging (Layer 1 normal + Layer 2 critical), blocked_action_journal,
+  data_health_policy, orchestrator
+Critical rule: PROTECT FIRST THEN OPTIMIZE. NO trade creation. NO market
+  interpretation. Size reduce-only. ONE active trade. Broker truth=final
+  authority. UNKNOWN state explicit and bounded.
+  19 build steps, 22 test files.
+Exit: Risk gate passes all 12 checks. State machine transitions verified.
+  Paper broker realistic. PAPER/REAL parity maintained. Kill switch verified.
+  All events logged to Side C (5 families).
+
+================================================================================
+ PHASE 8 — SIDE B: DASHBOARD        [ROADMAP_SIDE_B]
+================================================================================
+Depends on: Phases 1-7 producing real data
+Key deliverables: Two sub-projects — side_b_api/ (FastAPI backend: 10 route
+  groups, 7 data sources, session cache, 6 command handlers) + side_b_dashboard/
+  (plain HTML/CSS/JS: Primary Cockpit, Replay/Review/Diagnostics workspaces,
+  chart surface with SMC/ICT overlays, control surface, alert system,
+  State-Based Adaptive UI)
+Critical rule: Dashboard can request NOT decide. Can reveal NOT reinterpret.
+  request_ prefix NOT execute_. Side C read models ONLY. Replay read-only.
+  No-trade reason first-class. Desktop-first. HOT/WARM/COLD refresh model.
+  26 build steps, 14 test files.
+Exit: All 7 data sources render. 10 route groups return correct data.
+  Command handlers work with request_ prefix. UI adapts by system state.
+
+================================================================================
+ PHASE 9 — FULL SYSTEM INTEGRATION  [ROADMAP_FULL_SYSTEM_INTEGRATION]
+================================================================================
+Depends on: Phases 0-8 complete
+Key deliverables: 8 verification stages — 9.1 Ingest-Validation, 9.2 Calculation,
+  9.3 Interpretation, 9.4 Decision, 9.5 Execution, 9.6 Memory, 9.7 Dashboard,
+  9.8 Full System End-to-End Test
+Critical rule: Verification-only (no new modules). Contracts frozen at v1.0.
+  53 contract tests, 10 replay tests, 16 integration tests, 8 non-functional tests.
+  Stages 9.5/9.6/9.7 can run in parallel.
+Exit: ALL 53 contract tests pass. ALL 10 replay tests pass. ALL 16 integration
+  tests pass. Full system end-to-end test passes (3 runs, 3 market data sets).
+
+================================================================================
+ PHASE 10 — TESTING GATES           [ROADMAP_TESTING_AND_VALIDATION]
+================================================================================
+Depends on: Phase 9
+Key deliverables: 7 serial gates — 10.1 Unit Coverage (≥80%), 10.2 Unit Integrity,
+  10.3 Integration (it_001-016), 10.4 Replay Validation (rp_001-010, ≥1 day data),
+  10.5 Edge Case + Stress (9 scenarios), 10.6 Performance (8 non-functional tests),
+  10.7 Paper Simulation (100+ trades, ZERO critical failures)
+Critical rule: Test harness infrastructure (scenario_runner, profilers,
+  comparator, simulation runner). NO external services. All gates serial.
+Exit: ≥80% coverage. All replay deterministic. 9 scenarios pass. Performance
+  within bounds. 100+ paper trades with ZERO critical failures.
+
+================================================================================
+ PHASE 11 — PRODUCTION READINESS    [ROADMAP_DEPLOYMENT_AND_OPERATIONS]
+================================================================================
+Depends on: Phase 10
+Key deliverables: 7 serial stages — 11.1 Safety Verification (51 items, 10
+  categories), 11.2 Operator Docs (6 documents), 11.3 Real Broker Isolated
+  Verification (27 items, 0 capital), 11.4 Paper→Real Transition (3 sub-stages:
+  ALERT 3 sessions → PAPER 5 sessions → REAL 1 session min capital), 11.5 Capital
+  Scaling (4 steps: min→2×→5×→full), 11.6 Post-Launch Monitoring (20 sessions),
+  11.7 System Lock + Sign-off
+Critical rule: Each stage has GO/NO-GO. NO-GO = rollback. 0 capital for broker
+  verification. Minimum durations for each scaling step.
+Exit: System live in REAL mode. Capital at target level. 20 monitoring sessions
+  without critical failure. Configuration frozen. FINAL SIGN-OFF.
+
+================================================================================
+ DEPENDENCY GRAPH (SIMPLIFIED)
+================================================================================
+
+  Phase 0 (Foundation)
+     ↓
+  Phase 1 (Floor 1 — Market Connection)
+     ↓
+  Phase 2 (Floor 2 — Data Center)
+     ↓                    ↙
+  Phase 3 (Side C — Memory Base) ← parallel-safe with Phases 4-8
+     ↓
+  Phase 4 (Floor 3 — Calculation Engines)
+     ↓
+  Phase 5 (Floor 4 — Department Heads)
+     ↓
+  Phase 6 (Floor 5 — Captain)
+     ↓
+  Phase 7 (Side A — Execution)
+     ↓
+  Phase 8 (Side B — Dashboard)
+     ↓
+  Phase 9 (Full System Integration)
+     ↓
+  Phase 10 (Testing Gates)
+     ↓
+  Phase 11 (Production Readiness → LIVE)
+     ↓
+  ★ SYSTEM IS PRODUCTION ★
+
+================================================================================
+ ARCHITECTURE PROTECTION RULES (LOCKED — NEVER VIOLATE)
+================================================================================
+  R1. Never mix floor ownership (F1 ≠ F2 ≠ F3 ≠ F4 ≠ F5)
+  R2. Never mix side ownership (Side A ≠ B ≠ C)
+  R3. Dashboard NEVER becomes decision layer (request_ NOT execute_)
+  R4. Side C NEVER becomes intelligence layer (store facts, NOT create them)
+  R5. Captain NEVER becomes execution engine (decide, NOT execute)
+  R6. Floor 3 NEVER becomes interpretation layer (quality ≠ confidence)
+  R7. Floor 4 NEVER becomes decision layer (interpret, NOT approve)
+  R8. Replay NEVER modifies system state (read-only)
+  R9. Local-first, cloud-optional (single laptop, SQLite, localhost)
+  R10. Test before integrate (no untested code enters system)
+
+================================================================================
+ TOTAL BUILD SCOPE
+================================================================================
+  Floors: 5 (Market → Data → Calculation → Interpretation → Decision)
+  Sides: 3 (Execution → Memory → Dashboard)
+  Phases: 11 (0 Foundation + 8 Build + 3 Verification/Launch)
+  Roadmap files: 13 (1 master + 12 execution documents)
+  Build steps: ~150+ (across all phases)
+  Test files: ~120+ (unit, contract, replay, integration, scenarios)
+  Languages: Python 3.11+ (backend), FastAPI (API), HTML/CSS/JS (dashboard)
+  Storage: SQLite (file-based, zero setup)
+  Infrastructure: Single laptop, zero paid cloud
+
+================================================================================
+ END OF MASTER BUILD SUMMARY
+================================================================================

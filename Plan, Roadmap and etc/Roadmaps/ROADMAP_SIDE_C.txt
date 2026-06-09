@@ -1,0 +1,1198 @@
+================================================================================
+ JUNIOR ALADDIN - ROADMAP SIDE C: MEMORY / JOURNAL
+ Implementation Execution Document
+================================================================================
+
+DOCUMENT IDENTITY
+--------------------------------------------------------------------------------
+This is NOT an architecture document.
+This is an IMPLEMENTATION EXECUTION DOCUMENT.
+
+This document does NOT:
+- redefine architecture
+- change ownership
+- change contracts
+- change dataflow
+- change wiring
+- change sequencing
+
+This document DOES:
+- provide the exact step-by-step build order for Side C Stage A (base infrastructure)
+- define every module, its contract, its dependencies, and its validation
+- cover ingest layer, event router, event store, journal store, reference store,
+  query layer, and retention manager
+- serve as the daily coding reference during Side C build
+- specify what runs in parallel with Phase 4+ and what does NOT block any floor
+
+================================================================================
+SECTION 1 - PURPOSE
+================================================================================
+
+One-line identity:
+SIDE C = Memory Layer — the system's durable structured memory.
+
+Why Side C exists:
+- Side A acts, Side B shows, Side C remembers
+- System needs durable memory beyond console logs and session state
+- Trade journals, decision journals, execution events, health events,
+  override history, replay references, review references, blocked actions —
+  all must be preserved, linked, and queryable
+- Side C enables: operator review, forensic debugging, replay support,
+  audit support, historical trade reasoning review, system health reconstruction
+
+What Side C does:
+- Persists system memory (operational events, trades, decisions)
+- Persists decision references (conviction bands, no-trade reasons)
+- Persists execution truth references (order lifecycle, fills)
+- Persists health/event history (connection state, data quality)
+- Persists replay/review links (cross-system traceability)
+- Exposes queryable historical views through read models
+
+What Side C explicitly does NOT do (CORE PRINCIPLES — LOCKED):
+
+PRINCIPLE 1: Side C stores facts, does NOT create truth
+PRINCIPLE 2: Side C remembers, does NOT decide
+PRINCIPLE 3: Side C links, does NOT interpret
+PRINCIPLE 4: Side C may summarize, may NOT score/rank/recommend/analyze
+PRINCIPLE 5: Correction = new event (no silent mutation)
+PRINCIPLE 6: Append-first only — no mutation, no deletion
+PRINCIPLE 7: Approved emitters only — no arbitrary writes
+PRINCIPLE 8: Side C owns storage, NOT truth ownership
+PRINCIPLE 9: Memory access principle — consumers request views, do not own stores
+PRINCIPLE 10: Side C does NOT drift into intelligence, interpretation, or decision territory
+
+ARCHITECTURE RULES (MUST NEVER BE VIOLATED):
+- Side C stores have NO `score`/`rank`/`recommend` methods (P0 violation)
+- Side C stores have NO trade decision logic (belongs to Captain)
+- Side C stores have NO market interpretation (belongs to Floor 3+)
+- No raw Side C store consumption from Side B (must go through query layer / read models)
+- Dashboard consumes Side C through READ MODELS / PROJECTIONS, not raw stores
+- Replay authority: Floor 2 = replay-capable truth owner, Side C = replay reference memory owner only
+
+================================================================================
+SECTION 2 - COMPONENT ARCHITECTURE
+================================================================================
+
+FOLDER STRUCTURE:
+
+junior_aladdin/side_c_memory/
+│
+├── __init__.py
+├── c_types.py
+├── ingest_layer.py
+├── event_router.py
+├── event_store.py
+├── journal_store.py
+├── reference_store.py
+├── query_layer.py
+├── retention_manager.py
+├── read_model_builder.py
+│
+└── contracts/
+    ├── __init__.py
+    ├── write_contracts.py
+    ├── read_contracts.py
+    └── emitter_registry.py
+
+MODULE RESPONSIBILITIES:
+
+c_types.py:
+- MemoryEvent dataclass: event_type, source, emitter, timestamp, severity,
+  family, payload, refs (dict of reference links)
+- MemoryEnvelope dataclass: family, event_type, source, emitter, timestamp,
+  severity, refs, envelope_id
+- EventFamily enum: TRADE_JOURNAL, DECISION_JOURNAL, EXECUTION_EVENT,
+  HEALTH_EVENT, OVERRIDE, REPLAY_REF, REVIEW_REF, BLOCKED_ACTION
+- Severity enum: INFO, CAUTION, SEVERE, CRITICAL
+- MemoryQuery dataclass: families (list), start_time, end_time,
+  refs_filter (dict | None), limit, offset
+- RetentionPolicy dataclass: family, max_age_days, archive_after_days
+
+ingest_layer.py:
+- Accept inputs ONLY from approved emitters (Floor 1, Floor 2, Floor 5, Side A)
+- Validate emitter identity against emitter_registry.py
+- Validate event schema against write_contracts.py
+- Apply MemoryEnvelope normalization
+- Forward to Event Router
+- Reject unauthorized emitters with logged error (no crash)
+- Reject malformed events with logged error + Severity.CAUTION
+
+event_router.py:
+- Classify incoming event into correct family (TRADE_JOURNAL, etc.)
+- Validate event against write contract for that family
+- Route to: event_store, journal_store, or reference_store based on family
+- Enforce append-first behavior (never modify, never delete)
+- Log every route decision
+
+event_store.py:
+- Write operational/system events: execution events, health events,
+  blocked actions, override events, state transitions
+- Append-first, indexed by (family, timestamp, source)
+- Query by: family + timerange, source, severity
+- No mutation methods — only append + query
+
+journal_store.py:
+- Write durable journal records: trade journal, decision journal
+- Higher-level narrative memory (not operational packets)
+- Append-first, indexed by (family, timestamp, trade_id, decision_id)
+- Query by: family, trade_id, decision_id, timerange
+- Journal records may be linked to multiple events via refs
+
+reference_store.py:
+- Write linkable references: replay_ref, review_ref, source_ref,
+  packet lineage refs, cross-system IDs
+- Key-value semantics: ref_key → ref_value + metadata
+- Indexed by ref_key, ref_type, timestamp
+- References are linking instruments, NOT narrative records
+
+query_layer.py:
+- Simple read projections for Side B dashboard consumption
+- Family-aware retrieval by timestamp range
+- Reference lookup by ID
+- Trade history summaries, decision review summaries
+- Override history summaries, recent blocked action summaries
+- Health history summaries
+- NO complex analytics — no scoring, no ranking, no recommendation
+- NOT for direct raw store access from consumers
+
+retention_manager.py:
+- Family-based retention policy with configurable TTLs
+- Trade Journal → long-term (default: 365 days)
+- Decision Journal → long-term (default: 365 days)
+- Override History → long-term (default: 365 days)
+- Execution Events → medium (default: 90 days)
+- Health Events → medium (default: 90 days)
+- Blocked Actions → medium (default: 90 days)
+- Replay References → aligned with replay usefulness (default: 30 days)
+- Review References → aligned with review usefulness (default: 30 days)
+- Archive support: move to colder storage (configurable, not deletion)
+- Archive is NOT deletion — preserves reference usability
+
+read_model_builder.py:
+- Build lightweight read models/projections for Side B consumption
+- Trade history projection
+- Decision review projection
+- Health timeline projection
+- Override history projection
+- These are READ MODELS — Side B consumes these, NOT raw stores
+
+contracts/write_contracts.py:
+- Write contracts per event family
+- Define mandatory fields per family
+- Define field types and validation rules
+- Used by event_router for runtime validation
+
+contracts/read_contracts.py:
+- Read contracts per query type
+- Define query parameters and response format
+- Used by query_layer for request validation
+
+contracts/emitter_registry.py:
+- Define approved emitters with:
+  - emitter_id: str (e.g., "floor_1", "floor_5", "side_a")
+  - allowed_families: list[EventFamily]
+  - source_owner: str (e.g., "Floor 1", "Floor 5", "Side A")
+- Used by ingest_layer for emitter validation
+- Each emitter can write to specific families only
+- Example:
+  - Floor 1: HEALTH_EVENT only
+  - Floor 2: HEALTH_EVENT, REPLAY_REF, REVIEW_REF
+  - Floor 5: DECISION_JOURNAL
+  - Side A: TRADE_JOURNAL, EXECUTION_EVENT, BLOCKED_ACTION, OVERRIDE
+
+================================================================================
+SECTION 3 - STEP-BY-STEP BUILD ORDER
+================================================================================
+
+BUILD ORDER: Files must be built in this exact order with these contracts.
+
+The build follows the data flow: Types → Emitter Registry → Write Contracts →
+Ingest → Router → Event Store → Journal Store → Reference Store →
+Query Layer → Read Models → Retention Manager
+
+----------------------------------------------------------------------
+STEP 3.1 — SIDE C TYPES (c_types.py)
+----------------------------------------------------------------------
+File: side_c_memory/c_types.py
+
+Purpose: Define all Side C specific types before any code.
+
+Input contract: None (first module in Side C)
+
+Output contract:
+- MemoryEvent dataclass:
+  - event_type: str
+  - source: str (e.g., "floor_1", "floor_5", "side_a")
+  - emitter: str (specific emitter id)
+  - timestamp: datetime (utc)
+  - severity: Severity enum
+  - family: EventFamily
+  - payload: dict (family-specific)
+  - refs: dict (optional reference links)
+- MemoryEnvelope dataclass:
+  - envelope_id: str (unique)
+  - family: EventFamily
+  - event_type: str
+  - source: str
+  - emitter: str
+  - timestamp: datetime
+  - severity: Severity
+  - refs: dict
+  - payload_ref: str (reference to payload location)
+- EventFamily enum: TRADE_JOURNAL, DECISION_JOURNAL, EXECUTION_EVENT,
+  HEALTH_EVENT, OVERRIDE, REPLAY_REF, REVIEW_REF, BLOCKED_ACTION
+- Severity enum: INFO, CAUTION, SEVERE, CRITICAL
+- MemoryQuery dataclass: families, start_time, end_time, refs_filter, limit, offset
+- RetentionPolicy dataclass: family, max_age_days, archive_after_days
+- ReadModelSummary dataclass (for projections):
+  - family: EventFamily
+  - timerange: tuple[datetime, datetime]
+  - event_count: int
+  - summary_data: dict
+
+Dependencies: Phase 0 (shared/types.py for base dataclasses, shared/errors.py)
+Validation:
+- All enums importable, correct values
+- MemoryEvent created with all mandatory fields → succeeds
+- MemoryEvent missing mandatory field → raises TypeError
+- MemoryEnvelope envelope_id is unique per creation
+- Severity values correctly ordered: INFO < CAUTION < SEVERE < CRITICAL
+
+----------------------------------------------------------------------
+STEP 3.2 — EMITTER REGISTRY + WRITE CONTRACTS (contracts/)
+----------------------------------------------------------------------
+Files: side_c_memory/contracts/emitter_registry.py
+       side_c_memory/contracts/write_contracts.py
+
+Purpose: Define approved emitters and write contracts before any write path is built.
+
+emitter_registry.py output contract:
+- register_emitter(emitter_id, allowed_families, source_owner) → None
+- is_emitter_approved(emitter_id) → bool
+- get_allowed_families(emitter_id) → list[EventFamily]
+- get_emitter_info(emitter_id) → dict | None
+- list_approved_emitters() → list[dict]
+
+Approved emitter definitions (LOCKED):
+- floor_1: [HEALTH_EVENT] — connection lifecycle events, auth failures, reconnects
+- floor_2: [HEALTH_EVENT, REPLAY_REF, REVIEW_REF] — data health, replay refs, review refs
+- floor_5: [DECISION_JOURNAL] — decision journal, conviction bands, no-trade reasons
+- side_a: [TRADE_JOURNAL, EXECUTION_EVENT, BLOCKED_ACTION, OVERRIDE]
+  — trade records, order lifecycle, blocked actions, override events
+
+write_contracts.py output contract:
+- get_write_contract(family) → dict (mandatory fields, optional fields, field types)
+- validate_event_for_family(event, family) → (is_valid: bool, errors: list)
+- Each family defines: mandatory fields, optional fields, field types
+
+Dependencies: Step 3.1 (c_types.py for EventFamily, Severity, MemoryEvent)
+Validation:
+- register_emitter → is_emitter_approved returns True
+- Unregistered emitter → is_emitter_approved returns False
+- floor_1 can write HEALTH_EVENT → allowed
+- floor_1 trying to write TRADE_JOURNAL → not allowed (empty allowed_families)
+- Write contract: valid event → validate_event_for_family returns True
+- Write contract: missing mandatory field → returns False with errors
+
+----------------------------------------------------------------------
+STEP 3.3 — INGEST LAYER (ingest_layer.py)
+----------------------------------------------------------------------
+File: side_c_memory/ingest_layer.py
+
+Purpose: Controlled ingress path for all Side C events.
+
+Input contract:
+- Event data: dict containing at minimum: event_type, source, emitter,
+  timestamp, severity, family, payload, refs
+- Emitter identity: str (emitter_id from registry)
+
+Output contract:
+- ingest_event(event_data, emitter_id) → MemoryEnvelope | raises ValueError
+  - Validates emitter is approved (check emitter_registry)
+  - Validates family is allowed for emitter (check emitter_registry)
+  - Validates event against write contract (check write_contracts)
+  - Applies MemoryEnvelope normalization
+  - Returns MemoryEnvelope with envelope_id
+  - Forwards to event_router
+- ingest_event with unauthorized emitter → rejected with logged error
+- ingest_event with malformed data → rejected with logged error (Severity.CAUTION)
+
+Dependencies: Step 3.1 (c_types.py), Step 3.2 (emitter_registry.py, write_contracts.py)
+Validation:
+- floor_1 sends HEALTH_EVENT → ingested, MemoryEnvelope returned
+- unknown_emitter sends event → rejected, ValueError raised
+- floor_1 tries to send TRADE_JOURNAL → rejected (family not allowed for emitter)
+- Event missing mandatory fields → rejected (write contract validation fails)
+- Event with all fields → normalized MemoryEnvelope with envelope_id
+
+----------------------------------------------------------------------
+STEP 3.4 — EVENT ROUTER (event_router.py)
+----------------------------------------------------------------------
+File: side_c_memory/event_router.py
+
+Purpose: Classify, validate, and route events to correct store.
+
+Input contract:
+- Normalized MemoryEnvelope from ingest_layer
+
+Output contract:
+- route_event(envelope: MemoryEnvelope) → str (store_name routed to)
+  - Classifies family: TRADE_JOURNAL/DECISION_JOURNAL → journal_store
+    EXECUTION_EVENT/HEALTH_EVENT/OVERRIDE/BLOCKED_ACTION → event_store
+    REPLAY_REF/REVIEW_REF → reference_store
+  - Validates against write contract for family
+  - Routes to correct store
+  - Raises ContractViolationError if family not recognized
+- get_routing_rule(family) → str (store name for that family)
+
+Routing table:
+- TRADE_JOURNAL → journal_store
+- DECISION_JOURNAL → journal_store
+- EXECUTION_EVENT → event_store
+- HEALTH_EVENT → event_store
+- OVERRIDE → event_store
+- BLOCKED_ACTION → event_store
+- REPLAY_REF → reference_store
+- REVIEW_REF → reference_store
+
+Dependencies: Step 3.1 (c_types.py for EventFamily), Step 3.3 (ingest_layer for envelopes)
+Validation:
+- HEALTH_EVENT → route_event returns "event_store"
+- TRADE_JOURNAL → route_event returns "journal_store"
+- REPLAY_REF → route_event returns "reference_store"
+- Unknown family → ContractViolationError
+- Append-first enforced: route does NOT modify event data
+
+----------------------------------------------------------------------
+STEP 3.5 — EVENT STORE (event_store.py)
+----------------------------------------------------------------------
+File: side_c_memory/event_store.py
+
+Purpose: Store operational/system events — execution, health, blocked, override.
+
+Input contract:
+- MemoryEnvelope from event_router (family in [EXECUTION_EVENT, HEALTH_EVENT,
+  OVERRIDE, BLOCKED_ACTION])
+
+Output contract:
+- append_event(envelope: MemoryEnvelope) → str (event_id)
+  - Writes event to store (append-only)
+  - Returns unique event_id
+  - Raises ValueError if envelope.family not supported by this store
+- query_events(families: list[EventFamily], start_time, end_time,
+  source=None, severity=None, limit=100, offset=0) → list[MemoryEnvelope]
+  - Returns events matching criteria
+  - Ordered by timestamp ascending
+- get_event(event_id: str) → MemoryEnvelope | None
+- count_events(families, start_time, end_time) → int
+- NO delete, NO update, NO mutation methods
+
+Dependencies: Step 3.1 (c_types.py), Step 3.4 (event_router for routing)
+Validation:
+- Append HEALTH_EVENT → stored, returned on query
+- Append EXECUTION_EVENT → stored, returned on query
+- Append TRADE_JOURNAL → ValueError (wrong store — belongs to journal_store)
+- Query by timerange → correct events returned
+- Query by family → only matching family returned
+- Append 100 events → query with limit=10 → 10 returned
+- Append then query same event_id → same event returned unchanged (append-only)
+
+----------------------------------------------------------------------
+STEP 3.6 — JOURNAL STORE (journal_store.py)
+----------------------------------------------------------------------
+File: side_c_memory/journal_store.py
+
+Purpose: Store durable journal records — trade journals, decision journals.
+
+Input contract:
+- MemoryEnvelope from event_router (family in [TRADE_JOURNAL, DECISION_JOURNAL])
+
+Output contract:
+- append_journal(envelope: MemoryEnvelope) → str (journal_id)
+  - Writes journal to store (append-only)
+  - Returns unique journal_id
+  - Raises ValueError if envelope.family not supported by this store
+- query_journals(families, start_time, end_time, trade_id=None,
+  decision_id=None, limit=100, offset=0) → list[MemoryEnvelope]
+  - Returns journal records matching criteria
+  - Supports refs-based lookup (trade_id, decision_id from refs dict)
+- get_journal(journal_id: str) → MemoryEnvelope | None
+- count_journals(families, start_time, end_time) → int
+- NO delete, NO update, NO mutation methods
+
+Dependencies: Step 3.1 (c_types.py), Step 3.4 (event_router for routing)
+Validation:
+- Append TRADE_JOURNAL → stored, returned on query
+- Append DECISION_JOURNAL → stored, returned on query
+- Append HEALTH_EVENT → ValueError (wrong store — belongs to event_store)
+- Query by trade_id via refs → correct journal returned
+- Query by timerange → correct journals returned
+- Append then query same journal_id → unchanged (append-only)
+
+----------------------------------------------------------------------
+STEP 3.7 — REFERENCE STORE (reference_store.py)
+----------------------------------------------------------------------
+File: side_c_memory/reference_store.py
+
+Purpose: Store linkable references — replay refs, review refs, source refs.
+
+Input contract:
+- MemoryEnvelope from event_router (family in [REPLAY_REF, REVIEW_REF])
+
+Output contract:
+- store_reference(envelope: MemoryEnvelope) → str (ref_id)
+  - Stores reference (append-only for audit trail)
+  - Returns unique ref_id
+  - Raises ValueError if envelope.family not supported
+- query_references(ref_types=None, start_time=None, end_time=None,
+  ref_key=None, limit=100) → list[MemoryEnvelope]
+  - Returns references matching criteria
+- get_reference(ref_id: str) → MemoryEnvelope | None
+- lookup_by_key(ref_key: str) → list[MemoryEnvelope]
+  - Key-value lookup (e.g., "trade_id:123" → all refs for that trade)
+- NO delete, NO update (references can be superseded by new refs)
+
+Dependencies: Step 3.1 (c_types.py), Step 3.4 (event_router for routing)
+Validation:
+- Store REPLAY_REF with ref_key="trade_id:123" → stored
+- Store REVIEW_REF with ref_key="decision_id:456" → stored
+- lookup_by_key("trade_id:123") → correct reference returned
+- Store HEALTH_EVENT → ValueError (wrong store)
+- Refs are append-only — query returns all refs including superseded ones
+
+----------------------------------------------------------------------
+STEP 3.8 — QUERY LAYER (query_layer.py)
+----------------------------------------------------------------------
+File: side_c_memory/query_layer.py
+
+Purpose: Controlled read access for all consumers (Side B, replay, review, audit).
+
+Input contract:
+- Query from consumer: MemoryQuery dataclass or equivalent params
+- Consumer identity (for access control in future)
+
+Output contract:
+- query(query: MemoryQuery) → list[MemoryEnvelope]
+  - Retrieves events/journals/references across stores
+  - Family-aware: routes query to correct store based on families requested
+  - Timerange filter applied
+  - Returns results ordered by timestamp
+- get_trade_history(trade_id: str) → list[MemoryEnvelope]
+  - Convenience query: all events + journals related to a trade_id
+  - Queries across event_store + journal_store via refs
+- get_decision_history(decision_id: str) → list[MemoryEnvelope]
+  - All records related to a decision_id
+- get_health_timeline(start_time, end_time) → list[MemoryEnvelope]
+  - All health events within timerange
+- NO scoring, NO ranking, NO recommendation methods
+- NO trade analysis, NO decision analysis
+- Raises ValueError for invalid query parameters
+
+Dependencies: Steps 3.5-3.7 (all three stores must exist)
+Validation:
+- Query by family + timerange → correct events returned from correct store
+- get_trade_history → returns events + journals linked to trade_id
+- Query with empty timerange → returns nothing or raises error
+- Query with limit=0 → returns nothing (not all events)
+- NO score/rank/recommend methods exist on this class
+
+----------------------------------------------------------------------
+STEP 3.9 — READ MODEL BUILDER (read_model_builder.py)
+----------------------------------------------------------------------
+File: side_c_memory/read_model_builder.py
+
+Purpose: Build lightweight read models/projections for Side B consumption.
+         Side B consumes these, NOT raw stores.
+
+Input contract:
+- Query params from Side B (family, timerange, filters)
+- Access to query_layer for data retrieval
+
+Output contract:
+- build_trade_history_summary(trade_id, timerange) → ReadModelSummary
+  - Trade journal entries + linked execution events
+  - Summary: entry_price, exit_price, pnl, mode, duration
+- build_decision_review_summary(decision_id) → ReadModelSummary
+  - Decision journal + linked head references
+  - Summary: conviction band, no-trade reason, timestamp
+- build_health_timeline_summary(timerange) → ReadModelSummary
+  - Health events aggregated into timeline
+  - Summary: health state transitions, event count per severity
+- build_override_history_summary(timerange) → ReadModelSummary
+  - Override events with reasons
+- build_blocked_actions_summary(timerange) → ReadModelSummary
+  - Blocked actions with reasons and severities
+- These are READ MODELS — NOT raw store views
+- NO market interpretation, NO scoring, NO ranking
+
+Dependencies: Step 3.8 (query_layer for data retrieval)
+Validation:
+- build_trade_history_summary → returns correctly structured ReadModelSummary
+- build_health_timeline_summary → events correctly grouped by severity
+- Build with empty timerange → returns empty summary (not error)
+- Read model fields are factual summaries, NOT trade recommendations
+
+----------------------------------------------------------------------
+STEP 3.10 — RETENTION MANAGER (retention_manager.py)
+----------------------------------------------------------------------
+File: side_c_memory/retention_manager.py
+
+Purpose: Enforce family-based retention policies.
+
+Input contract:
+- RetentionPolicy definitions per family
+- Access to all stores for data cleanup
+
+Output contract:
+- apply_retention_policy() → dict (families_affected, events_archived,
+  events_expired, errors)
+  - Checks each family's max_age_days against current time
+  - Events older than max_age_days → moved to archive (if archive_after_days set)
+  - Events older than archive + max_age → expired (deleted if no archive)
+  - Returns summary of actions taken
+- get_retention_status() → dict (per-family: total_count, oldest_event_age_days,
+  next_expiry_days)
+- set_retention_policy(family: EventFamily, policy: RetentionPolicy) → None
+  - Override default retention for a family
+  - Raises ValueError if policy.max_age_days < 1
+
+Default retention policies (LOCKED):
+- TRADE_JOURNAL: max_age_days=365, archive_after_days=90
+- DECISION_JOURNAL: max_age_days=365, archive_after_days=90
+- OVERRIDE: max_age_days=365, archive_after_days=90
+- EXECUTION_EVENT: max_age_days=90, archive_after_days=30
+- HEALTH_EVENT: max_age_days=90, archive_after_days=30
+- BLOCKED_ACTION: max_age_days=90, archive_after_days=30
+- REPLAY_REF: max_age_days=30, archive_after_days=None (no archive, direct expiry)
+- REVIEW_REF: max_age_days=30, archive_after_days=None
+
+Dependencies: Steps 3.5-3.7 (all stores for cleanup operations)
+Validation:
+- Set retention to 1 day → apply → events older than 1 day archived
+- Set retention to -1 → ValueError raised
+- get_retention_status → returns correct count and age per family
+- Archive preserves events (not deletion)
+- Expiry actually removes events from active store
+
+----------------------------------------------------------------------
+STEP 3.11 — READ CONTRACTS (contracts/read_contracts.py)
+----------------------------------------------------------------------
+File: side_c_memory/contracts/read_contracts.py
+
+Purpose: Define read contracts per query type for consumer validation.
+
+Output contract:
+- get_read_contract(query_type) → dict (mandatory params, optional params, response schema)
+- validate_query(query: MemoryQuery, query_type: str) → (is_valid: bool, errors: list)
+
+Read contracts defined for:
+- trade_history: requires trade_id or timerange, returns MemoryEnvelope list
+- decision_review: requires decision_id or timerange, returns MemoryEnvelope list
+- health_timeline: requires timerange, optional severity filter
+- override_history: requires timerange, optional override_type filter
+- blocked_actions: requires timerange, optional severity filter
+
+Dependencies: Step 3.1 (c_types.py for MemoryQuery)
+Validation:
+- Valid query → validate_query returns True
+- Missing required param → validate_query returns False with error
+
+----------------------------------------------------------------------
+STEP 3.12 — FULL SIDE C INTEGRATION TEST
+----------------------------------------------------------------------
+Purpose: Verify the complete Side C chain works end-to-end.
+
+Integration test chain:
+1. Create MemoryEvent from approved emitter (floor_1 → HEALTH_EVENT)
+2. Ingest layer receives → validates emitter → normalizes envelope
+3. Event router classifies → routes to event_store
+4. Event store appends → verify stored correctly
+5. Query layer retrieves by family + timerange → correct event returned
+6. Repeat for all 4 approved emitters → all 8 families
+7. Non-approved emitter → rejected at ingest layer
+8. Unauthorized family for emitter → rejected at ingest layer
+9. Retention set to 1 day → apply → old events archived
+10. Query across stores via query_layer → correct results
+
+Validation:
+- `pytest tests/test_side_c/ -v` → all tests pass
+- `python -c "from junior_aladdin.side_c_memory import *"` → zero import errors
+- All 8 event families can be ingested, routed, stored, and queried
+- Non-approved emitters are rejected with logged error
+- Append-first verified: event returned unchanged on query
+- Retention correctly archives old events
+
+================================================================================
+SECTION 4 - INPUT/OUTPUT CONTRACTS
+================================================================================
+
+SIDE C AS A WHOLE:
+
+INPUT CONTRACT (from approved emitters):
+- Emitter must be registered in emitter_registry
+- Event must match write contract for its family
+- Event must include: event_type, source, emitter, timestamp, severity, family, payload, refs
+- Emitter identity is authenticated at ingest layer
+
+OUTPUT CONTRACT (to consumers through query layer / read models):
+- Trade history summaries: trade_id, entry, exit, pnl, mode, timestamps
+- Decision review summaries: decision_id, conviction band, reason, timestamp
+- Health timeline: events grouped by severity, timerange
+- Override history: override events with reasons
+- Blocked actions: blocked actions with reasons and severities
+- All outputs are READ-ONLY views — consumers cannot modify Side C state
+
+ERROR CONTRACT:
+- Unauthorized emitter: rejected at ingest layer, logged (Severity.CAUTION)
+- Unauthorized family: rejected at ingest layer, logged (Severity.CAUTION)
+- Malformed event: rejected at ingest layer, logged (Severity.CAUTION)
+- Write contract violation: rejected at event_router, logged
+- Query with invalid params: query_layer returns empty list or raises ValueError
+- Retention policy error: logged, does not crash
+
+PER-MODULE CONTRACTS:
+
+| Module                | Input                                    | Output                                   | Error                       |
+|-----------------------|------------------------------------------|------------------------------------------|-----------------------------|
+| c_types.py            | None (type definitions)                   | Enums, dataclasses                       | N/A                         |
+| emitter_registry.py   | Emitter definitions                       | Registry, approval checks                | KeyError on unknown emitter |
+| write_contracts.py    | Family definitions                        | Field validation                         | ValueError on invalid def   |
+| ingest_layer.py       | Event data + emitter identity             | Normalized MemoryEnvelope                | ValueError on rejection     |
+| event_router.py       | MemoryEnvelope                            | Store routing decision                   | ContractViolationError      |
+| event_store.py        | MemoryEnvelope (operational families)     | Stored event + event_id                  | ValueError on wrong family  |
+| journal_store.py      | MemoryEnvelope (journal families)         | Stored journal + journal_id              | ValueError on wrong family  |
+| reference_store.py    | MemoryEnvelope (reference families)       | Stored reference + ref_id                | ValueError on wrong family  |
+| query_layer.py        | MemoryQuery                               | Filtered MemoryEnvelope list             | ValueError on invalid query |
+| read_model_builder.py | Query params + query_layer access         | ReadModelSummary                         | ValueError on missing data  |
+| retention_manager.py  | RetentionPolicy per family                | Archive/expiry actions + status          | ValueError on invalid TTL   |
+| read_contracts.py     | Query type definitions                    | Read contract validation                 | ValueError on invalid def   |
+
+================================================================================
+SECTION 5 - DEPENDENCY MAP
+================================================================================
+
+UPSTREAM DEPENDENCIES (must exist before Side C can start):
+- Phase 0 complete: shared/types.py, config.py, logging.py, errors.py, testing.py
+- Phase 2 data contracts finalized (event formats, schemas from Floor 2)
+- Storage backend chosen: SQLite for dev (file-based, zero setup)
+- Approved emitter list defined and documented (Floor 1, 2, 5, Side A)
+- Memory event types/families finalized (8 families from locked architecture)
+
+DOWNSTREAM DEPENDENCIES (Side C blocks these):
+- Side B dashboard memory views: need Side C queryable data
+- Replay workspace: needs Side C replay references
+- Full memory richness: grows as each floor/side emits events
+- Side C does NOT block: Floor 3, Floor 4, Floor 5, or Side A
+
+MOCK REQUIREMENTS:
+- Mock approved emitters for unit tests
+- In-memory store implementations for fast testing
+- Mock emitter registry with test emitters
+- Test events for all 8 families
+- All Side C modules testable WITHOUT any floor or side running
+
+PARALLEL-SAFE DESIGN:
+- Side C Stage A (base infrastructure) runs in Phase 3
+- Side C Stage B (full richness) grows alongside Phases 4-8
+- Side C does NOT block Phase 4 (Floor 3) start
+- Phase 4 can start as soon as Phase 2 is complete (does not wait for Phase 3)
+- Both can proceed in parallel after Phase 2 data contracts are finalized
+
+================================================================================
+SECTION 6 - WIRING DIAGRAM
+================================================================================
+
+SIDE C INTERNAL WIRING:
+
+```
+Approved Emitter (Floor 1 / Floor 2 / Floor 5 / Side A)
+    |
+    v
+ingest_layer.py
+  - Validates emitter identity against emitter_registry
+  - Validates event against write_contracts
+  - Normalizes MemoryEnvelope
+    |
+    v
+event_router.py
+  - Classifies family
+  - Validates against write contract
+  - Routes to correct store
+    |
+    +----> event_store.py (EXECUTION_EVENT, HEALTH_EVENT, OVERRIDE, BLOCKED_ACTION)
+    |         | Append-first | Indexed by (family, timestamp, source)
+    |
+    +----> journal_store.py (TRADE_JOURNAL, DECISION_JOURNAL)
+    |         | Append-first | Indexed by (family, timestamp, trade_id, decision_id)
+    |
+    +----> reference_store.py (REPLAY_REF, REVIEW_REF)
+              | Append-first | Key-value lookup by ref_key
+              |
+              v
+    query_layer.py
+      - Family-aware retrieval
+      - Timerange queries
+      - Reference lookup
+         |
+         v
+    read_model_builder.py
+      - Builds read model projections
+      - Trade history, decision review, health timeline
+         |
+         v
+    [SIDE B — Dashboard consumption through read models ONLY]
+```
+
+SIDE C → FLOOR/SIDE WIRING:
+
+```
+Floor 1 (connection lifecycle, auth failure, reconnect events)
+    → HEALTH_EVENT family → event_store
+    
+Floor 2 (data health changes, review refs, replay refs)
+    → HEALTH_EVENT, REPLAY_REF, REVIEW_REF → event_store + reference_store
+    
+Floor 5 (decision journal, conviction bands, no-trade reasons)
+    → DECISION_JOURNAL → journal_store
+    
+Side A (trade journal, execution events, blocked actions, overrides)
+    → TRADE_JOURNAL, EXECUTION_EVENT, BLOCKED_ACTION, OVERRIDE
+    → journal_store + event_store
+```
+
+SIDE C → SIDE B WIRING:
+
+```
+Side C exposes:
+- read_model_builder.build_trade_history_summary() → Side B trade panel
+- read_model_builder.build_decision_review_summary() → Side B decision panel
+- read_model_builder.build_health_timeline_summary() → Side B health panel
+- read_model_builder.build_override_history_summary() → Side B override panel
+- read_model_builder.build_blocked_actions_summary() → Side B blocked actions panel
+
+CRITICAL RULE: Side B NEVER consumes raw stores directly.
+ALL consumption goes through read_model_builder → query_layer.
+```
+
+SIDE C → REPLAY WIRING:
+
+```
+Floor 2 owns replay-capable truth.
+Side C stores replay REFERENCES only.
+- replay_ref stored in reference_store links: trade_id, decision_id
+  → Floor 2 replay range
+- Review_ref links: audit session → relevant time range
+
+Replay authority chain:
+Floor 2 = replay-capable truth owner
+Side C = replay reference memory owner
+Side B = replay workspace consumer (read-only)
+```
+
+================================================================================
+SECTION 7 - DATA FLOW
+================================================================================
+
+HEALTH EVENT DATA FLOW:
+
+```
+Floor 1 detects connection degradation
+    |
+    v
+Floor 1 emits HEALTH_EVENT with:
+  source="floor_1", emitter="floor_1", family=HEALTH_EVENT
+  payload={"lifecycle_state": "DEGRADED", "latency_ms": 2500}
+  refs={"connection_id": "conn_123"}
+    |
+    v
+ingest_layer.py:
+  - Validates emitter: floor_1 is approved
+  - Validates family: HEALTH_EVENT allowed for floor_1
+  - Validates against write contract: all mandatory fields present
+  - Normalizes MemoryEnvelope: adds envelope_id, standardized timestamp
+    |
+    v
+event_router.py:
+  - Classifies: HEALTH_EVENT → event_store
+  - Routes to event_store.append_event()
+    |
+    v
+event_store.py:
+  - Appends event (append-only)
+  - Indexes by (family=HEALTH_EVENT, timestamp, source=floor_1)
+```
+
+TRADE JOURNAL DATA FLOW:
+
+```
+Side A completes a trade
+    |
+    v
+Side A emits TRADE_JOURNAL with:
+  source="side_a", emitter="side_a", family=TRADE_JOURNAL
+  payload={"trade_id": "T123", "entry": 18500, "exit": 18650,
+           "pnl": 1500, "mode": "PAPER"}
+  refs={"decision_id": "D456", "order_id": "O789"}
+    |
+    v
+ingest_layer.py → event_router.py → journal_store.py
+  (same pattern: validate → normalize → route → append)
+```
+
+DECISION JOURNAL DATA FLOW:
+
+```
+Captain makes TRADE decision
+    |
+    v
+Floor 5 emits DECISION_JOURNAL with:
+  source="floor_5", emitter="floor_5", family=DECISION_JOURNAL
+  payload={"decision": "TRADE", "conviction_band": "STRONG",
+           "trade_class": "CONTINUATION", "reason": "4/5 heads aligned"}
+  refs={"decision_id": "D456"}
+    |
+    v
+ingest_layer.py → event_router.py → journal_store.py
+```
+
+QUERY DATA FLOW:
+
+```
+Side B requests trade history for trade_id "T123"
+    |
+    v
+read_model_builder.build_trade_history_summary(trade_id="T123")
+    |
+    v
+query_layer.get_trade_history(trade_id="T123")
+  - Queries journal_store + event_store for refs containing "trade_id:T123"
+  - Returns all matching MemoryEnvelopes
+    |
+    v
+read_model_builder:
+  - Aggregates into ReadModelSummary
+  - Returns to Side B
+```
+
+RETENTION DATA FLOW:
+
+```
+retention_manager.apply_rentention_policy() called (scheduled or manual)
+    |
+    v
+For each family:
+  1. Check max_age_days threshold
+  2. Query events older than threshold
+  3. If archive_after_days set → move to archive (colder storage, NOT deleted)
+  4. If archive_after_days not set → delete from active store
+  5. Log all actions taken
+    |
+    v
+Return summary: families_affected, events_archived, events_expired, errors
+```
+
+================================================================================
+SECTION 8 - VALIDATION MATRIX
+================================================================================
+
+UNIT VALIDATION (isolated tests for each module):
+
+c_types.py:
+- Test: MemoryEvent created with all fields → succeeds
+- Test: MemoryEvent missing mandatory field → TypeError
+- Test: EventFamily has all 8 values
+- Test: Severity ordering: INFO < CAUTION < SEVERE < CRITICAL
+- Test: MemoryEnvelope generated with unique envelope_id
+
+emitter_registry.py:
+- Test: register_emitter → is_emitter_approved returns True
+- Test: unregistered emitter → is_emitter_approved returns False
+- Test: get_allowed_families returns correct list for each emitter
+- Test: floor_1 allowed_families = [HEALTH_EVENT] only
+- Test: side_a allowed_families = [TRADE_JOURNAL, EXECUTION_EVENT,
+  BLOCKED_ACTION, OVERRIDE]
+
+write_contracts.py:
+- Test: valid HEALTH_EVENT → validate_event_for_family returns True
+- Test: missing mandatory field → returns False with error message
+- Test: wrong field type → returns False with error message
+- Test: all 8 families have write contracts defined
+
+ingest_layer.py:
+- Test: floor_1 sends valid HEALTH_EVENT → ingested, envelope returned
+- Test: unknown_emitter sends event → rejected with ValueError
+- Test: floor_1 sends TRADE_JOURNAL → rejected (unauthorized family)
+- Test: malformed event (missing mandatory fields) → rejected with logged error
+- Test: valid event → returned envelope has non-None envelope_id
+
+event_router.py:
+- Test: HEALTH_EVENT → router returns "event_store"
+- Test: TRADE_JOURNAL → router returns "journal_store"
+- Test: REPLAY_REF → router returns "reference_store"
+- Test: unknown family → ContractViolationError raised
+- Test: envelope data NOT modified by router (append-first enforced)
+
+event_store.py:
+- Test: append HEALTH_EVENT → stored, returned on query
+- Test: append then query → same event, unchanged
+- Test: query by timerange → correct events
+- Test: query by family → only matching family returned
+- Test: append TRADE_JOURNAL to event_store → ValueError raised
+- Test: NO delete/update methods exist on this class
+
+journal_store.py:
+- Test: append TRADE_JOURNAL → stored, returned on query
+- Test: query by trade_id via refs → correct journal returned
+- Test: append HEALTH_EVENT to journal_store → ValueError raised
+- Test: NO delete/update methods exist on this class
+
+reference_store.py:
+- Test: store REPLAY_REF with ref_key → stored, lookup_by_key returns it
+- Test: store REVIEW_REF → stored, query returns it
+- Test: lookup_by_key with non-existent key → empty list
+- Test: append EVENT to reference_store → ValueError raised
+
+query_layer.py:
+- Test: query by family + timerange → correct events from correct store
+- Test: get_trade_history → events + journals linked to trade_id
+- Test: query with empty timerange → empty list or raised error
+- Test: query with limit=0 → empty list
+- Test: NO score/rank/recommend methods exist
+
+read_model_builder.py:
+- Test: build_trade_history_summary → correctly structured ReadModelSummary
+- Test: build_health_timeline_summary → events grouped by severity
+- Test: build with empty data → empty summary (not error)
+- Test: read model fields are factual summaries, not recommendations
+
+retention_manager.py:
+- Test: set retention to 1 day → apply → old events archived
+- Test: set retention to invalid value → ValueError
+- Test: get_retention_status → correct counts per family
+- Test: archive preserves events (not deletion)
+- Test: expiry removes events from active store
+
+CONTRACT VALIDATION (cross-module checks):
+- Verify emitter_registry approved list matches locked architecture
+  (Floor 1: HEALTH_EVENT, Floor 2: HEALTH_EVENT+REPLAY_REF+REVIEW_REF,
+   Floor 5: DECISION_JOURNAL, Side A: TRADE_JOURNAL+EXECUTION_EVENT+BLOCKED_ACTION+OVERRIDE)
+- Verify write contracts cover all 8 families with mandatory fields
+- Verify read contracts cover all 5 query types (trade_history, decision_review,
+  health_timeline, override_history, blocked_actions)
+- Verify query_layer has NO score/rank/recommend methods
+- Verify stores have NO delete/update methods
+
+REPLAY VALIDATION:
+- N/A for Side C in Stage A — Side C stores replay REFERENCES only
+- Replay truth ownership belongs to Floor 2
+- Verify reference_store stores replay_ref correctly with ref_key
+- Verify query_layer can retrieve replay refs by trade_id/decision_id
+
+INTEGRATION VALIDATION:
+- Full chain: emit event from each approved emitter → ingest → route →
+  store → query → read model
+- Non-approved emitter → rejected at ingest layer (logged, no crash)
+- Unauthorized family for emitter → rejected at ingest layer (logged, no crash)
+- Append 100 events → query with limit=10 → first 10 returned
+- Retention → archive → verify archived events exist but active store is clean
+- `pytest tests/test_side_c/ -v` — all tests pass
+- `python -c "from junior_aladdin.side_c_memory import *"` — zero import errors
+
+================================================================================
+SECTION 9 - CROSS-COMPONENT IMPACTS
+================================================================================
+
+REPLAY IMPACT:
+- Side C stores replay REFERENCES only — NOT replay truth
+- replay_ref in reference_store links: trade_id → Floor 2 replay time range
+- Floor 2 = replay-capable truth owner
+- Side C = replay reference memory owner (linking instrument)
+- Side B = replay workspace consumer (read-only, through read models)
+- This authority chain is LOCKED and must not be blurred
+- Replay references MUST include enough metadata for Floor 2 to locate replay data
+- Side C does NOT own, execute, or modify replay state
+
+DASHBOARD IMPACT:
+- Side B dashboard consumes Side C through READ MODELS / PROJECTIONS only
+- Dashboard NEVER queries raw event_store/journal_store/reference_store directly
+- Available dashboard views (via read_model_builder):
+  - Trade history summary (trade panel)
+  - Decision review summary (decision explainability panel)
+  - Health timeline summary (health surface)
+  - Override history summary (override panel)
+  - Blocked actions summary (blocked actions panel)
+- Dashboard controls related to Side C: NONE (read-only)
+- Dashboard may show memory availability markers (data ranges available)
+
+MEMORY IMPACT (Side C self):
+- Side C is the memory layer — it does not emit events to itself
+- Side C is the termination point for memory storage
+- No circular memory: Side C does NOT write to Side C
+
+EXECUTION IMPACT (Side A):
+- Side A is an approved emitter for Side C:
+  - TRADE_JOURNAL source (trade records after execution)
+  - EXECUTION_EVENT source (order lifecycle events)
+  - BLOCKED_ACTION source (blocked trade/order actions)
+  - OVERRIDE source (override events)
+- Side C stores Side A execution truth but does NOT own it
+- Side A remains truth owner for execution events
+- Side C stores what Side A emits — it does not interpret execution data
+
+================================================================================
+SECTION 10 - COMMON MISTAKES + ANTI-PATTERNS
+================================================================================
+
+WHAT CAN BREAK ARCHITECTURE IN THIS SIDE:
+
+Mistake 1: Adding scoring/ranking/recommendation methods to stores
+- Problem: Adding `get_best_trades()`, `recommend_entry()`, `score_setups()` methods
+- Architecture violation: Side C = Memory Layer. Scoring = Floor 3+. Ranking = Floor 4+.
+- Prevention: If you're writing a method name with "score", "rank", "recommend",
+  "best", "top", "analyze" in Side C → stop. That's not memory, that's intelligence.
+- Detection: Code review catches these method names in side_c_memory/.
+  CI lint check: `grep -r "def score\|def rank\|def recommend\|def analyze" side_c_memory/`
+  should return nothing.
+
+Mistake 2: Allowing non-approved emitters to write
+- Problem: Accepting events from any source without emitter validation
+- Architecture violation: Memory corruption risk. Side C becomes untrustworthy.
+- Prevention: ingest_layer MUST validate every emitter against emitter_registry.
+  Unknown emitter → reject with logged error.
+- Detection: Ingest logs show writes from non-approved source → P0 investigation.
+
+Mistake 3: Mutating stored events instead of appending corrections
+- Problem: Updating a trade journal entry instead of appending a correction
+- Architecture violation: Violates Principle 5 — "correction = new event, no silent mutation"
+- Prevention: Stores have NO update/delete methods. Only append + query.
+- Detection: Any `update` or `delete` method in store classes → P0 bug.
+
+Mistake 4: Letting Side B consume raw stores directly
+- Problem: Side B dashboard queries event_store directly instead of going through
+  read_model_builder → query_layer
+- Architecture violation: Side B becomes coupled to raw storage. Contract boundary broken.
+- Prevention: ALL Side C consumption from Side B goes through read_model_builder.
+  Raw store access restricted to query_layer only.
+- Detection: Side B code imports side_c_memory.event_store directly → architecture violation.
+
+Mistake 5: Making Side C a dependency for Floor 3/4/5 operation
+- Problem: Floors 3/4/5 fail/crash if Side C is unavailable
+- Architecture violation: Side C is PARALLEL-SAFE by design. It does NOT block floors.
+- Prevention: Floors must handle Side C being unavailable gracefully
+  (log warning, continue without memory).
+- Detection: Floor code raises error on Side C write failure instead of logging and continuing.
+
+Mistake 6: Adding trade decision logic to query layer
+- Problem: Query layer filtering trades by "quality" or suggesting "best entries"
+- Architecture violation: Query layer is read access. Decision logic = Floor 5.
+- Prevention: Query layer returns factual data only. No interpretation, no filtering by opinion.
+- Detection: Query layer methods accept parameters like "min_quality" or "only_best".
+
+Mistake 7: Not defining approved emitters list early
+- Problem: Starting store implementation before emitter_registry is defined
+- Architecture violation: Governance gaps. Unknown emitters can write data.
+- Prevention: Step 3.2 (emitter_registry) built BEFORE any store code (Step 3.5+).
+- Detection: stores/ exist but contracts/emitter_registry.py does not.
+
+WHAT CREATES REWORK LATER:
+- Not defining emitter_registry early → governance gaps, unknown data sources
+  Fix: Build Step 3.2 before any store code
+- Forgetting MemoryEnvelope on ingress → non-standardized records, hard to query
+  Fix: Ingest layer always normalizes envelope before routing
+- Making stores too complex before floors emit real events → over-engineering
+  Fix: Build stores simple (append + query), add features when floors need them
+- Not indexing by (family, timestamp) → slow queries when Side B needs them
+  Fix: Index all stores by family + timestamp from day one
+- Making retention too aggressive → losing useful debugging data
+  Fix: Use default retention policies (365d for journals, 90d for events, 30d for refs)
+- Not separating event/journal/reference stores → everything becomes a messy single store
+  Fix: Three distinct stores from day one with clear routing rules
+- Letting query layer become too complex → Side C drifts toward intelligence
+  Fix: Query layer does simple retrieval only. Complex analysis belongs in higher floors.
+
+================================================================================
+SECTION 11 - READY-TO-CODE CHECKLIST
+================================================================================
+
+BEFORE CODING STARTS (entry criteria):
+
+[ ] Phase 2 data contracts finalized (event formats, schemas from Floor 2)
+[ ] Storage backend chosen: SQLite for dev (file-based, zero setup)
+[ ] Side C folder structure created (side_c_memory/ with contracts/ subfolder)
+[ ] SIDE_C_MEMORY_JOURNAL_V1_1_FINAL.txt read and understood
+[ ] ROADMAP_MASTER.txt read for build context
+[ ] ROADMAP_SIDE_C.txt open for daily reference
+[ ] Approved emitter list defined and documented:
+    - floor_1: [HEALTH_EVENT]
+    - floor_2: [HEALTH_EVENT, REPLAY_REF, REVIEW_REF]
+    - floor_5: [DECISION_JOURNAL]
+    - side_a: [TRADE_JOURNAL, EXECUTION_EVENT, BLOCKED_ACTION, OVERRIDE]
+[ ] Memory event families finalized: all 8 from locked architecture
+[ ] First module to build identified: c_types.py
+[ ] Build order confirmed: types → emitter_registry + write_contracts → ingest →
+    router → event_store → journal_store → reference_store → query_layer →
+    read_model_builder → retention_manager → read_contracts
+[ ] NOT blocking Phase 4: Side C runs in PARALLEL with Phase 4+ (does not block Floor 3)
+
+DURING BUILD (build criteria):
+
+[ ] Each store independently testable with mock events (in-memory implementation)
+[ ] Append-first enforced from day one (no update/delete methods)
+[ ] Emitter registry built before any store code
+[ ] Ingest layer validates EVERY event against emitter_registry
+[ ] Event router correctly classifies all 8 families to correct stores
+[ ] Query layer has NO score/rank/recommend methods
+[ ] Read models used for ALL Side B consumption paths
+[ ] Retention policies defined per family before data accumulates
+[ ] All Side C code imports only from shared/ (no floor_3+ dependencies)
+[ ] Side C can be built + tested without any floor or side running
+
+VERIFICATION TESTS (run at end of each step):
+
+Step 3.1: [ ] c_types.py: all enums importable, dataclasses work
+Step 3.2: [ ] emitter_registry: 4 approved emitters registered
+          [ ] write_contracts: all 8 families have contracts
+Step 3.3: [ ] ingest_layer: approves valid emitters, rejects unknown
+          [ ] ingest_layer: enforces family-per-emitter rules
+Step 3.4: [ ] event_router: routes all 8 families to correct stores
+Step 3.5: [ ] event_store: appends + queries operational events
+          [ ] event_store: rejects wrong-family events
+Step 3.6: [ ] journal_store: appends + queries journal records
+          [ ] journal_store: rejects wrong-family events
+Step 3.7: [ ] reference_store: stores refs, lookup_by_key works
+Step 3.8: [ ] query_layer: family-aware retrieval works
+          [ ] query_layer: NO score/rank/recommend methods
+Step 3.9: [ ] read_model_builder: correct ReadModelSummaries
+Step 3.10: [ ] retention_manager: archives old events, expires very old
+Step 3.11: [ ] read_contracts: validate queries correctly
+
+INTEGRATION VERIFICATION:
+
+[ ] Full chain test: emit from each approved emitter → ingest → route → store → query → read model
+[ ] Non-approved emitter rejection test: unknown emitter → rejected, logged, no crash
+[ ] Unauthorized family test: floor_1 trying TRADE_JOURNAL → rejected
+[ ] Append-only verification: event stored → query → same event returned unchanged
+[ ] Retention test: events older than retention → archived/expired correctly
+[ ] `pytest tests/test_side_c/ -v` — all tests pass
+
+EXIT CRITERIA (Phase 3 / Side C Stage A complete):
+
+[ ] 4 approved emitters registered (Floor 1, Floor 2, Floor 5, Side A)
+[ ] 8 event families have write contracts with validation rules
+[ ] Ingest layer: accepts valid events, rejects unauthorized emitters + families
+[ ] Event router: correctly routes all 8 families to 3 stores
+[ ] Event store: appends + queries operational events
+[ ] Journal store: appends + queries journal records (trade + decision)
+[ ] Reference store: stores + looks up references by key
+[ ] Query layer: family-aware retrieval works, NO scoring/ranking/recommendation
+[ ] Read model builder: produces structured summaries for Side B
+[ ] Retention manager: enforces family-based TTLs with archive support
+[ ] Side C does NOT block any floor — verified: Floors 3+ can function without Side C
+[ ] All Side C tests pass: `pytest tests/test_side_c/ -v`
+[ ] Zero dependency on floor_3+ code
+[ ] SIDE_C_MEMORY_JOURNAL_V1_1_FINAL.txt preserved (not modified)
+[ ] Side C runs in PARALLEL with Phase 4+ (confirmed: does not block Floor 3)
+
+================================================================================
+END OF ROADMAP SIDE C: MEMORY / JOURNAL
+================================================================================

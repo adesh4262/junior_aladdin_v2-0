@@ -1,0 +1,26 @@
+env: "development"
+
+angel_one:
+  client_id: ""
+  api_key: ""
+  pin: ""
+
+capital:
+  paper_limit: 100000
+  real_limit: 50000
+  max_loss_per_trade: 5000
+
+logging:
+  level: "INFO"
+  format: "json"
+  rotation: "1 day"
+
+paths:
+  data_dir: "data/"
+  log_dir: "logs/"
+  replay_dir: "data/replay/"
+
+thresholds:
+  confidence_min: 0.6
+  conviction_min: 60
+  freshness_max_age_seconds: 300

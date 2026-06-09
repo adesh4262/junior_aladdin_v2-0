@@ -1,0 +1,832 @@
+================================================================================
+ ROADMAP_FULL_SYSTEM_INTEGRATION — END-TO-END WIRING + CONTRACT VERIFICATION
+================================================================================
+ Canonical Phase Template v1.0 | Phase 9 of 9 | Final Integration Phase
+================================================================================
+
+----------------------------------------------------------------------
+SECTION 1 — PURPOSE
+----------------------------------------------------------------------
+
+Phase 9 validates every contract between every floor and side in the
+live system, then locks all wiring so the Captain can fire armed plans
+against real broker connections.  This is NOT a build phase — no new
+logic, no new modules, no new features.  It is the proving ground
+where every data path, every state transition, every error cascade,
+and every recovery path is tested end-to-end.
+
+Primary goals (in priority order):
+
+  1. VERIFY every ingest-to-output contract (Floor 1 → Floor 2 → Floor 3
+     → Floor 4 → Floor 5 → Side A → broker)
+  2. VERIFY every cross-floor data dependency resolves at runtime
+     (no stale references, no orphan packets, no unhandled None)
+  3. VERIFY every error path produces correct Side C events
+     (no silent failures, no unlogged rejections)
+  4. VERIFY replay restores exact state across all floors and sides
+     (no divergence between live and replay)
+  5. VERIFY the dashboard (Side B) renders every data source correctly
+     (no missing panels, no stale read models)
+  6. VERIFY the kill switch + recovery path protects capital across
+     all system states (no bypass)
+  7. LOCK the integration by freezing contract versions
+     (no more schema changes without explicit deprecation)
+
+----------------------------------------------------------------------
+SECTION 2 — COMPONENT ARCHITECTURE
+----------------------------------------------------------------------
+
+The full system is a 2-line bus architecture:
+
+  Floor Layer (data → intelligence → decision)
+    Floor 1  — Market Data Ingestion (raw ticks → cleaned feeds)
+    Floor 2  — Data Validation + Structuring (structured data + health)
+    Floor 3  — Calculation Engines (SMC / ICT / Technical signals)
+    Floor 4  — Department Heads (interpretation + enrichment)
+    Floor 5  — Captain (decision + conviction + armed plans)
+
+  Side Layer (execution + storage + visibility)
+    Side A   — Execution Engine (risk gate + state machine + broker)
+    Side C   — Memory / Event Store (append-only event journal)
+    Side B   — Dashboard / Operator Terminal (visualisation + control)
+
+Data flows LEFT-TO-RIGHT through the floor layer, then DOWN to Side A
+for execution, with Side C recording every event and Side B consuming
+read models for operator visibility.
+
+There is NO right-to-left data flow.  No floor consumes from a higher
+floor.  No side writes into the floor layer.
+
+             ┌─────────┐
+    Market ──► Floor 1  ──► Floor 2  ──► Floor 3  ──► Floor 4  ──► Floor 5 ──► Side A ──► Broker
+             └────┬────┘   └────┬────┘   └────┬────┘   └────┬────┘   └────┬───┘   └────┬───┘
+                  │              │              │              │              │             │
+                  ▼              ▼              ▼              ▼              ▼             ▼
+             ┌──────────────────────────────────────────────────────────────────────────────┐
+             │                           Side C — Event Store                               │
+             │  (TRADE_JOURNAL | DECISION_JOURNAL | EXECUTION_EVENT | HEALTH_EVENT | …)     │
+             └──────────────────────────────────────────────────────────────────────────────┘
+                  │              │              │              │              │
+                  ▼              ▼              ▼              ▼              ▼
+             ┌──────────────────────────────────────────────────────────────────────────────┐
+             │                      Side B — Dashboard (read models only)                    │
+             └──────────────────────────────────────────────────────────────────────────────┘
+
+----------------------------------------------------------------------
+SECTION 3 — STEP-BY-STEP BUILD ORDER
+----------------------------------------------------------------------
+
+Phase 9 has 8 STAGES.  Each stage is a verification gate — no stage
+may begin until the previous stage passes all checks.
+
+──────────────────────────────────────────────────────────────────────
+STAGE 9.1 — INGEST-VALIDATION WIRING (Floor 1 → Floor 2)
+──────────────────────────────────────────────────────────────────────
+
+Purpose:  Verify that every data source on Floor 1 correctly feeds
+          every validator + storer on Floor 2.
+
+Verification checklist (pass/fail — ALL must pass):
+  [ ] TickRouter sends NSE equities to correct Floor 2 cleaner
+  [ ] TickRouter sends NSE indices to correct Floor 2 cleaner
+  [ ] TickRouter sends FX pairs to correct Floor 2 cleaner
+  [ ] TickRouter sends options to correct Floor 2 cleaner
+  [ ] DuplicateValidator receives all 4 tick streams
+  [ ] TimestampValidator receives all 4 tick streams
+  [ ] ContinuityValidator receives all 4 structured streams
+  [ ] SchemaValidator receives all structured + cleaned outputs
+  [ ] CorruptionValidator receives all raw + cleaned outputs
+  [ ] CleaningLayer sends cleaned data to StructuringLayer
+  [ ] StructuringLayer sends structured packets to Floor 3 router
+  [ ] DataHealth packets emitted to Side C for all 4 sources
+  [ ] Replay: replay stored Floor 1 data → Floor 2 produces identical
+      structured output (bit-for-bit for deterministic steps)
+
+Contract tests to run:
+  ct_ingest_001: TickRouter → DuplicateValidator (contract)
+  ct_ingest_002: CleaningLayer → StructuringLayer (contract)
+  ct_ingest_003: StructuringLayer → Floor3Router (contract)
+  ct_ingest_004: Floor2 → Side C DataHealth (contract)
+
+──────────────────────────────────────────────────────────────────────
+STAGE 9.2 — CALCULATION WIRING (Floor 2 → Floor 3)
+──────────────────────────────────────────────────────────────────────
+
+Purpose:  Verify that all 3 Floor 3 calculation engines receive correct
+          structured data from Floor 2 and produce valid signals.
+
+Verification checklist:
+  [ ] SMC engine receives correct OHLCV candles + tick streams
+  [ ] ICT engine receives correct tick streams + session packets
+  [ ] Technical engine receives correct OHLCV candles + macro feeds
+  [ ] All 3 engines receive FreshnessTag on every packet
+  [ ] All 3 engines receive DataHealth flags on every packet
+  [ ] SMC engine outputs with correct signal_id format
+  [ ] ICT engine outputs with correct signal_id format
+  [ ] Technical engine outputs with correct signal_id format
+  [ ] Floor3Orchestrator correctly routes by market phase
+      (PRE_MARKET → SMC + ICT only, REGULAR → ALL, POST_MARKET → SMC + Technical)
+  [ ] No cross-engine data leakage (SMC cannot see ICT candidates)
+  [ ] All 3 engines produce CalculationLog entries on every run
+  [ ] Replay: replay Floor 2 structured data → Floor 3 produces identical
+      signals (deterministic check)
+
+Contract tests:
+  ct_calc_001: Floor2 StructuringLayer → SMC Engine (contract)
+  ct_calc_002: Floor2 StructuringLayer → ICT Engine (contract)
+  ct_calc_003: Floor2 StructuringLayer → Technical Engine (contract)
+  ct_calc_004: Floor3Orchestrator → SMC Engine (market phase routing)
+  ct_calc_005: Floor3Orchestrator → ICT Engine (market phase routing)
+  ct_calc_006: Floor3Orchestrator → Technical Engine (market phase routing)
+  ct_calc_007: All 3 engines → Floor3OutputValidator (signal_id check)
+
+──────────────────────────────────────────────────────────────────────
+STAGE 9.3 — INTERPRETATION WIRING (Floor 3 → Floor 4)
+──────────────────────────────────────────────────────────────────────
+
+Purpose:  Verify that all 6 Department Heads consume correct Floor 3
+          calculation results and produce valid head reports.
+
+Verification checklist:
+  [ ] Technical Head receives SMC + ICT + Technical signals correctly
+  [ ] SMC Head receives SMC signals correctly
+  [ ] ICT Head receives ICT signals correctly
+  [ ] Options Head receives Floor 1 options data + Floor 2 cleaned data
+  [ ] Macro Head receives Floor 2 macro support packets
+  [ ] Psychology Head receives Floor 5 permission state (read-only)
+  [ ] All 6 heads receive FloorSummary from previous cycle
+  [ ] All 6 heads produce Reports with correct head_id
+  [ ] All 6 heads produce Reports with correct freshness tags
+  [ ] Macro Head + Psychology Head produce NO_SETUP intelligence type
+  [ ] SMC Head + ICT Head produce context_quality_score on every report
+  [ ] FloorSummary aggregates all 6 heads correctly
+  [ ] FloorSummary produces head_health_snapshot (all 6) + core_head_health_snapshot (5)
+  [ ] Replay: replay Floor 3 signals → Floor 4 produces identical head reports
+
+Contract tests:
+  ct_head_001: Floor3 → Technical Head (contract — 4 input types)
+  ct_head_002: Floor3 → SMC Head (contract)
+  ct_head_003: Floor3 → ICT Head (contract)
+  ct_head_004: Floor1+Floor2 → Options Head (contract)
+  ct_head_005: Floor2 → Macro Head (contract)
+  ct_head_006: Floor5 → Psychology Head (read-only contract)
+  ct_head_007: FloorSummary aggregation (all 6 heads → summary)
+  ct_head_008: NO_SETUP propagation (Macro + Psychology)
+  ct_head_009: context_quality_score (SMC + ICT)
+
+──────────────────────────────────────────────────────────────────────
+STAGE 9.4 — DECISION WIRING (Floor 4 → Floor 5)
+──────────────────────────────────────────────────────────────────────
+
+Purpose:  Verify that the Captain correctly consumes Floor 4 reports and
+          produces valid armed plans + conviction + decision journals.
+
+Verification checklist:
+  [ ] Floor4 → Floor5: FloorSummary received before head reports
+      (summary-first workflow — Captain must read summary before drilling down)
+  [ ] Floor4 → Floor5: individual head reports received
+  [ ] Captain correctly identifies stale core heads (FloorSummary.core_head_health)
+  [ ] Captain correctly handles NO_SETUP intelligence from Macro + Psychology
+  [ ] Captain applies report trust weighting (5 factors) correctly
+  [ ] PermissionGate blocks trade when psychology block active
+  [ ] PermissionGate blocks trade when loss lock active (3 losses)
+  [ ] PermissionGate blocks trade when session outside hours
+  [ ] Story layer produces correct market story from head reports
+  [ ] Confluence layer correctly aggregates signals across engines
+  [ ] OppositeCase builds valid counter-narrative
+  [ ] Conviction produces valid conviction score (0-100) + band
+  [ ] ArmedPlan created with correct structure after heavy cycle
+  [ ] ArmedPlan expiry + decay correctly calculated
+  [ ] DecisionSnapshot written to Side C (DECISION_JOURNAL)
+  [ ] Light cycle: no heavy computation, no armed plan creation
+  [ ] Replay: replay Floor 4 reports → Floor 5 produces identical decision
+
+Contract tests:
+  ct_dec_001: Floor4 FloorSummary → Captain (summary-first contract)
+  ct_dec_002: Floor4 HeadReports → Captain (per-head contract)
+  ct_dec_003: Captain PermissionGate → ArmedPlan (decision contract)
+  ct_dec_004: Captain → Side C DECISION_JOURNAL (event contract)
+  ct_dec_005: Captain → Side A (intent contract — via captain_interface)
+
+──────────────────────────────────────────────────────────────────────
+STAGE 9.5 — EXECUTION WIRING (Floor 5 → Side A → Broker)
+──────────────────────────────────────────────────────────────────────
+
+Purpose:  Verify that armed plans flow from Captain through Side A's risk
+          gate, state machine, and broker interface correctly in both
+          PAPER and REAL modes.  This is the HIGHEST RISK stage.
+
+Verification checklist:
+  [ ] Captain → Side A: intent received by captain_interface
+  [ ] IntentFingerprint correctly deduplicates identical intents
+  [ ] RiskGate passes ALL 12 checks for valid intent
+  [ ] RiskGate blocks on every failure mode (test each check individually)
+  [ ] StateMachine: IDLE → INTENT_RECEIVED → RISK_PASSED → ORDER_PENDING
+  [ ] StateMachine: every valid state transition works
+  [ ] StateMachine: every invalid state transition is rejected
+  [ ] StateMachine: UNKNOWN_PENDING_RECONCILE works correctly
+  [ ] OrderLifecycle creates correct order structure
+  [ ] OrderLifecycle correctly handles PARTIAL_FILL → FILLED → CLOSED
+  [ ] PositionManager tracks correct position size after fill
+  [ ] ProtectionModel correctly sets SL/TP
+  [ ] ProtectionModel correctly handles stop-loss trigger
+  [ ] ReconciliationEngine correctly matches order → execution → position
+  [ ] PAPER mode: PaperBroker executes correctly with slippage + spread
+  [ ] REAL mode: RealBroker connects and sends correct order format
+  [ ] PAPER ⇄ REAL: mode switch works (ALERT always active)
+  [ ] KillSwitch: stops ALL activity immediately
+  [ ] KillSwitch: recovery path works
+  [ ] BlockedActionJournal: every rejection logged with correct severity
+  [ ] All execution events written to Side C (EXECUTION_EVENT family)
+  [ ] Replay: replay execution events → Side A reproduces identical state
+
+Contract tests (CRITICAL — these protect capital):
+  ct_exec_001: Captain → Side A intent (contract — intent schema)
+  ct_exec_002: Side A RiskGate → StateMachine (12 check contract)
+  ct_exec_003: Side A StateMachine → OrderLifecycle (state transition contract)
+  ct_exec_004: Side A OrderLifecycle → PositionManager (fill contract)
+  ct_exec_005: Side A PositionManager → ProtectionModel (SL/TP contract)
+  ct_exec_006: Side A → PAPER broker (contract — order format)
+  ct_exec_007: Side A → REAL broker (contract — order format)
+  ct_exec_008: Side A PAPER → REAL parity (same contract, different endpoint)
+  ct_exec_009: Side A → Side C execution events (event contract)
+
+──────────────────────────────────────────────────────────────────────
+STAGE 9.6 — MEMORY WIRING (All Floors + Sides → Side C)
+──────────────────────────────────────────────────────────────────────
+
+Purpose:  Verify that every event emitter across all floors and sides
+          correctly writes to Side C with the correct event family,
+          correct schema, and correct routing.
+
+Verification checklist:
+  [ ] Floor 1: HEALTH_EVENT emitted on every tick health check
+  [ ] Floor 2: HEALTH_EVENT emitted on every validation cycle
+  [ ] Floor 2: REPLAY_REF emitted on every replay run
+  [ ] Floor 2: REVIEW_REF emitted on every governance review
+  [ ] Floor 3: HEALTH_EVENT emitted on every calculation cycle
+  [ ] Floor 5: DECISION_JOURNAL emitted on every heavy cycle
+  [ ] Side A: TRADE_JOURNAL emitted on every trade event
+  [ ] Side A: EXECUTION_EVENT emitted on every lifecycle transition
+  [ ] Side A: BLOCKED_ACTION emitted on every risk gate rejection
+  [ ] Side A: OVERRIDE emitted on every operator override
+  [ ] EventRouter correctly routes each family to the correct store
+  [ ] EmitterRegistry rejects non-approved emitters (test with fake emitter)
+  [ ] WriteContracts validate schema before write (reject malformed events)
+  [ ] EventStore.append-only: cannot delete or update existing events
+  [ ] JournalStore.append-only: cannot delete or update existing journals
+  [ ] ReferenceStore.append-only: cannot delete or update existing refs
+  [ ] RetentionManager respects family-based retention policies
+  [ ] QueryLayer returns correct events for each family
+  [ ] ReadModelBuilder produces 5 correct summary types
+  [ ] Replay: replay stored events → Side C reproduces identical read models
+
+Contract tests:
+  ct_mem_001: Floor 1 → Side C HEALTH_EVENT (contract)
+  ct_mem_002: Floor 2 → Side C HEALTH_EVENT + REPLAY_REF + REVIEW_REF (contract)
+  ct_mem_003: Floor 3 → Side C HEALTH_EVENT (contract)
+  ct_mem_004: Floor 5 → Side C DECISION_JOURNAL (contract)
+  ct_mem_005: Side A → Side C TRADE_JOURNAL + EXECUTION_EVENT + BLOCKED_ACTION + OVERRIDE (contract)
+  ct_mem_006: EventRouter routing (all 8 families → correct stores)
+  ct_mem_007: EmitterRegistry rejection (non-approved emitter blocked)
+  ct_mem_008: Append-only enforcement (no update, no delete)
+  ct_mem_009: Retention policy enforcement (by family)
+
+──────────────────────────────────────────────────────────────────────
+STAGE 9.7 — DASHBOARD WIRING (All Floors + Sides → Side B)
+──────────────────────────────────────────────────────────────────────
+
+Purpose:  Verify that Side B correctly consumes read models from all
+          floors and sides and renders them in the operator terminal.
+
+IMPORTANT: Side B NEVER consumes raw stores — only read models from
+           query layer (Side C) or the floors' own read endpoints.
+
+Verification checklist:
+  [ ] Floor 1 data source → Side B: market status + health
+  [ ] Floor 2 data source → Side B: validation stats + data health
+  [ ] Floor 3 data source → Side B: signal summary + engine health
+  [ ] Floor 4 data source → Side B: head reports + floor summary
+  [ ] Floor 5 data source → Side B: conviction + armed plans + decision snapshots
+  [ ] Side A data source → Side B: execution state + position + risk status
+  [ ] Side C data source → Side B: memory + journal + event feeds (read models ONLY)
+  [ ] HOT refresh (500ms): price + position + risk status updated correctly
+  [ ] WARM refresh (3s): head reports + signals updated correctly
+  [ ] COLD refresh (30s): floor summary + health snapshots updated correctly
+  [ ] Route groups: all 10 groups return correct data
+  [ ] Command handlers: all 6 handlers work correctly
+      (mode switch, capital, kill-switch, override, reconnect, account reset)
+  [ ] UI renders all workspaces correctly (Cockpit, Replay, Review, Diagnostics)
+  [ ] State-Based Adaptive UI correctly shrinks/expands by system state
+  [ ] No-trade reason displayed as first-class visibility when Captain blocks
+  [ ] Chart surface shows SMC/ICT/Technical overlays correctly
+  [ ] Armed plan zones displayed correctly on chart
+  [ ] Replay workspace: read-only (no controls activated)
+  [ ] Alerts panel shows correct severity levels
+  [ ] No console errors in UI rendering
+
+Contract tests:
+  ct_dash_001: Floor 1 → Side B data source (contract)
+  ct_dash_002: Floor 2 → Side B data source (contract)
+  ct_dash_003: Floor 3 → Side B data source (contract)
+  ct_dash_004: Floor 4 → Side B data source (contract)
+  ct_dash_005: Floor 5 → Side B data source (contract)
+  ct_dash_006: Side A → Side B data source (contract)
+  ct_dash_007: Side C read models → Side B data source (contract — NO raw stores)
+  ct_dash_008: Refresh scheduler (HOT/WARM/COLD timing contract)
+  ct_dash_009: Command handlers (request_ prefix contract)
+  ct_dash_010: UI state rendering (all 4 workspaces contract)
+
+──────────────────────────────────────────────────────────────────────
+STAGE 9.8 — FULL SYSTEM END-TO-END TEST
+──────────────────────────────────────────────────────────────────────
+
+Purpose:  One integrated test that exercises the entire system from
+          market data intake through broker execution, with replay
+          verification.
+
+Test scenario (run in PAPER mode only):
+  1. Start all floors and sides
+  2. Inject recorded market data (prepare 3 hours of NSE tick data)
+  3. Wait for Floor 1 → Floor 2 → Floor 3 → Floor 4 → Floor 5 cycle
+  4. Wait for Captain to produce conviction
+  5. If conviction >= TRADABLE (60+), wait for armed plan
+  6. Verify armed plan reaches Side A
+  7. Verify Side A risk gate processes intent
+  8. Verify Side A state machine transitions correctly
+  9. Verify PaperBroker executes order (with realistic slippage)
+  10. Verify PositionManager tracks position
+  11. Verify ProtectionModel sets SL/TP
+  12. Verify all events written to Side C
+  13. Verify Side B renders all data correctly
+  14. Stop the system
+  15. Run replay — verify all floors + sides reproduce identical state
+  16. Verify Side C replay events match original events
+
+Pass/fail criteria:
+  - ALL 16 steps complete without error
+  - No unhandled exceptions in any floor or side
+  - No contract violation in any wiring stage
+  - Replay produces bit-for-bit identical output
+  - Side B renders all panels without console errors
+  - End-to-end latency under 30 seconds per cycle
+
+This test is run 3 times with different market data sets.
+
+----------------------------------------------------------------------
+SECTION 4 — INPUT/OUTPUT CONTRACTS
+----------------------------------------------------------------------
+
+4.1  System-level output contract (what the system produces)
+
+  The complete system produces:
+    - Armed plans (from Captain) → executed by Side A
+    - Execution records (from Side A) → stored in Side C
+    - Decision journals (from Captain) → stored in Side C
+    - Health events (from all floors + Side A) → stored in Side C
+    - Trade journals (from Side A) → stored in Side C
+    - Operator display (from Side B) → rendered in browser
+    - Alerts (from Side B) → pushed to operator
+    - No-trade reasons (from Side B) → displayed to operator
+
+4.2  System-level input contract (what the system consumes)
+
+  The complete system consumes:
+    - Market data (NSE equities, indices, FX, options) via Floor 1
+    - Macro data (via Floor 2 macro support)
+    - Operator commands (from Side C → Side A via Side B)
+    - Operator overrides (from Side B → Side A)
+    - Replay data (from Side C → all floors + sides)
+
+4.3  Contract versioning
+
+  After Phase 9, ALL contracts are FROZEN at version 1.0.
+  Any schema change requires:
+    1. Deprecation notice (version bump to 1.1)
+    2. 2-week dual-write period
+    3. Full Phase 9 re-verification
+
+4.4  Replay output contract
+
+  Replay must produce EXACTLY the same output as live execution for
+  the same input data.  Deterministic modules must be bit-for-bit
+  identical.  Non-deterministic modules (e.g., broker latency) must
+  produce equivalent state.
+
+----------------------------------------------------------------------
+SECTION 5 — DEPENDENCY MAP
+----------------------------------------------------------------------
+
+Stage        Depends On                        Blocks
+──────────────────────────────────────────────────────────────────
+9.1 — Ingest Validation    Phase 8 complete (all floors + sides)   9.2
+9.2 — Calculation Wiring   9.1 pass                                9.3
+9.3 — Interpretation Wiring 9.2 pass                               9.4
+9.4 — Decision Wiring      9.3 pass                                9.5
+9.5 — Execution Wiring     9.4 pass                                Full system test
+9.6 — Memory Wiring        9.1 pass (Side C operational)           Full system test (parallel with 9.5)
+9.7 — Dashboard Wiring     9.1 + 9.6 pass                          Full system test (parallel with 9.5/9.6)
+9.8 — Full System Test     9.5 + 9.6 + 9.7 pass                    None (final gate)
+
+Stages 9.5, 9.6, and 9.7 can run in PARALLEL once their
+dependencies are met.
+
+----------------------------------------------------------------------
+SECTION 6 — WIRING DIAGRAM
+----------------------------------------------------------------------
+
+The full wiring diagram for Phase 9 verification:
+
+  Market ──► Floor 1 ──► Floor 2 ──► Floor 3 ──► Floor 4 ──► Floor 5 ──► Side A ──► Broker
+     │            │           │           │           │           │            │
+     │            │           │           │           │           │            │
+     │            ▼           ▼           ▼           ▼           ▼            ▼
+     │        ┌───────────────────────────────────────────────────────────────────┐
+     │        │                         Side C Event Store                       │
+     │        │  (HEALTH_EVENT, REPLAY_REF, REVIEW_REF, DECISION_JOURNAL,        │
+     │        │   TRADE_JOURNAL, EXECUTION_EVENT, BLOCKED_ACTION, OVERRIDE)      │
+     │        └───────────────────────────────────────────────────────────────────┘
+     │                         │                 │
+     │                         │ Read Models     │ Raw events (NOT consumed)
+     │                         ▼                 ▼
+     │        ┌───────────────────────────────────────────────────────────────────┐
+     │        │                         Side B Dashboard                         │
+     │        │  (consumes read models ONLY — NEVER raw stores)                  │
+     │        └───────────────────────────────────────────────────────────────────┘
+     │                         │
+     │                         ▼
+     │        ┌───────────────────────────────────────────────────────────────────┐
+     │        │                         Operator                                 │
+     │        │  (views dashboard, sends commands via Side B)                    │
+     │        └───────────────────────────────────────────────────────────────────┘
+     │                         │
+     │                         ▼
+     │        ┌───────────────────────────────────────────────────────────────────┐
+     │        │                     Side A Command Handlers                      │
+     │        │  (request_mode, request_capital, request_kill_switch, …)        │
+     │        └───────────────────────────────────────────────────────────────────┘
+     │                         │
+     │                         ▼
+     │                     Side A Engine  ──► Broker
+     │
+     └──────────────────────────────────────► Side C Replay
+                                              (all floors + sides)
+
+CRITICAL WIRING RULES:
+  - Side B → Operator: read-only display, commands use request_ prefix
+  - Operator → Side B: view only (commands go through Side A handlers)
+  - Side B → Side A: request_ commands only (never execute_)
+  - Side A → Side C: ALL events logged, ALL the time
+  - Side C → Side B: read models ONLY, never raw stores
+  - Floor 5 → Side A: intents only (never raw positions)
+  - Side A → Floor 5: execution status only (never instructions)
+  - Replay: reads from Side C, writes REPLAY_REF back to Side C
+
+----------------------------------------------------------------------
+SECTION 7 — DATA FLOW
+----------------------------------------------------------------------
+
+7.1  Live data flow (normal operation)
+
+  Tick ──► Floor 1 (raw) ──► Floor 1 (cleaned) ──► Floor 2 (validated) ──► Floor 2 (structured)
+       ──► Floor 3 (calculated) ──► Floor 4 (interpreted) ──► Floor 5 (decided)
+       ──► Side A (executed) ──► Broker
+
+  Every step logs events to Side C.
+  Side B reads summaries from Side C read models and direct floor data sources.
+
+7.2  Replay data flow
+
+  Side C REPLAY_REF ──► Floor 1 (replay mode) ──► Floor 2 (replay mode) ──► Floor 3 (replay mode)
+       ──► Floor 4 (replay mode) ──► Floor 5 (replay mode) ──► Side A (replay mode)
+
+  Replay mode skips broker connection, uses replay adapter instead.
+  Replay produces comparison report showing differences (if any).
+  If replay diverges from live: flag as CRITICAL, investigate immediately.
+
+7.3  Error data flow
+
+  Any floor or side error → Side C HEALTH_EVENT (error severity)
+  Any risk gate rejection → Side A BLOCKED_ACTION (logged with severity)
+  Any broker error → Side A BLOCKED_ACTION → Side C EXECUTION_EVENT (failed state)
+  Any system-level error → KillSwitch → Side C HEALTH_EVENT (critical)
+
+7.4  Recovery data flow
+
+  Recover from KillSwitch → clear error state → replay last healthy state
+  Recover from LOCKED → operator override required → Side A state reset
+  Recover from UNKNOWN → reconciliation → Side A state determined
+
+----------------------------------------------------------------------
+SECTION 8 — VALIDATION MATRIX
+----------------------------------------------------------------------
+
+8.1  Test environment
+
+  All Phase 9 tests run against:
+    - Local in-memory data (no external API calls during test)
+    - Recorded market data (3 sets of 3-hour NSE tick data)
+    - PAPER broker only (REAL broker tested in Stage 9.5 only)
+    - Single session (no multi-session tests in Phase 9)
+
+8.2  Contract validation (ct_*)
+
+  53 contract tests defined across all 8 stages:
+    - 4 ingest-validation contracts (ct_ingest_001-004)
+    - 7 calculation contracts (ct_calc_001-007)
+    - 9 head contracts (ct_head_001-009)
+    - 5 decision contracts (ct_dec_001-005)
+    - 9 execution contracts (ct_exec_001-009)
+    - 9 memory contracts (ct_mem_001-009)
+    - 10 dashboard contracts (ct_dash_001-010)
+
+  Each contract test verifies:
+    - Input schema matches producer output
+    - Output schema matches consumer input
+    - Required fields are present with correct types
+    - Optional fields are correctly nullable
+    - Enum values are within allowed range
+
+8.3  Replay validation (rp_*)
+
+  Replay tests (rp_001-010):
+    rp_001: Floor 1 replay (raw data → cleaned data)
+    rp_002: Floor 2 replay (cleaned data → structured data)
+    rp_003: Floor 3 replay (structured data → calculated signals)
+    rp_004: Floor 4 replay (signals → head reports)
+    rp_005: Floor 5 replay (head reports → armed plans)
+    rp_006: Side A replay (execution events → position state)
+    rp_007: Side C replay (all events → read models)
+    rp_008: Full system replay (all floors + sides)
+    rp_009: Replay with partial data (test edge cases)
+    rp_010: Replay with error injection (test error recovery)
+
+8.4  Integration validation (it_*)
+
+  Integration tests (it_001-016):
+    it_001: Floor 1 → Floor 2 end-to-end (single tick)
+    it_002: Floor 1 → Floor 2 end-to-end (burst)
+    it_003: Floor 2 → Floor 3 end-to-end (all 3 engines)
+    it_004: Floor 3 → Floor 4 end-to-end (all 6 heads)
+    it_005: Floor 4 → Floor 5 end-to-end (full decision cycle)
+    it_006: Floor 5 → Side A end-to-end (intent → execution)
+    it_007: Side A PAPER broker end-to-end (order → fill → close)
+    it_008: Side A → Side C event logging (all 5 families)
+    it_009: Floor 1 → Side C health events
+    it_010: Side C → Side B read models
+    it_011: Side B UI rendering (all workspaces)
+    it_012: Full system: inject tick → broker fill → dashboard render
+    it_013: Full system: error injection → kill switch → recovery
+    it_014: Full system: replay → comparison report
+    it_015: Full system: operator override → execution
+    it_016: Full system: 3-loss lock → REAL lock → override → unlock
+
+8.5  Non-functional validation (nf_*)
+
+    nf_001: Cycle time < 30 seconds (heavy cycle end-to-end)
+    nf_002: Light cycle < 1 second
+    nf_003: Memory usage < 2GB during normal operation
+    nf_004: Memory usage < 4GB during replay
+    nf_005: Side B page load < 3 seconds
+    nf_006: Side B refresh within HOT/WARM/COLD tolerances
+
+----------------------------------------------------------------------
+SECTION 9 — CROSS-COMPONENT IMPACTS
+----------------------------------------------------------------------
+
+9.1  Impact on Floor 1
+
+  - Floor 1 tick router must provide source information for Side C health events
+  - Floor 1 must expose read endpoint for Side B market data source
+  - Floor 1 replay mode must use identical cleaning pipeline
+
+9.2  Impact on Floor 2
+
+  - Floor 2 validators must provide validation metadata for Side C events
+  - Floor 2 structurers must expose read endpoint for Side B validation stats
+  - Floor 2 replay mode must use identical structuring pipeline
+
+9.3  Impact on Floor 3
+
+  - Floor 3 must expose per-engine health for Side C HEALTH_EVENT
+  - Floor 3 must expose signal summary for Side B data source
+  - Floor 3 orchestrator must accept market phase from Floor 1/2 source
+
+9.4  Impact on Floor 4
+
+  - Floor 4 must expose head reports for Side B consumption
+  - Floor 4 must expose FloorSummary for Side B + Side C
+  - Floor 4 heads must log to Side C (HEALTH_EVENT)
+
+9.5  Impact on Floor 5
+
+  - Floor 5 must expose conviction + armed plans for Side B
+  - Floor 5 must expose decision snapshots for Side C
+  - Floor 5 permission gate must respect Floor 4 head health
+
+9.6  Impact on Side A
+
+  - Side A must expose execution state for Side B
+  - Side A must log ALL events to Side C (5 families)
+  - Side A must respect operator commands via Side B command handlers
+  - Side A must support replay mode (skip broker, use replay adapter)
+
+9.7  Impact on Side C
+
+  - Side C must accept events from ALL 8 families
+  - Side C must reject non-approved emitters
+  - Side C must provide read models for Side B
+  - Side C must support replay queries (events by time range)
+
+9.8  Impact on Side B
+
+  - Side B must consume read models, NOT raw stores
+  - Side B must respect HOT/WARM/COLD refresh model
+  - Side B must use request_ prefix for command handlers
+  - Side B must render no-trade reason as first-class display element
+
+9.9  Impact on replay
+
+  - Every floor and side must support replay mode
+  - Replay data flows left-to-right, same as live
+  - Replay state must be isolated (no interference with live state)
+  - Replay comparison report must highlight any divergence
+
+----------------------------------------------------------------------
+SECTION 10 — COMMON MISTAKES
+----------------------------------------------------------------------
+
+10.1 Architecture-breaking mistakes (will fail Phase 9)
+
+  Mistake 1: Skipping contract validation between stages
+    Prevention: Each stage requires ALL contract tests to pass before
+                the next stage begins.  NO exceptions.
+    Detection:   Stage gate failures
+
+  Mistake 2: Running stages out of order
+    Prevention: Stage dependency map is enforced by test harness.
+    Detection:   Stage fails because dependency not met
+
+  Mistake 3: Testing REAL broker before PAPER broker passes
+    Prevention: REAL broker tests only in Stage 9.5, after all PAPER
+                tests pass.  REAL capital is never at risk.
+    Detection:   Risk gate blocks REAL mode until PAPER verified
+
+  Mistake 4: Side B consuming raw Side C stores
+    Prevention: Contract test ct_dash_007 verifies read models only.
+                CI pipeline includes a grep for "raw_store" in Side B code.
+    Detection:   Contract test fails / CI pipeline rejects
+
+  Mistake 5: Skipping replay verification
+    Prevention: Each stage includes replay verification.  Full system
+                replay (Stage 9.8 step 15) is required for Phase 9 pass.
+    Detection:   Stage gate fails / final exit criteria not met
+
+  Mistake 6: Modifying contracts during Phase 9
+    Prevention: ALL contracts are frozen during Phase 9.  Any schema
+                change requires restarting from Stage 9.1.
+    Detection:   Contract version mismatch error
+
+  Mistake 7: Running end-to-end test with incomplete wiring
+    Prevention: Stage 9.8 requires Stages 9.5, 9.6, and 9.7 to pass first.
+    Detection:   Stage gate fails
+
+  Mistake 8: Testing with synthetic data only (not real recorded data)
+    Prevention: Stage 9.8 runs against 3 sets of recorded NSE market data.
+    Detection:   Non-functional tests fail (real market patterns differ
+                 from synthetic)
+
+  Mistake 9: Phase 9 considered optional
+    Prevention: Phase 9 is MANDATORY before any REAL capital is deployed.
+                No armed plan can execute against a REAL broker without
+                Phase 9 sign-off.
+    Detection:   Exit criteria not met — system refuses REAL mode
+
+10.2 What creates rework later (and how to prevent it)
+
+  Rework 1: Missing contract tests
+    Fix:      Add the missing test, rerun the stage.
+    Prevent:  Each contract must have at least one test before the
+              stage gate is built.
+
+  Rework 2: Unhandled None in any data path
+    Fix:      Add None check, log to Side C HEALTH_EVENT, rerun.
+    Prevent:  Type-check every input/output boundary.
+
+  Rework 3: Stale read models in Side B
+    Fix:      Update read model, rerun dashboard wiring.
+    Prevent:  Side B refresh scheduler includes health check for
+              read model freshness.
+
+  Rework 4: Replay state leaking into live state
+    Fix:      Isolate replay state, rerun replay tests.
+    Prevent:  Replay uses separate in-memory state (not shared with live).
+
+  Rework 5: EmitterRegistry allows non-approved emitter
+    Fix:      Update registry, rerun contract test.
+    Prevent:  ct_mem_007 explicitly tests rejection of fake emitter.
+
+  Rework 6: Side B command handler uses execute_ instead of request_
+    Fix:      Rename handler, rerun contract test.
+    Prevent:  ct_dash_009 verifies request_ prefix.
+
+  Rework 7: Integration test order-dependence
+    Fix:      Make tests independent, rerun.
+    Prevent:  Each integration test creates its own data (no shared state).
+
+----------------------------------------------------------------------
+SECTION 11 — READY-TO-CODE CHECKLIST
+----------------------------------------------------------------------
+
+11.1 Entry criteria (Phase 9 may begin when ALL are true)
+
+  [ ] Phase 8 complete: all floors and sides built and unit-tested
+  [ ] ROADMAP_FLOOR_01 verified and signed off
+  [ ] ROADMAP_FLOOR_02 verified and signed off
+  [ ] ROADMAP_FLOOR_03 verified and signed off
+  [ ] ROADMAP_FLOOR_04 verified and signed off
+  [ ] ROADMAP_FLOOR_05 verified and signed off
+  [ ] ROADMAP_SIDE_A verified and signed off
+  [ ] ROADMAP_SIDE_B verified and signed off
+  [ ] ROADMAP_SIDE_C verified and signed off
+  [ ] Recorded market data prepared (3 sets of 3-hour NSE tick data)
+  [ ] Test harness for contract validation exists
+  [ ] Test harness for replay validation exists
+  [ ] All floors and sides compile without errors
+  [ ] All unit tests pass (all prior phases)
+
+11.2 Per-stage verification
+
+  Stage 9.1 — Ingest-Validation Wiring:
+    [ ] 11 verification items pass
+    [ ] 4 contract tests pass (ct_ingest_001-004)
+    [ ] Replay test passes (rp_001 + rp_002)
+
+  Stage 9.2 — Calculation Wiring:
+    [ ] 12 verification items pass
+    [ ] 7 contract tests pass (ct_calc_001-007)
+    [ ] Replay test passes (rp_003)
+
+  Stage 9.3 — Interpretation Wiring:
+    [ ] 14 verification items pass
+    [ ] 9 contract tests pass (ct_head_001-009)
+    [ ] Replay test passes (rp_004)
+
+  Stage 9.4 — Decision Wiring:
+    [ ] 16 verification items pass
+    [ ] 5 contract tests pass (ct_dec_001-005)
+    [ ] Replay test passes (rp_005)
+
+  Stage 9.5 — Execution Wiring:
+    [ ] 21 verification items pass
+    [ ] 9 contract tests pass (ct_exec_001-009)
+    [ ] Replay test passes (rp_006)
+    [ ] PAPER mode verified before REAL mode tested
+
+  Stage 9.6 — Memory Wiring:
+    [ ] 20 verification items pass
+    [ ] 9 contract tests pass (ct_mem_001-009)
+    [ ] Replay test passes (rp_007)
+
+  Stage 9.7 — Dashboard Wiring:
+    [ ] 20 verification items pass
+    [ ] 10 contract tests pass (ct_dash_001-010)
+
+  Stage 9.8 — Full System End-to-End:
+    [ ] 16 verification items pass (all steps of test scenario)
+    [ ] Runs against 3 market data sets
+    [ ] Replay test passes (rp_008, rp_009, rp_010)
+    [ ] Integration tests pass (it_001-016)
+    [ ] Non-functional tests pass (nf_001-006)
+
+11.3 Integration verification
+
+  [ ] All 53 contract tests pass
+  [ ] All 10 replay tests pass
+  [ ] All 16 integration tests pass
+  [ ] All 6 non-functional tests pass
+  [ ] Full system end-to-end test passes (3 runs)
+  [ ] No unhandled exceptions in any floor or side
+  [ ] All events logged to Side C correctly
+  [ ] Side B renders all panels without console errors
+  [ ] Kill switch works and system recovers correctly
+  [ ] Replay produces identical state for all floors + sides
+
+11.4 Exit criteria (Phase 9 complete when ALL are true)
+
+  [ ] All 8 stages pass verification
+  [ ] All 53 contract tests pass
+  [ ] All 10 replay tests pass
+  [ ] All 16 integration tests pass
+  [ ] All 6 non-functional tests pass
+  [ ] Full system end-to-end test passes against 3 market data sets
+  [ ] Contracts frozen at version 1.0
+  [ ] System is ready for REAL broker connection
+  [ ] Documentation updated:
+      - Roadmap/FULL_SYSTEM_INTEGRATION_COMPLETED.txt created (this file locked)
+      - Any schema changes documented with version history
+  [ ] Final sign-off obtained
+
+================================================================================
+ END OF ROADMAP_FULL_SYSTEM_INTEGRATION
+================================================================================

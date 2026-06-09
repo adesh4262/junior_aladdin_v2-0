@@ -1,0 +1,1217 @@
+================================================================================
+ROADMAP FLOOR 04: DEPARTMENT HEADS
+================================================================================
+File: ROADMAP_FLOOR_04.txt
+Version: 1.0
+Status: Implementation Execution Document
+Depends On: ROADMAP_PHASE_0_FOUNDATION, ROADMAP_FLOOR_01, ROADMAP_FLOOR_02,
+            ROADMAP_SIDE_C (Stage A), ROADMAP_FLOOR_03
+Next In Chain: ROADMAP_FLOOR_05
+================================================================================
+
+This is NOT an architecture document.
+This is an IMPLEMENTATION EXECUTION DOCUMENT.
+
+DO NOT:
+- Redefine architecture
+- Change ownership
+- Change contracts
+- Change dataflow
+- Change wiring
+- Change sequencing
+
+DO:
+- Define step-by-step build order
+- Define per-module contracts
+- Define per-module validation
+- Define wiring between modules
+- Define integration points
+- Make this coding-ready
+
+================================================================================
+SECTION 1: PURPOSE
+================================================================================
+
+Floor 4 is the expert interpretation layer of the Junior Aladdin system. It
+consumes calculated intelligence from Floor 3 (states, maps, scores, candidates)
+across 6 domains and converts them into structured Captain-readable expert reports.
+
+Floor 4 exists because:
+- Captain should NOT interpret raw Floor 3 calculations directly
+- Raw calculations lack domain-specific context, memory, and judgment
+- Floor 4 reduces complexity before it reaches Captain
+- Floor 4 adds explainability, invalidation, and freshness to every opinion
+
+Floor 4 produces TWO output layers:
+- Layer A (Individual Head Reports): detailed, structured, domain-specific
+- Layer B (Floor Summary): compact, aggregate, quick-read intelligence layer
+
+Floor 4 outputs flow EXCLUSIVELY to Floor 5 (Captain). Floor 4 does NOT
+communicate with Side A, Side B, or Side C directly (though reports may be
+referenced by Side B through Captain's output).
+
+GOLDEN CHAIN (MUST NEVER BE VIOLATED):
+QUALITY = FLOOR 3 (calculations, scores, maps)
+CONFIDENCE = FLOOR 4 (Heads interpret, create confidence)
+CONVICTION = FLOOR 5 (Captain judges, creates conviction)
+
+CRITICAL ARCHITECTURE RULES:
+Rule 1: Floor 4 creates CONFIDENCE, NOT conviction (conviction = Floor 5)
+Rule 2: Heads INTERPRET, they do NOT recalculate (Floor 3 owns calculation)
+Rule 3: Heads suggest OPPORTUNITY, they NEVER approve trade (Captain approves)
+Rule 4: EVERY Head MUST produce invalidation (non-negotiable)
+Rule 5: Macro Head — NO primary_setup, NO backup_setup (gate/context only)
+Rule 6: Psychology Head — NO primary_setup, NO backup_setup (brake head only)
+Rule 7: SMC/ICT Heads — context_quality_score MANDATORY
+Rule 8: MAX 2 setups per actionable head (primary + backup)
+Rule 9: Heads are INDEPENDENT — no head rewrites another head's opinion
+Rule 10: Floor Summary by itself does NOT make decisions — Captain judges
+
+================================================================================
+SECTION 2: COMPONENT ARCHITECTURE
+================================================================================
+
+FLOOR 4 DIRECTORY STRUCTURE:
+
+floor_4_heads/
+├── __init__.py                    # Module init, exposes floor_summary_builder
+├── head_types.py                  # Head type definitions (enums, dataclasses)
+├── head_report_schema.py          # Standard report contract all heads follow
+├── head_memory_base.py            # Common memory interface/patterns
+├── head_refresh_policy.py         # 1m base / 5m/15m deep / tick watch
+├── head_state_manager.py          # READY/UNCERTAIN/STALE + freshness logic
+├── trigger_formatter.py           # Standard trigger object creation
+├── invalidation_formatter.py      # Standard invalidation object creation
+├── floor_summary_builder.py       # Aggregates head outputs into Floor Summary
+├── technical_head.py              # Technical Head — trend, momentum, MTF, VWAP
+├── smc_head.py                    # SMC Head — structure, OB/FVG/liquidity
+├── ict_head.py                    # ICT Head — premium/discount, displacement, MSS
+├── options_head.py                # Options Head — OI, PCR, IV, walls, max pain
+├── macro_head.py                  # Macro Head — VIX, FII/DII, events (gate only)
+├── psychology_head.py             # Psychology Head — brake, cooldown, traps
+└── tests/
+    ├── __init__.py
+    ├── test_head_types.py
+    ├── test_head_report_schema.py
+    ├── test_head_memory_base.py
+    ├── test_head_refresh_policy.py
+    ├── test_head_state_manager.py
+    ├── test_trigger_formatter.py
+    ├── test_invalidation_formatter.py
+    ├── test_floor_summary_builder.py
+    ├── test_technical_head.py
+    ├── test_smc_head.py
+    ├── test_ict_head.py
+    ├── test_options_head.py
+    ├── test_macro_head.py
+    ├── test_psychology_head.py
+    ├── test_contract_validation.py      # Cross-module contract alignment
+    ├── test_no_setup_propagation.py     # Macro/Psychology setup lock verification
+    ├── test_replay_validation.py        # Replay determinism
+    └── test_integration.py              # Full Floor 4 end-to-end
+
+================================================================================
+SECTION 3: STEP-BY-STEP BUILD ORDER
+================================================================================
+
+BUILD SEQUENCE (must be followed in this order):
+
+PHASE A — HEAD INFRASTRUCTURE (Steps 4.1-4.7)
+Build the shared foundation that ALL heads depend on.
+
+PHASE B — HEADS (Steps 4.8-4.13)
+Build each head independently (they don't depend on each other).
+Can build in parallel or serially — head isolation is by design.
+
+PHASE C — FLOOR SUMMARY (Step 4.14)
+Build last — depends on all heads existing.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4.1 — head_types.py (Zero external Floor 4 imports)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: Phase 0 types (from types.py)
+Imports from: types.py (BiasType, HeadState, FreshnessTag, MarketPhase)
+
+Define all Floor 4 specific enums and dataclasses:
+
+Enums:
+- HeadName: TECHNICAL, SMC, ICT, OPTIONS, MACRO, PSYCHOLOGY
+- HeadState: READY, UNCERTAIN, STALE
+- SetupPresence: HAS_PRIMARY, HAS_BACKUP, NO_SETUP
+- NoSetupType: READY_NO_SETUP, UNCERTAIN_NO_SETUP, STALE_NO_SETUP
+- TriggerType: ZONE_HIT, ZONE_PLUS_CONFIRMATION, MULTI_CONDITION
+- ContextQuality: HIGH, MEDIUM, LOW
+- CautionLevel: NONE, LOW, MEDIUM, HIGH
+- ConflictType: NONE, INTERNAL, CROSS_HEAD
+
+Dataclasses:
+- HeadReport: head_name, state, freshness_score, freshness_tag,
+  last_deep_update, bias, confidence, dominant_tf, timeframe_view,
+  primary_setup, backup_setup, active_zones, armed_triggers,
+  invalidation, bull_case, bear_case, confluence_note,
+  witness_summary, timestamp, setup_presence, setup_absence_context
+- SetupObject: name, direction, zone, trigger_conditions list,
+  priority, trade_class_hint, setup_type (PRIMARY/BACKUP)
+- InvalidationObject: reason, conditions list, triggered (bool),
+  triggered_at, severity
+- TriggerObject: trigger_type, zone, confirmation_needed,
+  confirmation_received, active (bool), triggered_at
+- HeadSummaryState: head_name, state, freshness_tag, bias,
+  primary_setup_name, confidence, has_invalidation
+- FloorSummary: summary_timestamp, floor_bias_snapshot,
+  floor_confidence_snapshot, active_setup_count,
+  primary_setups_by_head dict, backup_setups_by_head dict,
+  ready_heads_count, uncertain_heads_count, stale_heads_count,
+  head_health_snapshot dict, core_head_health_snapshot dict,
+  conflict_present, stale_warning_present,
+  strongest_domain_signal, strongest_context_signal,
+  strongest_risk_warning, summary_witness_lines list,
+  no_setup_context list
+- SMCHeadReport (extends HeadReport): context_quality_score
+- ICTHeadReport (extends HeadReport): context_quality_score
+- MacroHeadReport (extends HeadReport): caution_level, event_risk_flag,
+  macro_bias_leaning, trade_allowed (gate context)
+- PsychologyHeadReport (extends HeadReport): trade_allowed, caution_level,
+  cooldown_active, repeated_mistake_flag, trap_pressure, block_reason
+- OptionsHeadReport (extends HeadReport): context_bucket
+
+Output contract (this module):
+- All enums and dataclasses exported from head_types
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4.2 — head_report_schema.py (Depends on head_types.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: head_types.py
+Imports from: head_types (all dataclasses)
+
+Define the standard report contract that ALL heads must follow:
+
+Standard Head Report Structure:
+- head_name: HeadName enum
+- state: HeadState (READY/UNCERTAIN/STALE)
+- freshness_score: float (0.0-1.0)
+- freshness_tag: FreshnessTag (FRESH/WARM/STALE)
+- last_deep_update: datetime
+- bias: BiasType (BULLISH/BEARISH/NEUTRAL)
+- confidence: float (0.0-1.0)
+- dominant_tf: str (e.g., "1m", "5m", "15m")
+- timeframe_view: str (narrative description of timeframe alignment)
+- primary_setup: SetupObject or None
+- backup_setup: SetupObject or None
+- active_zones: list of zone objects
+- armed_triggers: list of TriggerObject
+- invalidation: InvalidationObject (MANDATORY — never None)
+- bull_case: str (narrative)
+- bear_case: str (narrative)
+- confluence_note: str (MANDATORY — narrative of cross-domain context)
+- witness_summary: str (2-3 short points)
+- timestamp: datetime
+- setup_presence: SetupPresence
+- setup_absence_context: NoSetupType or None
+
+Contract validation rules:
+- invalidation MUST never be None (reject report if missing)
+- For SMC/ICT: context_quality_score MUST be present (reject if missing)
+- For Macro/Psychology: primary_setup MUST be None
+- For Macro/Psychology: backup_setup MUST be None
+- primary_setup and backup_setup direction can be dynamic by regime
+  (trend day → same direction, range day → alternate)
+
+Output contract (this module):
+- ReportValidator class with validate(report) method
+- validate_report_contract() function
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4.3 — head_memory_base.py (Depends on head_types.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: head_types.py
+Imports from: head_types
+
+Define common memory interface/patterns for all heads.
+
+Key design decisions:
+- Memory depth is HEAD-SPECIFIC (not uniform)
+- SMC: longer structural memory (multi-session)
+- Psychology: mainly intraday behavior memory
+- Options: session + recent shift memory
+- Macro: current day + prior carryover context
+- Memory interface is shared, depth policies are head-specific
+
+Common memory interface:
+- remember(key, value, ttl) → store domain-relevant item
+- recall(key) → retrieve stored item
+- forget(key) → remove specific item
+- clear_expired() → remove all expired items
+- get_context() → return all active context for report generation
+- Stale items must be removable explicitly
+
+Validation:
+- Memory items must have TTL
+- Expired items must be cleared before report generation
+- Memory should NOT bloat — keep only domain-relevant state
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4.4 — head_refresh_policy.py (Depends on head_types.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: head_types.py, head_memory_base.py
+Imports from: head_types, head_memory_base
+
+Define common refresh rules that align with Captain's two-speed architecture:
+
+A. 1-MINUTE BASE REFRESH
+- Keep Captain updated at intraday speed
+- Refresh tactical interpretation, setup relevance, confidence, invalidation
+- Aligns with Captain's heavy cycle (1m candle close)
+
+B. 5-MINUTE / 15-MINUTE DEEP REFRESH
+- Deeper structural refresh
+- Stronger zone validity update
+- Bigger timeframe confirmation refresh
+- Not every head rethinks structure every 1m (noise reduction)
+
+C. TICK-LEVEL LIGHT WATCH
+- Trigger watch only
+- Invalidation touch awareness
+- Micro confirmation watch for already-known setups
+- NOT full thinking on every tick (performance + noise)
+
+RefreshPolicy dataclass:
+- base_refresh_interval_seconds: 60 (1m)
+- deep_refresh_interval_seconds: 300 (5m) or 900 (15m) — head-specific
+- tick_watch_enabled: bool
+- min_ticks_between_refresh: int (for tick watch throttling)
+- stale_after_seconds: int (when state becomes STALE without update)
+
+Output: RefreshPolicy for each head type
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4.5 — head_state_manager.py (Depends on Steps 4.1-4.4)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: head_types.py, head_refresh_policy.py
+Imports from: head_types, head_refresh_policy
+
+Manage head state lifecycle:
+- State: READY / UNCERTAIN / STALE
+- Freshness score + tag computation
+
+State transition rules:
+- READY: last_deep_update within freshness window, no internal conflict
+- UNCERTAIN: conflicting signals, borderline freshness, partial data
+- STALE: last_deep_update beyond stale threshold, degraded data
+
+Freshness computation:
+- freshness_score: 0.0 (stale) to 1.0 (fresh)
+- freshness_tag: FRESH (score > 0.7), WARM (0.3-0.7), STALE (< 0.3)
+- last_deep_update: timestamp of last meaningful refresh
+
+State + Freshness interaction:
+- READY + FRESH/WARM → normal trust
+- UNCERTAIN + any → reduced interpretive weight
+- STALE + STALE → caution, reduced trust, possible block per head type
+
+For Captain's weighted confluence:
+- State/freshness conditions influence how confidently a head can speak
+- BUT confidence ownership remains with Floor 4 (not determined by freshness alone)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4.6 — trigger_formatter.py (Depends on head_types.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: head_types.py
+Imports from: head_types
+
+Standard trigger object creation. Keeps trigger format consistent across heads.
+
+Hybrid trigger model:
+- Normal trigger: simple zone trigger (zone hit + one confirmation)
+- Premium trigger: multi-condition trigger
+  (zone + reclaim + volume + context + structural support)
+
+Trigger creation:
+- create_trigger(name, zone, trigger_type, confirmation_needed) → TriggerObject
+- create_premium_trigger(name, zone, conditions list) → TriggerObject
+- check_trigger(trigger, market_data) → triggered (bool)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4.7 — invalidation_formatter.py (Depends on head_types.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: head_types.py
+Imports from: head_types
+
+Standard invalidation object creation.
+Invalidation is MANDATORY in ALL heads (non-negotiable).
+
+Invalidation creation:
+- create_invalidation(reason, conditions, severity) → InvalidationObject
+- check_invalidation(invalidation, market_data) → triggered (bool), triggered_at
+- merge_invalidations(list) → combined invalidation summary
+
+Why mandatory: Captain's thesis integrity tracking and active trade supervision
+depend on invalidation. Without it, a head says "I like this" but never says
+"I am wrong if this breaks."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4.8 — technical_head.py (Depends on Steps 4.1-4.7)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: All head infrastructure (Steps 4.1-4.7)
+Imports from: head_types, head_report_schema, head_memory_base,
+              head_refresh_policy, head_state_manager, trigger_formatter,
+              invalidation_formatter
+
+Inputs from Floor 3:
+- States: trend_state, momentum_state, technical_condition_state,
+  mtf_state, candle_pattern_state, Common Market State Projection
+- Maps: active_technical_level_map
+- Scores: no mandatory Tier 1 score (optional technical support)
+- Candidates: technical continuation/reclaim candidates if exposed
+
+Internal Thinking:
+- Is trend aligned or fragmented?
+- Is current move impulsive, healthy, weak, or overextended?
+- Is price above/below key technical references with quality?
+- Is the setup continuation-friendly or fade-prone?
+- Does current state support Captain's possible trade timing?
+
+Memory:
+- Recent trend shifts, MTF alignment evolution, VWAP relation history
+- Previous day key technical levels
+- Short chain of basic candle behavior
+
+Primary Setup examples: VWAP pullback continuation, trend continuation reclaim
+Backup Setup examples: technical breakout continuation, support/resistance rebound
+
+Invalidation examples: VWAP relation lost decisively, continuation structure broken,
+MTF alignment collapses below threshold
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4.9 — smc_head.py (Depends on Steps 4.1-4.7)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: All head infrastructure (Steps 4.1-4.7)
+Imports from: head_types, head_report_schema, head_memory_base,
+              head_refresh_policy, head_state_manager, trigger_formatter,
+              invalidation_formatter
+
+Inputs from Floor 3:
+- States: shared structure state, smc_state, ob_state, fvg_state,
+  liquidity_state, sweep_state, mitigation_state
+- Maps: active_ob_map, active_fvg_map, active_liquidity_map
+- Scores: smc_quality_score (mandatory)
+- Candidates: SMC setup candidates
+
+Internal Thinking:
+- Where is strongest active structural opportunity?
+- Is current interaction with OB/FVG/liquidity meaningful or weak?
+- Is sweep real, failed, or trap-like?
+- Is market in continuation phase or trap/reversal phase?
+- Is setup context high quality or only technically existing?
+
+Memory:
+- Active OBs, FVGs, liquidity pools
+- Recent defended/broken levels, trap-prone zones
+- Short multi-day structural carryover where relevant
+
+Primary Setup examples: FVG retest, liquidity sweep reclaim, OB bounce
+Backup Setup examples: BOS continuation, defended imbalance continuation
+
+Invalidation examples: OB breaks, FVG loses context, reclaim fails,
+structure flips against setup
+
+EXTRA MANDATORY FIELD: context_quality_score
+- Floor 3 provides raw material (smc_quality_score, maps, states, candidates)
+- SMC Head derives context_quality_score from that material
+- Context quality is NOT confidence, NOT conviction — it's interpretive quality
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4.10 — ict_head.py (Depends on Steps 4.1-4.7)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: All head infrastructure (Steps 4.1-4.7)
+Imports from: head_types, head_report_schema, head_memory_base,
+              head_refresh_policy, head_state_manager, trigger_formatter,
+              invalidation_formatter
+
+Inputs from Floor 3:
+- States: shared structure state, ict_state, premium_discount_state,
+  displacement_state, mss_state, delivery_context_state
+- Maps: active_pd_map, active_displacement_map, active_delivery_map
+- Scores: ict_delivery_score (mandatory)
+- Candidates: ICT setup candidates
+
+Internal Thinking:
+- Is price in premium or discount location?
+- Was there real displacement or weak move?
+- Is MSS meaningful or noisy?
+- Is market showing controlled delivery in one direction?
+- Is setup context strong enough to be trusted?
+
+Memory:
+- Previous day context, weekly directional carryover
+- Displacement history, timing-style context
+- Premium/discount map continuity
+
+Primary Setup examples: premium/discount reaction, displacement reclaim
+Backup Setup examples: MSS continuation, delivery-aligned reversal attempt
+
+Invalidation examples: discount lost, premium invalidated, displacement erased,
+MSS fails to hold meaning
+
+EXTRA MANDATORY FIELD: context_quality_score
+- Floor 3 provides raw material (ict_delivery_score, maps, states, candidates)
+- ICT Head derives context_quality_score from that material
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4.11 — options_head.py (Depends on Steps 4.1-4.7)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: All head infrastructure (Steps 4.1-4.7)
+Imports from: head_types, head_report_schema, head_memory_base,
+              head_refresh_policy, head_state_manager, trigger_formatter,
+              invalidation_formatter
+
+Inputs from Floor 3:
+- States: options_state, pressure_state, wall_state, iv_state
+- Maps: active_wall_map, active_options_pressure_map
+- Scores: optional support score if present
+- Candidates: options setup candidates
+
+Internal Thinking:
+- Does options market confirm directional continuation?
+- Is price pushing into strong wall resistance/support?
+- Is there pressure expansion or pressure exhaustion?
+- Is IV condition helpful or dangerous?
+
+Memory:
+- Session OI behavior, recent wall shifts
+- IV regime changes, short recent options behavior history
+
+Primary Setup examples: OI wall bounce, options pressure continuation
+Backup Setup examples: wall-break transition, pressure collapse follow-through
+
+Invalidation examples: wall disappears, supportive pressure collapses,
+derivatives bias flips sharply
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4.12 — macro_head.py (Depends on Steps 4.1-4.7)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: All head infrastructure (Steps 4.1-4.7)
+Imports from: head_types, head_report_schema, head_memory_base,
+              head_refresh_policy, head_state_manager, invalidation_formatter
+
+Inputs from Floor 3:
+- States: macro_state, caution_state, event_risk_state, environment_state
+- Maps: none major by default
+- Scores: optional only
+- Candidates: NONE (locked — Macro does not produce setups)
+
+CRITICAL LOCKED RULES:
+- Macro Head is a LIGHT GATE / CONTEXT head
+- NOT a dominant directional strategy machine
+- Primary Setup: NONE (locked — verify in tests)
+- Backup Setup: NONE (locked — verify in tests)
+
+Internal Thinking:
+- Is broader environment calm or risky?
+- Is event risk nearby?
+- Is macro background mildly supportive or cautionary?
+- Should Captain become more conservative?
+
+Memory:
+- Current day macro state, recent carryover context
+- Event schedule memory
+
+Report Output:
+- macro_bias_leaning (LIGHT — not dominant)
+- confidence, caution_level, event_risk_flag
+- invalidation (MANDATORY — event passed, caution removed)
+- bull_case / bear_case if helpful
+- witness_summary
+- freshness + state
+
+Invalidation examples: event risk passed, macro caution removed,
+volatility condition normalized
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4.13 — psychology_head.py (Depends on Steps 4.1-4.7)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: All head infrastructure (Steps 4.1-4.7)
+Imports from: head_types, head_report_schema, head_memory_base,
+              head_refresh_policy, head_state_manager, invalidation_formatter
+
+Inputs from Floor 3 (support metrics):
+- trap_count, recent_loss_count, cooldown_timer, overtrade_flag
+- support_psych_state_basic
+
+CRITICAL LOCKED RULES:
+- Psychology Head is a BALANCED BRAKE head
+- NOT a directional setup machine
+- Primary Setup: NONE (locked — verify in tests)
+- Backup Setup: NONE (locked — verify in tests)
+
+Internal Thinking:
+- Trade allowed or not?
+- Brake level low/medium/high?
+- Cooldown active or not?
+- Repeated mistake risk present?
+- Current day trap density unusually high?
+
+Memory:
+- Today's losses, cooldown history
+- Same-zone repeated errors
+- Intraday trap-heavy areas, discipline markers
+
+Report Output:
+- trade_allowed (bool) — FINAL word on permission
+- caution_level (NONE/LOW/MEDIUM/HIGH)
+- cooldown_active (bool)
+- repeated_mistake_flag (bool)
+- trap_pressure (float 0.0-1.0)
+- block_reason (str or None)
+- invalidation (MANDATORY in brake sense — cooldown completed, risk cleared)
+- witness_summary
+- freshness + state
+
+Invalidation examples: cooldown completed, repeated mistake risk cleared,
+block condition lifted
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4.14 — floor_summary_builder.py (Depends on ALL heads — Steps 4.8-4.13)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: All 6 heads (Steps 4.8-4.13), head_types.py
+Imports from: head_types, all head modules
+
+Build the Floor Summary — compact aggregate intelligence for Captain.
+
+How Floor Summary is created:
+1. Collect all head states → ready_heads_count, uncertain_heads_count,
+   stale_heads_count
+2. Collect all head primary/backup setup summaries → active_setup_count,
+   primary_setups_by_head, backup_setups_by_head
+3. Collect bias alignment and confidence shape → floor_bias_snapshot,
+   floor_confidence_snapshot
+4. Collect stale/conflict warnings → conflict_present, stale_warning_present
+5. Build head_health_snapshot (per-head: state + freshness_tag)
+6. Build core_head_health_snapshot (SMC, ICT, Technical, Macro, Psychology)
+7. Identify strongest signals → strongest_domain_signal,
+   strongest_context_signal, strongest_risk_warning
+8. Evaluate no_setup intelligence → no_setup_context list
+9. Compress into Captain-readable FloorSummary
+
+NO_SETUP intelligence propagation:
+- READY_NO_SETUP: head is healthy, no valid setup exists (healthy silence)
+- UNCERTAIN_NO_SETUP: no valid setup, interpretation unstable/conflicted
+- STALE_NO_SETUP: no valid setup, report health degraded/stale
+
+When Captain uses Floor Summary first:
+- routine heavy cycle start
+- quick first-pass understanding
+- fast check whether deep drill-down is necessary
+
+When Captain drills down into individual reports:
+- conflict present
+- strong conviction candidate exists
+- stale core head exists (especially SMC/ICT)
+- context quality issue present
+- intervention review required
+- opposite case appears significant
+
+Output: FloorSummary dataclass (all mandatory fields populated)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4.15 — __init__.py (Depends on ALL Steps 4.1-4.14)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Module initialization. Exposes floor_summary_builder as primary public API.
+
+Responsibilities:
+- Module init
+- Head lifecycle management
+- floor_summary_builder as primary entry point
+- Health reporting to Side C
+
+================================================================================
+SECTION 4: INPUT/OUTPUT CONTRACTS
+================================================================================
+
+INPUTS (from Floor 3):
+
+| Head          | Consumed States                                      | Consumed Maps                    | Consumed Scores           |
+|---------------|------------------------------------------------------|----------------------------------|---------------------------|
+| Technical     | trend_state, momentum_state, technical_condition,    | active_technical_level_map       | optional                  |
+|               | mtf_state, candle_pattern_state, CMSP                |                                  |                           |
+| SMC           | shared_structure_state, smc_state, ob_state,         | active_ob_map, active_fvg_map,   | smc_quality_score         |
+|               | fvg_state, liquidity_state, sweep_state, mitigation  | active_liquidity_map             |                           |
+| ICT           | shared_structure_state, ict_state,                   | active_pd_map, active_displace,  | ict_delivery_score        |
+|               | premium_discount_state, displacement_state,          | active_delivery_map              |                           |
+|               | mss_state, delivery_context_state                    |                                  |                           |
+| Options       | options_state, pressure_state, wall_state, iv_state  | active_wall_map, active_pressure | optional                  |
+| Macro         | macro_state, caution_state, event_risk_state,        | none                             | optional                  |
+|               | environment_state, CMSP                              |                                  |                           |
+| Psychology    | support_psych_state_basic                            | none                             | none                      |
+
+OUTPUTS (to Floor 5 — Captain):
+
+| Output Category     | Format                                       | Mandatory Fields                                     |
+|---------------------|----------------------------------------------|------------------------------------------------------|
+| Floor Summary       | FloorSummary dataclass                       | timestamp, bias, confidence, setup_count,            |
+|                     |                                              | head_health, core_health, conflict, stale,           |
+|                     |                                              | strongest signals, witness_lines                     |
+| Technical Report    | HeadReport[Technical]                        | bias, confidence, invalidation, dominant_tf,         |
+|                     |                                              | primary/backup setup, active_zones, witness           |
+| SMC Report          | SMCHeadReport                                | bias, confidence, context_quality_score,              |
+|                     |                                              | invalidation, primary/backup setup, active_zones     |
+| ICT Report          | ICTHeadReport                                | bias, confidence, context_quality_score,              |
+|                     |                                              | invalidation, primary/backup setup, active_zones     |
+| Options Report      | OptionsHeadReport                            | bias, confidence, invalidation, primary/backup setup,|
+|                     |                                              | active_walls, context_bucket                          |
+| Macro Report        | MacroHeadReport                              | bias_leaning, confidence, caution_level,             |
+|                     |                                              | event_risk_flag, invalidation, NO setups             |
+| Psychology Report   | PsychologyHeadReport                         | trade_allowed, caution_level, cooldown_active,       |
+|                     |                                              | invalidation, NO setups, block_reason                |
+
+| Output Category     | Destination | Notes                                             |
+|---------------------|-------------|--------------------------------------------------- |
+| Floor Summary       | Floor 5     | Captain reads this FIRST (summary-first workflow)  |
+| Individual Reports  | Floor 5     | Captain drills down when needed                    |
+| Health Events       | Side C      | HEALTH_EVENT for head state changes, errors        |
+
+CONTRACT VIOLATIONS THAT MUST REJECT:
+1. HeadReport without invalidation → HALT (system error, do not forward)
+2. SMC/ICT report without context_quality_score → HALT
+3. Macro report with primary_setup=NOT_NONE → HALT (locked rule violation)
+4. Psychology report with primary_setup=NOT_NONE → HALT (locked rule violation)
+5. FloorSummary without required fields → HALT
+6. HeadState undefined (not READY/UNCERTAIN/STALE) → HALT
+
+================================================================================
+SECTION 5: DEPENDENCY MAP
+================================================================================
+
+INTERNAL DEPENDENCIES (Floor 4):
+
+Module                       Depends On                                    Depended By
+───────────────────────────  ────────────────────────────────────────────  ─────────────────────────
+head_types.py                types.py (Phase 0)                            ALL modules
+head_report_schema.py        head_types.py                                 ALL heads
+head_memory_base.py          head_types.py                                 ALL heads
+head_refresh_policy.py       head_types.py, head_memory_base.py            head_state_manager
+head_state_manager.py        head_types.py, head_refresh_policy.py         ALL heads
+trigger_formatter.py         head_types.py                                 SMC, ICT, Options, Technical
+invalidation_formatter.py    head_types.py                                 ALL heads
+technical_head.py            head_infra (4.1-4.7)                          floor_summary_builder
+smc_head.py                  head_infra (4.1-4.7)                          floor_summary_builder
+ict_head.py                  head_infra (4.1-4.7)                          floor_summary_builder
+options_head.py              head_infra (4.1-4.7)                          floor_summary_builder
+macro_head.py                head_infra (4.1-4.7)                          floor_summary_builder
+psychology_head.py           head_infra (4.1-4.7)                          floor_summary_builder
+floor_summary_builder.py     ALL 6 heads + head_types                      __init__ (entry point)
+
+EXTERNAL DEPENDENCIES:
+
+Floor 4 Depends On:
+- Phase 0: types.py, config.py, logging.py, errors.py
+- Floor 3: ALL 6 domain outputs (states, maps, scores, candidates, CMSP)
+- Side C: HEALTH_EVENT emitter capability
+
+Floor 4 is Depended By:
+- Floor 5 (Captain): receives FloorSummary + 6 HeadReports
+
+Floor 4 does NOT depend on:
+- Side A (execution)
+- Side B (dashboard)
+- Floor 5 (captain)
+- Floor 1 (raw market data — already abstracted by Floor 3)
+- Floor 2 (raw validated data — already abstracted by Floor 3)
+
+CRITICAL: Heads do NOT depend on each other.
+- SMC Head does NOT call Technical Head
+- ICT Head does NOT call Options Head
+- Each head is completely independent
+- Only floor_summary_builder aggregates across heads
+
+================================================================================
+SECTION 6: WIRING DIAGRAM
+================================================================================
+
+FLOOR 3 OUTPUT STREAM (6 domains)
+        │
+        ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  HEAD INFRASTRUCTURE                                                │
+│  (head_types, report_schema, memory_base, refresh_policy,           │
+│   state_manager, trigger_formatter, invalidation_formatter)         │
+└───────┬──────────┬──────────┬──────────┬──────────┬─────────┬──────┘
+        │          │          │          │          │         │
+        ▼          ▼          ▼          ▼          ▼         ▼
+┌────────────┐ ┌────────┐ ┌────────┐ ┌──────────┐ ┌──────┐ ┌──────────┐
+│ Technical  │ │ SMC    │ │ ICT    │ │ Options  │ │Macro │ │Psychology│
+│ Head       │ │ Head   │ │ Head   │ │ Head     │ │Head  │ │ Head     │
+│            │ │        │ │        │ │          │ │(gate)│ │ (brake)  │
+│ trend      │ │ OB/FVG │ │ PD Arr │ │ OI/PCR   │ │VIX   │ │traps     │
+│ MTF        │ │ Liq.   │ │ Disp.  │ │ walls    │ │FII   │ │cooldown  │
+│ VWAP       │ │ Sweep  │ │ MSS    │ │ IV       │ │events│ │block     │
+│ RSI        │ │ Mitiga │ │ Deliv. │ │ max pain │ │      │ │          │
+└──────┬─────┘ └───┬────┘ └───┬────┘ └─────┬────┘ └──┬───┘ └─────┬────┘
+       │            │          │            │         │           │
+       └────────────┴──────────┴────────────┴─────────┴───────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  FLOOR SUMMARY BUILDER                                             │
+│  - Aggregates head states                                          │
+│  - Computes bias/confidence snapshots                              │
+│  - Builds head_health_snapshot (all 6 heads)                       │
+│  - Builds core_head_health_snapshot (5 critical heads)             │
+│  - Detects conflict + stale warnings                               │
+│  - Identifies strongest signals                                    │
+│  - Propagates NO_SETUP intelligence                                │
+└──────────────────────────┬──────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  OUTPUT TO CAPTAIN (Floor 5):                                      │
+│  - FloorSummary (compact — read first)                             │
+│  - 6 HeadReports (detailed — drill down when needed)              │
+│  ──────────────────────────► Floor 5 Captain                        │
+│  Health: HEALTH_EVENT ────► Side C                                  │
+└─────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+SECTION 7: DATA FLOW
+================================================================================
+
+HEAVY CYCLE (1m candle close — aligns with Captain's heavy cycle):
+
+1. Floor 3 produces domain outputs for current 1m candle
+2. Each head receives its specific Floor 3 inputs (states, maps, scores, candidates)
+3. Head checks refresh_policy: is it time for base or deep refresh?
+4. Head updates domain memory (head_memory_base)
+5. Head performs interpretation:
+   a. Read Floor 3 domain states
+   b. Evaluate against head's domain knowledge
+   c. Check memory for relevant context
+   d. Assess setup quality (context_quality_score for SMC/ICT)
+6. Head selects primary/backup setups (or determines no-setup)
+7. Head creates invalidation (MANDATORY for all heads)
+8. Head updates state + freshness (head_state_manager):
+   - Compute freshness_score, freshness_tag
+   - Determine state: READY/UNCERTAIN/STALE
+9. Head produces HeadReport with all mandatory fields
+10. head_report_schema.validate(report) — contract check
+11. floor_summary_builder collects all 6 head reports
+12. Summary builder computes: bias, confidence, conflict, stale, strongest signals
+13. Summary builder builds head_health_snapshot + core_head_health_snapshot
+14. Summary builder propagates NO_SETUP intelligence
+15. FloorSummary + 6 HeadReports dispatched to Captain
+
+LIGHT CYCLE (tick level — align with Captain's light cycle):
+
+1. Head checks whether tick triggers any armed trigger
+2. Head checks whether tick touches any invalidation condition
+3. Head updates freshness_score (slight decay on each tick without refresh)
+4. NO full interpretation, NO setup selection, NO memory deep update
+5. Only trigger watch + invalidation awareness + freshness decay
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CAPTAIN CONSUMPTION MODEL:
+
+Step 1 — Read Floor Summary FIRST (summary-first workflow)
+- Quick overall state
+- Conflict detection
+- Stale warnings
+- Strongest domain signal snapshot
+
+Step 2 — Drill down into individual reports ONLY when needed:
+- Conflict present
+- Strong conviction candidate found
+- Core head stale (especially SMC/ICT)
+- Context quality low or unusual
+- Intervention review needed
+- Opposite case seems strong
+
+================================================================================
+SECTION 8: VALIDATION MATRIX
+================================================================================
+
+UNIT VALIDATION (per module, before integration):
+
+| Module                   | Unit Tests                              | Validates                                       |
+|--------------------------|-----------------------------------------|-------------------------------------------------|
+| head_types.py            | test_head_types.py                      | All enums/dataclasses instantiate correctly     |
+| head_report_schema.py    | test_head_report_schema.py              | Report validation rejects missing invalidation  |
+| head_memory_base.py      | test_head_memory_base.py                | Store/recall/expire cycle works                 |
+| head_refresh_policy.py   | test_head_refresh_policy.py             | Refresh intervals computed correctly            |
+| head_state_manager.py    | test_head_state_manager.py              | State transitions, freshness computation        |
+| trigger_formatter.py     | test_trigger_formatter.py               | Normal/premium triggers created and checked     |
+| invalidation_formatter   | test_invalidation_formatter.py          | Invalidation creation and checking              |
+| technical_head.py        | test_technical_head.py                  | Trend/Momentum/MTF interpretation correct       |
+| smc_head.py              | test_smc_head.py                        | OB/FVG/liquidity interpretation, context_quality|
+| ict_head.py              | test_ict_head.py                        | PD/displacement/MSS interpretation, context_qual|
+| options_head.py          | test_options_head.py                    | OI/wall/IV interpretation                       |
+| macro_head.py            | test_macro_head.py                      | NO setups, gate logic, event risk               |
+| psychology_head.py       | test_psychology_head.py                 | NO setups, brake logic, trade_allowed           |
+| floor_summary_builder    | test_floor_summary_builder.py           | Aggregation, conflict detection, head_health    |
+
+CONTRACT VALIDATION (cross-module):
+
+| Test File                         | Validates                                         |
+|-----------------------------------|---------------------------------------------------|
+| test_contract_validation.py       | All head reports have mandatory invalidation      |
+|                                   | SMC/ICT reports have context_quality_score         |
+|                                   | Macro report has NO primary_setup                  |
+|                                   | Psychology report has NO primary_setup             |
+|                                   | FloorSummary has all mandatory fields              |
+|                                   | No Floor 5 types leaked into Floor 4 output       |
+|                                   | head_health_snapshot contains all 6 heads          |
+|                                   | core_head_health_snapshot contains 5 core heads    |
+
+NO-SETUP PROPAGATION VALIDATION:
+
+| Test File                         | Validates                                         |
+|-----------------------------------|---------------------------------------------------|
+| test_no_setup_propagation.py      | Macro produces NO primary_setup → test passes     |
+|                                   | Psychology produces NO primary_setup → test passes|
+|                                   | Technical head with no setup → setup_presence=NO  |
+|                                   | setup_absence_context correctly classified         |
+|                                   | FloorSummary includes no_setup_context             |
+|                                   | READY_NO_SETUP ≠ UNCERTAIN_NO_SETUP ≠ STALE_NO_SETUP|
+
+REPLAY VALIDATION:
+
+| Test File                         | Validates                                         |
+|-----------------------------------|---------------------------------------------------|
+| test_replay_validation.py         | Same Floor 3 data → identical head reports        |
+|                                   | Same head reports → identical Floor Summary       |
+|                                   | Same inputs → identical confidence scores         |
+|                                   | Same inputs → identical invalidation state        |
+|                                   | Freshness/time-dependent fields marked as replay  |
+
+INTEGRATION VALIDATION (end-to-end Floor 4):
+
+| Test File                         | Validates                                         |
+|-----------------------------------|---------------------------------------------------|
+| test_integration.py               | All 6 heads produce valid reports from Floor 3    |
+|                                   | Floor Summary correctly aggregates all heads      |
+|                                   | Conflict detection works (heads disagree → true)  |
+|                                   | Stale detection works (stale head → stale_warning)|
+|                                   | head_health_snapshot format correct               |
+|                                   | core_head_health_snapshot format correct          |
+|                                   | NO_SETUP intelligence correctly propagated        |
+|                                   | Captain can consume Floor Summary first           |
+
+================================================================================
+SECTION 9: CROSS-COMPONENT IMPACTS
+================================================================================
+
+IMPACT ON REPLAY:
+
+Floor 4 is NOT a replay owner. Replay truth comes from lower layers.
+But Floor 4 must remain replay-compatible:
+- Reports must be reconstructable from Floor 3 states/maps/scores/candidates
+- Floor Summary logic must be deterministic from same head inputs
+- Freshness/time-dependent fields must account for replay mode
+- Same Floor 3 input → same Floor 4 output (determinism check)
+
+Key constraint: Floor 4 replay depends on Floor 3 producing valid replay data.
+Without Floor 3 replay data, Floor 4 outputs cannot be verified.
+
+IMPACT ON DASHBOARD (Side B):
+
+Floor 4 is one of the strongest feed layers for Side B:
+- Floor Summary: bias, confidence, head health, conflict status
+- Head Reports: state, freshness, primary/backup setups, invalidation
+- Explainability: no-trade reasoning, confidence attribution, setup details
+- Freshness visualization: which heads are fresh/warm/stale
+- Conflict visualization: where heads disagree
+
+Dashboard does NOT display raw Floor 3 calculation data through Floor 4 —
+it uses Floor 4's interpreted outputs directly.
+
+IMPACT ON MEMORY (Side C):
+
+Floor 4 does NOT store memory. But Floor 4 outputs may be referenced by
+Side C in review or decision contexts:
+- Head report references in decision review
+- No-trade reason summaries referenced
+- Floor Summary references linked to Captain decision history
+- HEALTH_EVENT: head state changes, validation failures
+
+Floor 4 contributes:
+- HEALTH_EVENT: head state transitions, stale warnings, errors
+
+IMPACT ON EXECUTION (Side A):
+
+Floor 4 does NOT communicate with Side A. All Floor 4 outputs pass through
+Floor 5 (Captain) before reaching Side A.
+- Heads suggest opportunity → Captain approves → Side A executes
+- Heads provide invalidation → Captain monitors thesis → Side A manages trade
+
+================================================================================
+SECTION 10: COMMON MISTAKES + ANTI-PATTERNS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ARCHITECTURE-BREAKING MISTAKES:
+
+MISTAKE 1: Head producing conviction instead of confidence
+  - WRONG: smc_head returns conviction: 85 (belongs to Floor 5)
+  - RIGHT: smc_head returns confidence: 0.75, context_quality_score: HIGH
+  - PREVENTION: All head outputs reviewed for conviction-language
+  - DETECTION: CI check: no "conviction" field in floor_4_heads output
+  
+MISTAKE 2: Macro Head becoming a directional setup machine
+  - WRONG: macro_head returns primary_setup: {direction: "BUY"}
+  - RIGHT: macro_head returns caution_level: LOW, event_risk_flag: False
+  - PREVENTION: locked rule: Macro Head NEVER produces setups
+  - DETECTION: CI check: macro_head output has no primary_setup field
+
+MISTAKE 3: Psychology Head becoming a directional or entry engine
+  - WRONG: psychology_head returns setup suggestions
+  - RIGHT: psychology_head returns trade_allowed: True/False, block_reason
+  - PREVENTION: locked rule: Psychology Head NEVER produces setups
+  - DETECTION: CI check: psychology_head output has no setup fields
+
+MISTAKE 4: SMC/ICT not producing context_quality_score
+  - WRONG: smc_head returns report without context_quality_score
+  - RIGHT: smc_head ALWAYS includes context_quality_score in report
+  - PREVENTION: head_report_schema rejects if context_quality_score missing
+  - DETECTION: contract validation test catches missing field
+
+MISTAKE 5: Any head missing invalidation
+  - WRONG: Any head report without invalidation field
+  - RIGHT: EVERY head report includes invalidation (never None)
+  - PREVENTION: head_report_schema rejects if invalidation is None
+  - DETECTION: CI check: all head reports have invalidation
+
+MISTAKE 6: Head duplicating Floor 3 calculations
+  - WRONG: smc_head recalculates FVG from raw candles
+  - RIGHT: smc_head consumes Floor 3's FVG map and interprets it
+  - PREVENTION: Code review: no Floor 3 type calculations in head code
+  - DETECTION: CI check: no imports from floor_3_calculations domain modules
+
+MISTAKE 7: Cross-head coupling (one head depending on another)
+  - WRONG: smc_head imports from technical_head for "context"
+  - RIGHT: Each head is completely independent (pure isolation)
+  - PREVENTION: Architecture: heads import from infra only, not other heads
+  - DETECTION: CI check: no imports between head modules
+
+MISTAKE 8: Floor Summary containing too much detail
+  - WRONG: Floor Summary includes full head reports, raw zones, calculation logs
+  - RIGHT: Floor Summary is compact snapshot (bias, confidence, health, conflict)
+  - PREVENTION: FloorSummary schema limits fields to essential snapshot only
+
+MISTAKE 9: Head using candidate_grade as confidence or conviction
+  - WRONG: head sets confidence = candidate_grade value
+  - RIGHT: head interprets candidate_grade as quality input, creates own confidence
+  - PREVENTION: Code review: confidence derived from interpretation, not copy
+
+WHAT CREATES REWORK LATER:
+
+1. Not standardizing head report schema early
+   → Fix: head_report_schema built FIRST, before any head module
+   → Why: inconsistent reports = Captain parsing chaos
+
+2. Making heads too complex before Captain tests them
+   → Fix: build minimal viable head first, then enrich
+   → Why: Captain's needs define what heads should provide, not theoretical richness
+
+3. Skipping head_state_manager (no freshness awareness)
+   → Fix: freshness tracked from day one in every head
+   → Why: stale opinions used as fresh = dangerous decisions
+
+4. Not defining NO_SETUP intelligence propagation
+   → Fix: setup_absence_context included in report from day one
+   → Why: Captain can't distinguish healthy silence from stale silence
+
+5. Testing heads only with aligned data
+   → Fix: test conflict scenarios (heads disagree), not just harmony
+   → Why: Captain's conflict detection only works if tested
+
+6. Building all heads before testing any against Captain
+   → Fix: test one head through Captain flow before building all 6
+   → Why: integration surprises multiply with each head added
+
+7. Macro Head getting over-engineered with setups
+   → Fix: locked rule with CI enforcement
+   → Why: Macro as setup engine = Floor 4 identity drift
+
+8. Not preserving replay compatibility (time-dependent logic)
+   → Fix: inject timestamps, use deterministic freshness in replay mode
+   → Why: replay breaks if heads depend on wall-clock time
+
+================================================================================
+SECTION 11: READY-TO-CODE CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ENTRY CRITERIA (before you write any Floor 4 code):
+
+[ ] Phase 0 foundation complete (types.py, config.py, logging.py, errors.py exist)
+[ ] Floor 1 complete (Angel One connection produces PacketEnvelope)
+[ ] Floor 2 complete (validated structured data stream available)
+[ ] Side C Stage A complete (event store base, HEALTH_EVENT emitter)
+[ ] Floor 3 complete (all 6 domains produce states/maps/scores/candidates)
+[ ] Floor 3 → Floor 4 per-head consumption contracts verified
+[ ] Head report schema finalized in head_types.py
+[ ] Mock Floor 3 data generator produces realistic domain states
+[ ] Architecture law visible: Q=F3, C=F4, C=F5
+[ ] Locked rules printed: Macro/Psychology NO setups, invalidation mandatory
+[ ] Build order confirmed: head infra → all 6 heads → Floor Summary
+[ ] Refresh policy aligned with Captain's two-speed architecture
+
+BUILD CRITERIA (verify during each step):
+
+Per-file checklist (fill as you build each .py file):
+
+File: head_types.py
+[ ] All enums defined (HeadName, HeadState, SetupPresence, NoSetupType,
+    TriggerType, ContextQuality, CautionLevel, ConflictType)
+[ ] All dataclasses defined (HeadReport, SetupObject, InvalidationObject,
+    TriggerObject, HeadSummaryState, FloorSummary, plus all head-specific reports)
+[ ] No imports beyond types.py (Phase 0) and Python standard library
+[ ] Unit tests passing (test_head_types.py)
+
+File: head_report_schema.py
+[ ] ReportValidator.validate() rejects missing invalidation
+[ ] ReportValidator.validate() rejects missing context_quality_score for SMC/ICT
+[ ] ReportValidator.validate() rejects Macro/Psychology with setups
+[ ] All contract violations LOGGED, not silently ignored
+[ ] Unit tests passing (test_head_report_schema.py)
+
+File: head_memory_base.py
+[ ] remember(key, value, ttl) implemented
+[ ] recall(key) implemented
+[ ] clear_expired() implemented
+[ ] Stale items removable explicitly
+[ ] Unit tests passing (test_head_memory_base.py)
+
+File: head_refresh_policy.py
+[ ] base_refresh_interval_seconds = 60
+[ ] deep_refresh_interval defined per head type
+[ ] tick_watch_enabled flag
+[ ] stale_after_seconds defined
+[ ] Unit tests passing (test_head_refresh_policy.py)
+
+File: head_state_manager.py
+[ ] READY/UNCERTAIN/STALE transitions correct
+[ ] freshness_score computation (0.0-1.0)
+[ ] freshness_tag assignment (FRESH/WARM/STALE)
+[ ] State + freshness interaction correct
+[ ] Unit tests passing (test_head_state_manager.py)
+
+File: trigger_formatter.py
+[ ] Normal trigger creation (zone + one confirmation)
+[ ] Premium trigger creation (multi-condition)
+[ ] Trigger check logic
+[ ] Unit tests passing (test_trigger_formatter.py)
+
+File: invalidation_formatter.py
+[ ] create_invalidation() with reason + conditions + severity
+[ ] check_invalidation() with market data
+[ ] merge_invalidations()
+[ ] Unit tests passing (test_invalidation_formatter.py)
+
+File: technical_head.py
+[ ] Consumes: trend_state, momentum_state, technical_condition_state,
+    mtf_state, candle_pattern_state, active_technical_level_map, CMSP
+[ ] Produces valid HeadReport with invalidation
+[ ] Primary/backup setup selection correct
+[ ] No confidence as conviction
+[ ] Memory: trend shifts, MTF evolution, VWAP history
+[ ] Unit tests passing (test_technical_head.py)
+
+File: smc_head.py
+[ ] Consumes: shared_structure_state, smc_state, ob_state, fvg_state,
+    liquidity_state, sweep_state, mitigation_state,
+    active_ob/fvg/liquidity maps, smc_quality_score, SMC candidates
+[ ] Produces SMCHeadReport with context_quality_score (MANDATORY)
+[ ] context_quality_score derived from Floor 3 inputs, not copied
+[ ] invalidation NEVER None
+[ ] Primary/backup setup selection correct
+[ ] Memory: active OBs, FVGs, liquidity pools, defended/broken levels
+[ ] Unit tests passing (test_smc_head.py)
+
+File: ict_head.py
+[ ] Consumes: shared_structure_state, ict_state, premium_discount_state,
+    displacement_state, mss_state, delivery_context_state,
+    active_pd/displacement/delivery maps, ict_delivery_score, ICT candidates
+[ ] Produces ICTHeadReport with context_quality_score (MANDATORY)
+[ ] context_quality_score derived from Floor 3 inputs, not copied
+[ ] invalidation NEVER None
+[ ] Primary/backup setup selection correct
+[ ] Memory: previous day context, displacement history, PD map continuity
+[ ] Unit tests passing (test_ict_head.py)
+
+File: options_head.py
+[ ] Consumes: options_state, pressure_state, wall_state, iv_state,
+    active_wall_map, active_options_pressure_map, options candidates
+[ ] Produces OptionsHeadReport with invalidation
+[ ] Primary/backup setup selection correct
+[ ] Memory: session OI behavior, wall shifts, IV regime
+[ ] Unit tests passing (test_options_head.py)
+
+File: macro_head.py
+[ ] Consumes: macro_state, caution_state, event_risk_state, environment_state
+[ ] primary_setup = None (LOCKED — verify in test)
+[ ] backup_setup = None (LOCKED — verify in test)
+[ ] invalidation NEVER None
+[ ] caution_level, event_risk_flag populated
+[ ] Memory: current day macro state, event schedule
+[ ] Unit tests passing (test_macro_head.py)
+
+File: psychology_head.py
+[ ] Consumes: trap_count, recent_loss_count, cooldown_timer, overtrade_flag
+[ ] primary_setup = None (LOCKED — verify in test)
+[ ] backup_setup = None (LOCKED — verify in test)
+[ ] invalidation NEVER None (brake sense)
+[ ] trade_allowed, caution_level, cooldown_active, block_reason populated
+[ ] repeated_mistake_flag, trap_pressure computed
+[ ] Memory: today's losses, cooldown history, same-zone errors
+[ ] Unit tests passing (test_psychology_head.py)
+
+File: floor_summary_builder.py
+[ ] Collects all 6 head reports
+[ ] Computes: bias snapshot, confidence snapshot, setup_count
+[ ] Builds head_health_snapshot (all 6 heads: state + freshness_tag)
+[ ] Builds core_head_health_snapshot (SMC, ICT, Technical, Macro, Psychology)
+[ ] Detects conflict (heads disagree → conflict_present=True)
+[ ] Detects stale heads (any STALE → stale_warning_present=True)
+[ ] Identifies strongest_domain_signal, strongest_context_signal, strongest_risk_warning
+[ ] Propagates NO_SETUP intelligence (READY/UNCERTAIN/STALE distinction)
+[ ] FloorSummary has ALL mandatory fields
+[ ] Unit tests passing (test_floor_summary_builder.py)
+
+VERIFICATION TESTS:
+
+[ ] Each unit test file has ≥5 test cases covering edge cases
+[ ] Contract validation: all heads have invalidation → passes
+[ ] Contract validation: SMC/ICT have context_quality_score → passes
+[ ] Contract validation: Macro has NO primary_setup → passes
+[ ] Contract validation: Psychology has NO primary_setup → passes
+[ ] Contract validation: FloorSummary has all mandatory fields → passes
+[ ] No-setup propagation: READY_NO_SETUP correctly identified → passes
+[ ] No-setup propagation: UNCERTAIN_NO_SETUP correctly identified → passes
+[ ] No-setup propagation: STALE_NO_SETUP correctly identified → passes
+[ ] Replay validation: same Floor 3 inputs → identical Floor 4 outputs → passes
+[ ] Integration test: full cycle 6 heads → Floor Summary → passes
+[ ] Integration test: conflict present detected → passes
+[ ] Integration test: stale head detected → passes
+[ ] No cross-head imports → CI check passes
+[ ] No conviction in Floor 4 output → CI check passes
+
+EXIT CRITERIA (Phase 5 complete):
+
+[ ] All unit tests pass (18 test files)
+[ ] Contract validation tests pass
+[ ] No-setup propagation tests pass
+[ ] Replay validation tests pass
+[ ] Integration tests pass
+[ ] All 6 heads produce correctly formatted reports with invalidation
+[ ] SMC/ICT heads produce context_quality_score
+[ ] Macro/Psychology heads produce NO setups
+[ ] Floor Summary correctly aggregates + detects conflict + stale
+[ ] NO_SETUP intelligence propagated correctly (3 types distinguished)
+[ ] head_health_snapshot + core_head_health_snapshot both correct
+[ ] Floor 5 handoff contract verified (FloorSummary + Head Reports)
+[ ] Floor 3 → Floor 4 input contract verified (per-head consumption)
+[ ] 0 architecture violations (no conviction, no cross-head coupling)
+[ ] Heads are fully testable with mock Floor 3 data
+[ ] Floor 4 HEALTH_EVENT integration with Side C working
+
+================================================================================
+END OF ROADMAP FLOOR 04
+================================================================================

@@ -1,0 +1,1189 @@
+================================================================================
+ JUNIOR ALADDIN - ROADMAP MASTER
+ Overall Build Execution Document
+================================================================================
+
+DOCUMENT IDENTITY
+--------------------------------------------------------------------------------
+This is NOT an architecture document.
+This is an IMPLEMENTATION EXECUTION DOCUMENT.
+
+This document does NOT:
+- redefine architecture
+- change ownership
+- change contracts
+- change dataflow
+- change wiring
+- change sequencing
+
+This document DOES:
+- define the practical build path for the existing locked architecture
+- connect all 13 roadmap files into one coherent execution sequence
+- provide the dependency-aware, contract-aware, wiring-aware build order
+- serve as the daily reference for "what should I build today?"
+
+================================================================================
+SECTION 1 - BUILD PHILOSOPHY
+================================================================================
+
+JUNIOR ALADDIN is built BOTTOM → UP.
+
+This is locked and non-negotiable.
+
+Why bottom-up:
+- FLOOR 1 brings market data into the system
+- FLOOR 2 validates, cleans, and structures that data
+- FLOOR 3 transforms structured truth into intelligence
+- FLOOR 4 interprets that intelligence as expert opinion
+- FLOOR 5 judges that opinion into a decision
+- SIDE A executes the decision
+- SIDE B displays everything
+- SIDE C remembers everything
+
+Each layer depends on the layer below it.
+Building top-down means building blind — no data to test against.
+
+THE GOLDEN CHAIN:
+QUALITY   = FLOOR 3 (calculations, scores, maps)
+CONFIDENCE = FLOOR 4 (Heads interpret, create confidence)
+CONVICTION = FLOOR 5 (Captain judges, creates conviction)
+
+This chain must NEVER be violated during implementation.
+
+================================================================================
+SECTION 2 - ROADMAP FILE INDEX
+================================================================================
+
+This MASTER roadmap connects 13 execution roadmap files:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ ROADMAP FILES (implementation execution documents)                  │
+├─────────────────────────────────────────────────────────────────────┤
+│ 01. ROADMAP_MASTER                  ← THIS FILE (overall plan)      │
+│ 02. ROADMAP_PHASE_0_FOUNDATION     ← project skeleton + types      │
+│ 03. ROADMAP_FLOOR_01               ← market connection (data in)    │
+│ 04. ROADMAP_FLOOR_02               ← data center (truth + replay)   │
+│ 05. ROADMAP_SIDE_C                 ← memory/journal layer            │
+│ 06. ROADMAP_FLOOR_03               ← calculation engines            │
+│ 07. ROADMAP_FLOOR_04               ← department heads                │
+│ 08. ROADMAP_FLOOR_05               ← captain (decision layer)        │
+│ 09. ROADMAP_SIDE_A                 ← execution layer                 │
+│ 10. ROADMAP_SIDE_B                 ← dashboard (operator terminal)   │
+│ 11. ROADMAP_FULL_SYSTEM_INTEGRATION← end-to-end wiring               │
+│ 12. ROADMAP_TESTING_AND_VALIDATION ← system-wide testing gates       │
+│ 13. ROADMAP_DEPLOYMENT_AND_OPS     ← production readiness            │
+└─────────────────────────────────────────────────────────────────────┘
+
+EACH ROADMAP FILE MUST:
+- Be implementation-ready, coding-ready, validation-ready, integration-ready
+- Define: input source, output destination, contracts, dependencies
+- Cover: validation stage, integration point, replay/dashboard/memory impact
+- Have zero overlap, zero contradiction, zero duplicate ownership
+
+================================================================================
+SECTION 3 - CANONICAL BUILD SEQUENCE
+================================================================================
+
+The build happens in 12 sequential phases.
+Each phase maps to one or more roadmap files.
+
+PHASE MAP:
+
+┌─────────┬──────────────────────────────┬──────────────────────────┐
+│ PHASE   │ WHAT IS BUILT                │ ROADMAP FILE(S)          │
+├─────────┼──────────────────────────────┼──────────────────────────┤
+│ 0       │ Foundation / Project Skeleton│ ROADMAP_PHASE_0          │
+│         │ Shared types, config, logging│                          │
+├─────────┼──────────────────────────────┼──────────────────────────┤
+│ 1       │ FLOOR 1 — Market Connection  │ ROADMAP_FLOOR_01         │
+│         │ Angel One data ingress       │                          │
+├─────────┼──────────────────────────────┼──────────────────────────┤
+│ 2       │ FLOOR 2 — Data Center        │ ROADMAP_FLOOR_02         │
+│         │ Validation, cleaning, replay │                          │
+├─────────┼──────────────────────────────┼──────────────────────────┤
+│ 3       │ SIDE C — Base Memory Layer   │ ROADMAP_SIDE_C           │
+│         │ Event stores, journal stores │ (Stage A — base infra)   │
+├─────────┼──────────────────────────────┼──────────────────────────┤
+│ 4       │ FLOOR 3 — Calculation Engines│ ROADMAP_FLOOR_03         │
+│         │ 6 domains: Structure, SMC,   │                          │
+│         │ ICT, Technical, Options,     │                          │
+│         │ Macro + support metrics      │                          │
+├─────────┼──────────────────────────────┼──────────────────────────┤
+│ 5       │ FLOOR 4 — Department Heads   │ ROADMAP_FLOOR_04         │
+│         │ 6 Heads + Floor Summary      │                          │
+├─────────┼──────────────────────────────┼──────────────────────────┤
+│ 6       │ FLOOR 5 — Captain            │ ROADMAP_FLOOR_05         │
+│         │ Decision engine, armed plans │                          │
+│         │ Market narrative, conviction │                          │
+├─────────┼──────────────────────────────┼──────────────────────────┤
+│ 7       │ SIDE A — Execution Layer     │ ROADMAP_SIDE_A           │
+│         │ Risk gate, state machine,    │                          │
+│         │ paper/real broker, protection│                          │
+├─────────┼──────────────────────────────┼──────────────────────────┤
+│ 8       │ SIDE B — Dashboard           │ ROADMAP_SIDE_B           │
+│         │ Operator terminal, cockpit,  │                          │
+│         │ workspaces, controls         │                          │
+├─────────┼──────────────────────────────┼──────────────────────────┤
+│ 9       │ FULL SYSTEM INTEGRATION      │ ROADMAP_INTEGRATION      │
+│         │ End-to-end wiring, contract  │                          │
+│         │ verification, data flow test │                          │
+├─────────┼──────────────────────────────┼──────────────────────────┤
+│ 10      │ TESTING GATES                │ ROADMAP_TESTING          │
+│         │ Unit, integration, replay,   │                          │
+│         │ edge case, stress testing    │                          │
+├─────────┼──────────────────────────────┼──────────────────────────┤
+│ 11      │ PRODUCTION READINESS         │ ROADMAP_DEPLOYMENT       │
+│         │ Paper mode → real mode       │                          │
+│         │ Safety verification, launch  │                          │
+└─────────┴──────────────────────────────┴──────────────────────────┘
+
+CRITICAL RULE:
+No phase starts until ALL dependencies of that phase are verified complete.
+
+================================================================================
+SECTION 4 - DEPENDENCY GRAPH
+================================================================================
+
+CRITICAL PATH (must be serial):
+
+PHASE 0 (Foundation)
+    ↓ MUST HAVE
+PHASE 1 (Floor 1 — Market Connection)
+    ↓ MUST HAVE
+PHASE 2 (Floor 2 — Data Center)
+    ↓ MUST HAVE
+PHASE 4 (Floor 3 — Calculation Engines)
+    ↓ MUST HAVE
+PHASE 5 (Floor 4 — Department Heads)
+    ↓ MUST HAVE
+PHASE 6 (Floor 5 — Captain)
+    ↓ MUST HAVE
+PHASE 7 (Side A — Execution)
+    ↓ MUST HAVE
+PHASE 8 (Side B — Dashboard)
+
+PARALLEL-SAFE PATHS:
+
+PHASE 3 (Side C Base — Stage A)
+- Depends on: Phase 2 data contracts (NOT Phase 2 complete)
+- Blocks: nothing (grows alongside Phases 4-8)
+- Reason: Side C receives events from all layers; base infra is cheap and independent
+
+Side C Stage B (Full ingestion):
+- Grows alongside Phases 4-7 as floors emit real events
+- Does NOT block any phase
+
+Side A Internal Architecture:
+- Paper broker + state machine can start after Phase 6 contracts are defined
+- Does NOT need live Captain output to build internal logic
+
+Side B UI Scaffolding:
+- Component library, layout, workspace design can start after Phase 1
+- Full backend wiring needs Phases 4-8 data flowing
+
+================================================================================
+SECTION 5 - DEPENDENCY VALIDATION (WHY THIS ORDER)
+================================================================================
+
+PHASE 0 — FOUNDATION FIRST:
+- Nothing depends on it, everything depends on it.
+- Without project skeleton, types, config, logging — no module can be written.
+- Zero dependencies. Starting point of ALL code.
+
+PHASE 1 — FLOOR 1 FIRST AMONG FLOORS:
+- Floor 1 is the system's window to the market.
+- Without market data ingress, no data exists to process.
+- Floor 1 has zero dependencies on other floors — only on external API (Angel One).
+- Every floor above depends on Floor 1 data existing.
+
+PHASE 2 — FLOOR 2 SECOND:
+- Floor 1 produces raw packets. Floor 2 transforms raw → validated → cleaned → structured.
+- Floor 3 cannot compute intelligence on raw/unvalidated data.
+- Floor 2 is the truth foundation. Without it, everything above is garbage-in/garbage-out.
+
+PHASE 3 — SIDE C BASE THIRD:
+- Side C base needs Floor 2 data contracts (event formats, schemas).
+- Side C does NOT need Floor 3+ to be complete.
+- Starting Side C early ensures memory exists FROM PHASE 4 onward.
+- Every subsequent phase can emit events immediately.
+- Side C base is CHEAP to build early (~200 lines: types + stores + query).
+
+PHASE 4 — FLOOR 3 FOURTH:
+- Floor 3 requires Floor 2's validated candles, tick streams, options snapshots.
+- Without clean data, all intelligence is garbage.
+- Floor 3 is the first layer that creates meaning from data.
+- Floor 3 is the bottleneck for ALL higher floors (4, 5, Side A).
+
+PHASE 5 — FLOOR 4 FIFTH:
+- Heads cannot interpret what Floor 3 hasn't calculated yet.
+- Floor 4 is entirely dependent on Floor 3's domain outputs.
+- Without Floor 3 states/maps/scores/candidates, Heads have nothing to form opinions on.
+
+PHASE 6 — FLOOR 5 SIXTH:
+- Captain requires Head reports and Floor Summary from Floor 4.
+- Without expert interpretation, Captain has nothing to judge.
+- Captain is the CULMINATION of everything below — built last among floors.
+
+PHASE 7 — SIDE A SEVENTH:
+- Side A executes Captain's approved intents.
+- Without Captain producing decisions, Side A has nothing to execute.
+- But paper broker + state machine can build in parallel after contracts are defined.
+
+PHASE 8 — SIDE B EIGHTH:
+- Dashboard consumes data from ALL floors and sides.
+- Building it earlier means building against nonexistent/stub backends.
+- Dashboard is the LAST thing built because it shows everything that came before.
+
+PHASES 9-11 — FINAL:
+- Full integration requires all components to exist.
+- Testing requires a complete integrated system.
+- Production readiness requires tested, verified code.
+
+================================================================================
+SECTION 6 - COMPONENT IMPACT MATRIX
+================================================================================
+
+Every component built in the system has impacts across multiple dimensions.
+This matrix defines what each roadmap file must answer.
+
+COMPONENT: [Floor/Side Module]
+
+INPUT SOURCE:
+- Where does this component receive its data?
+- What is the input contract?
+- What happens if input is missing/corrupt?
+
+OUTPUT DESTINATION:
+- Where does this component send its data?
+- What is the output contract?
+- What format/fields are mandatory?
+
+CONTRACTS:
+- What contracts govern this component?
+- Input contract, output contract, error contract?
+
+DEPENDENCIES:
+- What must exist before this component can be built?
+- What must exist before this component can be tested?
+- What can be mocked vs what must be real?
+
+VALIDATION STAGE:
+- Unit: what isolated tests prove this component works?
+- Integration: what combined tests prove it connects correctly?
+- Replay: what replay scenario validates this component?
+
+INTEGRATION POINT:
+- Where does this component connect to the rest of the system?
+- First integration: which other component does it connect to?
+- Full integration: how does it fit in the end-to-end chain?
+
+REPLAY IMPACT:
+- Does this component affect replay?
+- Can replay be used to test this component?
+- Must this component be replay-compatible?
+
+DASHBOARD IMPACT:
+- What does the dashboard need from this component?
+- What state/status must be visible?
+- What controls (if any) does the operator need?
+
+MEMORY IMPACT:
+- What events does this component emit to Side C?
+- What journal entries are created?
+- What references must be stored?
+
+================================================================================
+SECTION 7 - PHASE 0: FOUNDATION (ROADMAP_PHASE_0)
+================================================================================
+
+PURPOSE:
+Create the project skeleton, shared types, configuration system, logging
+framework, testing infrastructure, and mock generators that every subsequent
+phase depends on.
+
+KEY DELIVERABLES:
+- Junior Aladdin project folder structure (all floors + sides)
+- Shared types, enums, dataclasses (shared/types.py)
+- Configuration system (shared/config.py) — YAML + env var
+- Logging framework (shared/logging.py) — structured JSON
+- Testing infrastructure (shared/testing.py) — mock generators
+- requirements.txt, .env.example, .gitignore, README.md
+- CI/CD pipeline (basic)
+
+CRITICAL RULES:
+- Define base contracts BEFORE any module code
+- Mock generators MUST produce realistic data matching shared types
+- NO business logic in Phase 0
+- Every shared utility has at least 1 test
+
+UPSTREAM IMPACT:
+- Blocks ALL subsequent phases
+- Every module imports from shared/ types, config, logging
+
+DOWNSTREAM IMPACT:
+- Floor 1 uses: PacketEnvelope, SourceHealth, Config, Logger
+- Floor 2 uses: ValidationTypes, DataHealth, StorageContracts
+- Side C uses: MemoryEvent, Envelope, QueryTypes
+- Floor 3 uses: DomainStates, Scores, CandidateTypes
+- Floor 4 uses: HeadReport, FloorSummary, FreshnessTypes
+- Floor 5 uses: DecisionState, ConvictionBands, ArmedPlan
+- Side A uses: ExecutionIntent, ModeTypes, StateMachineTypes
+- Side B uses: DashboardTypes, CommandTypes
+
+================================================================================
+SECTION 8 - PHASE 1: FLOOR 1 — MARKET CONNECTION (ROADMAP_FLOOR_01)
+================================================================================
+
+PURPOSE:
+Build the system's connection to external market data sources.
+Angel One WebSocket + REST integration.
+
+KEY DELIVERABLES:
+- Auth Module (login, token, refresh)
+- Source Adapter Layer (AngelOneAdapter)
+- Feed Adapter Layer (Spot, Options, VIX, Macro, Calendar)
+- Packet Envelope Builder
+- Source Health Monitor
+- Manual Ingress Lane
+- Floor 2 Handoff
+
+CRITICAL RULES:
+- Floor 1 = Connection Layer ONLY
+- NO validation, NO cleaning, NO intelligence
+- NO setup detection, NO market judgment
+- Simplicity + reliability over cleverness
+- Must survive disconnect/reconnect gracefully
+
+INPUT: Angel One API (external)
+OUTPUT: Raw packets + source envelope → Floor 2
+
+TESTING:
+- Mock Angel One for unit tests
+- Real Angel One WebSocket for integration tests
+- Simulate disconnection to test reconnect loop
+
+================================================================================
+SECTION 9 - PHASE 2: FLOOR 2 — DATA CENTER (ROADMAP_FLOOR_02)
+================================================================================
+
+PURPOSE:
+Build the truth layer. Transform raw packets into validated, cleaned, structured,
+replay-capable data.
+
+KEY DELIVERABLES:
+- Data Contract Registry
+- Raw Storage (original + normalized)
+- Validation Pipeline (5 validators: duplicate, timestamp, continuity, schema, corruption)
+- Cleaning Layer
+- Structuring Layer (tick streams, candles, options snapshots, session packets)
+- Metadata Side-Channel
+- Review Engine (light)
+- Replay Engine (3 levels: raw, cleaned, structured)
+- Floor 3 Handoff
+- Major/Minor Classification
+
+CRITICAL RULES:
+- Floor 2 = Truth Layer, NOT intelligence layer
+- NO confidence, NO conviction, NO trade judgment
+- Replay is FIRST-CLASS, not optional future utility
+- Dual Raw model (original + normalized)
+- Metadata is factual, not interpretive
+
+INPUT: Raw packets from Floor 1
+OUTPUT: Validated candles, tick streams, options snapshots, session packets, metadata → Floor 3
+
+TESTING:
+- Known-good packets → verify correct candles
+- Known-bad packets → verify validation catches them
+- Store → replay → verify identical output
+
+MEMORY IMPACT:
+- Emits: health events, data health changes, replay references
+
+================================================================================
+SECTION 10 - PHASE 3: SIDE C — MEMORY BASE (ROADMAP_SIDE_C)
+================================================================================
+
+PURPOSE:
+Build the memory layer base infrastructure.
+This runs in parallel with Phases 4-7 (does not block any floor).
+
+KEY DELIVERABLES (Stage A):
+- Side C Types (MemoryEvent, EventFamily, Envelope)
+- Ingest Layer (approved emitter validation)
+- Event Router (classify + route)
+- Event Store (append-first)
+- Journal Store (append-first)
+- Reference Store (append-first)
+- Query Layer (base — simple read projections)
+- Retention Manager
+
+CRITICAL RULES:
+- Side C = Memory Layer, NOT intelligence layer
+- NO scoring, NO ranking, NO recommendation
+- NO interpretation, NO decision support
+- Append-first only — no mutation, no deletion
+- Approved emitters only — no arbitrary writes
+- Correction = new event
+
+INPUT: Events from Floors 1, 2, 5 and Side A (approved emitters)
+OUTPUT: Stored events + queryable views → Dashboard, Replay, Review
+
+WHY PHASE 3 COMES BEFORE PHASE 4:
+- Side C base needs Floor 2 data contracts (event formats, schemas)
+- Side C does NOT need Floor 3+ to be complete
+- Starting early ensures every subsequent phase can emit events immediately
+- Side C is CHEAP to build early (~200 lines base)
+- The cost of building it early is negligible
+- The cost of building it late is enormous (lost events)
+
+================================================================================
+SECTION 11 - PHASE 4: FLOOR 3 — CALCULATION ENGINES (ROADMAP_FLOOR_03)
+================================================================================
+
+PURPOSE:
+Build the intelligence factory. Transform structured truth into structured market
+intelligence across 6 domains.
+
+KEY DELIVERABLES:
+- Floor 3 Types + CMSP (Common Market State Projection)
+- Market Structure Domain (Tier 1 — build first)
+  - Swing highs/lows, BOS, CHoCH, trend state
+- SMC Domain (Tier 1 — parallel with ICT after Structure)
+  - Order blocks, FVGs, liquidity pools, sweeps, mitigation
+- ICT Domain (Tier 1 — parallel with SMC after Structure)
+  - Premium/discount, displacement, MSS, delivery context
+- Technical Domain (Tier 2)
+  - EMA, VWAP, ATR, RSI, ADX, MTF alignment, candle patterns
+- Options Domain (Tier 2)
+  - OI, PCR, IV, walls, max pain, options pressure
+- Macro Domain (Tier 3 — light)
+  - VIX, FII/DII, global cues, calendar
+- Support Metrics (Psychology support)
+  - Trap count, loss count, cooldown, overtrade
+- Map Lifecycle Manager (full internal + active public maps)
+- Candidate Formatter
+- Floor 4 Handoff (per-head consumption mapping)
+
+CRITICAL RULES:
+- EVERY domain outputs 5 layers: Raw, States, Maps, Scores, Candidates
+- NO confidence (Floor 4 owns)
+- NO conviction (Floor 5 owns)
+- NO trade approval
+- Macro domain: NO setup candidates (locked)
+- Structure → SMC + ICT (parallel after structure foundation)
+- Tier 1 quality scores mandatory (structure_strength, smc_quality, ict_delivery)
+
+ARCHITECTURE LAW (MUST NEVER BE VIOLATED):
+QUALITY = FLOOR 3 / CONFIDENCE = FLOOR 4 / CONVICTION = FLOOR 5
+
+INPUT: Validated candles, tick streams, options snapshots, session packets from Floor 2
+OUTPUT: Domain states, maps, scores, candidates, CMSP → Floor 4
+
+TESTING:
+- Each domain: testable with known OHLCV input
+- Known data → verify zones match manual analysis
+- Replay same data → verify identical outputs
+
+DASHBOARD IMPACT:
+- Chart-ready streams, states, maps, CMSP all feed dashboard
+
+MEMORY IMPACT:
+- Candidates, state transitions may be referenced in review contexts
+
+================================================================================
+SECTION 12 - PHASE 5: FLOOR 4 — DEPARTMENT HEADS (ROADMAP_FLOOR_04)
+================================================================================
+
+PURPOSE:
+Build the expert interpretation layer. 6 Heads read Floor 3 intelligence and
+produce Captain-readable expert reports + Floor Summary.
+
+KEY DELIVERABLES:
+- Head Infrastructure (types, report schema, memory base, refresh policy, state manager)
+- Technical Head
+- SMC Head (with mandatory context_quality_score)
+- ICT Head (with mandatory context_quality_score)
+- Options Head
+- Macro Head (NO setups — locked gate/context head)
+- Psychology Head (NO setups — locked brake head)
+- Floor Summary Builder
+- Trigger Formatter
+- Invalidation Formatter
+
+CRITICAL RULES:
+- EVERY head MUST produce invalidation (non-negotiable)
+- Macro Head: NO primary_setup, NO backup_setup (locked)
+- Psychology Head: NO primary_setup, NO backup_setup (locked)
+- SMC/ICT Heads: context_quality_score MANDATORY
+- Heads interpret — they do NOT create conviction
+- Heads may suggest opportunity — they NEVER approve trade
+- MAX 2 setups per actionable head (primary + backup)
+- Floor Summary + Individual Reports = dual output to Captain
+
+INPUT: Floor 3 domain outputs (states, maps, scores, candidates per head)
+OUTPUT: Floor Summary + 6 Head Reports → Floor 5 (Captain)
+
+TESTING:
+- Each head: testable with mock Floor 3 data
+- Macro/Psychology: verify NO setups produced
+- Floor Summary: verify conflict detection, stale detection
+
+DASHBOARD IMPACT:
+- Floor summary, head reports, freshness/state feed dashboard explainability
+- Primary/backup setups, no-trade reasoning visible
+
+MEMORY IMPACT:
+- Head reports may be referenced in decision review
+- No-trade reasoning stored for later audit
+
+================================================================================
+SECTION 13 - PHASE 6: FLOOR 5 — CAPTAIN (ROADMAP_FLOOR_05)
+================================================================================
+
+PURPOSE:
+Build the supreme decision brain. Captain reads Head reports, applies weighted
+confluence, checks opposite case, builds conviction, creates armed plans, and
+outputs TRADE/WAIT/BLOCKED decisions.
+
+KEY DELIVERABLES:
+- Captain Types (DecisionState, ConvictionBands, ArmedPlan, DecisionSnapshot)
+- Permission Gate (8 checks: market open, psych block, active trade, health, etc.)
+- Market Story Engine
+- Narrative Timeline Engine
+- Confluence Engine (SMC > ICT > Technical > Options > Macro weighting)
+- Opposite Case Engine (pre-mortem failure analysis)
+- Conviction Engine (0-39 reject, 40-59 weak, 60-74 tradable, 75-89 strong, 90+ elite)
+- Personality Engine (observer/patient/aggressive/defensive/silent)
+- Setup Memory Store
+- Armed Plan Engine (conditional conditional plans after heavy cycle)
+- Setup Expiry Manager
+- Confidence Decay Engine
+- Trade Class Engine (scalp/continuation/reversal/liquidity_reclaim/options_pressure)
+- Trade Constructor (direction, strike, entry, SL, target)
+- Active Trade Supervisor (thesis integrity tracking)
+- Intervention Engine (rare strategic override)
+- Silence Reason Logger
+- Decision Snapshot Writer
+- Loss Lock Manager (3 losses → REAL locked)
+- Override Guard
+- Session Policy
+- Captain Engine (main orchestrator — heavy cycle + light cycle)
+
+CRITICAL RULES:
+- Captain = Supreme Judge, NOT execution engine
+- Captain = Conviction owner, NOT confidence recalculator
+- Captain does NOT consume Floor 3 packets as routine input (via Floor 4 only)
+- Two-speed brain: heavy cycle on candle close, light cycle on tick
+- One active trade at a time (locked)
+- Psychology block is NON-OVERRIDABLE (locked)
+- 3 losing trades → REAL mode lock (locked)
+- Summary-first workflow: read Floor Summary → drill-down if needed
+- Armed plans: created after heavy cycle, watched by light cycle
+
+INPUT: Floor Summary + 6 Head Reports from Floor 4
+OUTPUT: TRADE/WAIT/BLOCKED decision + armed plans → Side A (execution)
+        Captain state, market story, conviction → Side B (dashboard)
+        Decision snapshots → Side C (memory)
+
+TESTING:
+- Every engine: testable with mock Floor 4 data
+- Permission gate: test all 8 block conditions
+- Conviction engine: verify bands map correctly
+- Armed plan: create → watch → expire cycle
+- Replay same Floor 4 data → verify identical decisions
+
+DASHBOARD IMPACT:
+- Captain state, market story, conviction band, trade/no-trade reason
+- Active trade supervision notes, intervention flags
+- Real mode lock / override requirement status
+
+MEMORY IMPACT:
+- Decision journal entries, conviction bands, no-trade reasons
+- Decision snapshots frozen for audit/review/calibration
+
+================================================================================
+SECTION 14 - PHASE 7: SIDE A — EXECUTION (ROADMAP_SIDE_A)
+================================================================================
+
+PURPOSE:
+Build the tactical execution layer. Side A receives Captain's approved intent,
+runs risk checks, manages order lifecycle, handles broker interaction, and
+protects capital.
+
+KEY DELIVERABLES:
+- Mode Router (ALERT always + PAPER/REAL switch)
+- Risk Gate (capital, margin, quantity, lot, mode, lock, duplicate, stale checks)
+- Execution Core (order submit, ack, reject, retry, fill handling)
+- Order Lifecycle Manager (placed → ack → partial/filled → protected → managing → exiting → closed)
+- Position Manager (filled quantity, SL, TGT, trail, breakeven, partial exit, time exit)
+- Paper Broker (realistic: slippage, brokerage, spread, delay, rejection)
+- Real Broker (Angel One: LIMIT + SL-LIMIT)
+- Protection Model (entry fill → immediate protection intent)
+- Reconciliation Engine (local vs broker truth)
+- Kill Switch (SOFT: block new, CRITICAL: flatten)
+- Execution State Machine (12 major states)
+- Logging Layer (Layer 1 normal + Layer 2 critical)
+- Blocked Action Journal
+- Data Health Execution Policy
+- Captain → Side A Interface
+
+CRITICAL RULES:
+- Side A = Tactical, NOT strategic
+- NO trade creation, NO market interpretation
+- PROTECT FIRST, THEN OPTIMIZE
+- One active live trade only (operationally enforced)
+- Broker truth = final live authority
+- Paper broker: realistic (NOT perfect fills)
+- No entry override after execution start
+- UNKNOWN/PENDING_RECONCILE state is explicit and bound
+
+INPUT: Captain execution intent (trade_id, action, strike, SL, target, mode, capital)
+OUTPUT: Execution state, order lifecycle, position state → Side B
+        Trade journal, execution events, blocked actions → Side C
+
+TESTING:
+- Paper broker: verify slippage applied, rejections possible
+- Risk gate: verify all checks block when conditions fail
+- State machine: verify every valid transition
+- Kill switch: SOFT blocks new, CRITICAL flattens
+
+DASHBOARD IMPACT:
+- Execution state, order lifecycle, active position
+- Blocked actions, override events, reconcile state
+- Real lock / caution state
+
+MEMORY IMPACT:
+- Trade journal source, execution events, blocked actions
+- Order chain references, override events, reconcile events
+
+================================================================================
+SECTION 15 - PHASE 8: SIDE B — DASHBOARD (ROADMAP_SIDE_B)
+================================================================================
+
+PURPOSE:
+Build the operator terminal. Dashboard reveals system truth, allows controlled
+actions, supports review, and provides explainability.
+
+KEY DELIVERABLES:
+- Command Router (request → validation → routing → owner response → ack)
+- Primary Cockpit (first-glance: alerts, health, mode, trade, captain, risk)
+- Focused Workspaces (Review, Replay, Diagnostics)
+- Chart Surface (Floor 3 render truth + Floor 4 overlays)
+- Control Surface (mode, capital, kill-switch, reconnect, override confirm)
+- Explainability Panels (trade reason, no-trade reason, captain summary)
+- Health Surface (HOT/WARM/COLD refresh)
+- Alert System (severity + category hybrid)
+- Failure Visibility (per-floor/side state drill-down)
+- Session Cache
+- State-Based Adaptive UI (controls shrink/expand by system state)
+
+CRITICAL RULES:
+- Dashboard = Operator Terminal, NOT decision layer
+- Dashboard can request, NOT decide
+- Dashboard can reveal, NOT reinterpret
+- Side C consumption through READ MODELS only (not raw stores)
+- Replay workspace = read-only
+- No-trade reason = first-class visibility
+- Desktop-first, NOT mobile-first
+- HOT/WARM/COLD refresh model
+
+INPUT: Data from ALL floors and sides (read contracts only)
+OUTPUT: Operator commands routed to correct owners
+
+TESTING:
+- Mock all floor/side data → verify correct display
+- State changes → verify UI adapts correctly
+- Command routing → verify correct owner receives request
+
+MEMORY IMPACT:
+- Dashboard consumes Side C through read models/projections
+- Does NOT own Side C truth
+
+================================================================================
+SECTION 16 - PHASES 9-11: INTEGRATION / TESTING / PRODUCTION
+================================================================================
+
+PHASE 9 — FULL SYSTEM INTEGRATION (ROADMAP_FULL_SYSTEM_INTEGRATION)
+PURPOSE: End-to-end wiring of all 8 blocks (5 floors + 3 sides).
+KEY ACTIVITIES:
+- Verify every contract between every floor/side pair
+- End-to-end data flow test: Market → Floor 1 → 2 → 3 → 4 → 5 → Side A
+- End-to-end control flow test: Dashboard → command → owner → response
+- End-to-end memory flow test: Floors/Sides emit → Side C stores → queryable
+- End-to-end replay flow test: Floor 2 replay → Floor 3 → 4 → 5 identical outputs
+- Cross-floor dependency verification
+- Ownership boundary verification
+
+PHASE 10 — TESTING GATES (ROADMAP_TESTING_AND_VALIDATION)
+PURPOSE: System-wide validation before production.
+KEY ACTIVITIES:
+- Unit test pass: all modules (≥80% coverage target)
+- Integration test pass: every floor/side pair tested
+- Replay test pass: 1+ days of market data → identical outputs on replay
+- Edge case test pass: empty data, corrupt data, disconnect, timeout, max load
+- Performance test pass: tick processing within acceptable latency
+- Stress test pass: high-volume tick scenarios
+- Paper mode simulation: 100+ simulated trades, zero critical failures
+
+PHASE 11 — PRODUCTION READINESS (ROADMAP_DEPLOYMENT_AND_OPERATIONS)
+PURPOSE: Safe transition from paper mode to real mode.
+KEY ACTIVITIES:
+- Paper mode: verified with 100+ trades
+- Risk gate: verified with all known edge cases
+- Loss lock: verified (3 loss → REAL locked)
+- Kill switch: verified (SOFT + CRITICAL)
+- Alert mode: verified always active
+- Capital limits: verified enforced
+- Recovery: verified (reconnect, reconcile, unknown state handling)
+- Documentation: operator manual, runbook, troubleshooting guide
+- Paper → Real transition plan defined
+- Real mode activation: governed approval path
+
+================================================================================
+SECTION 17 - SIDE C TIMING VALIDATION
+================================================================================
+
+SIDE C BASE COMES BEFORE FLOOR 3.
+
+This is a carefully considered architectural decision. Here is the justification:
+
+ARGUMENT 1: INDEPENDENT DEPENDENCY
+- Side C base depends on: Floor 2 data contracts (event formats, schemas)
+- Floor 3 depends on: Floor 2 validated data outputs
+- Both depend on Floor 2 — NOT on each other
+- Side C does NOT block Floor 3; Floor 3 does NOT block Side C
+
+ARGUMENT 2: CHEAP TO BUILD EARLY
+- Side C base is approximately 200 lines of code
+- Types + stores + query layer ≈ 200 lines
+- The cost of building early ≈ negligible
+- The cost of building late = lost events from Phases 4-7
+
+ARGUMENT 3: EVENT LOSS PREVENTION
+- If Side C is deferred to after Floor 5 or Side A:
+  - Phase 4 Floor 3 events are lost
+  - Phase 5 Floor 4 events are lost
+  - Phase 6 Floor 5 decision snapshots are lost
+  - Phase 7 Side A execution events are lost
+- Retrofitting memory later means backfilling from logs — lossy and unreliable
+
+ARGUMENT 4: FEEDBACK LOOP
+- Side C enables review of Floor 3/4/5 outputs during development
+- Without Side C, debugging relies entirely on console logs
+- With Side C base in place, developers can query what happened
+
+ARGUMENT 5: PARALLEL-SAFE BY DESIGN
+- Side C base build does NOT block Floor 3 start
+- Side C base build does NOT require Floor 3 designers to wait
+- Both can proceed in parallel after Phase 2 data contracts are finalized
+
+ARGUMENT 6: ORGANIC GROWTH
+- Side C Stage A (base infra) = Phase 3
+- Side C Stage B (full richness) = grows alongside Phases 4-8
+- This is organic: base first, richness later, no retrofitting
+
+CONCLUSION:
+Side C base in Phase 3 is architecture-wise correct.
+It preserves memory from day one. It costs almost nothing. It blocks nothing.
+It is the strongest architectural choice.
+
+================================================================================
+SECTION 18 - ARCHITECTURE PROTECTION RULES (DAILY ENFORCEMENT)
+================================================================================
+
+These rules must be visible and enforced EVERY day during build.
+
+RULE 1: NEVER MIX FLOOR OWNERSHIP
+- Floor 1 code does NOT do Floor 2's job (validation/cleaning)
+- Floor 2 code does NOT do Floor 3's job (intelligence)
+- Floor 3 code does NOT do Floor 4's job (interpretation/confidence)
+- Floor 4 code does NOT do Floor 5's job (conviction/decision)
+- Floor 5 code does NOT do Side A's job (execution)
+
+RULE 2: NEVER MIX SIDE OWNERSHIP
+- Side A does NOT do Side B's job (display)
+- Side B does NOT do Side A's job (execution)
+- Side C does NOT do any floor's job (intelligence/interpretation/decision)
+
+RULE 3: DASHBOARD NEVER BECOMES DECISION LAYER
+- Side B can request, NOT decide
+- Side B can reveal, NOT reinterpret
+- Side B routes, NOT owns
+
+RULE 4: SIDE C NEVER BECOMES INTELLIGENCE LAYER
+- Side C stores facts, NOT creates them
+- Side C does NOT score, rank, recommend, or analyze
+- Side C does NOT interpret market meaning
+
+RULE 5: CAPTAIN NEVER BECOMES EXECUTION ENGINE
+- Captain decides, Side A executes
+- Captain may intervene rarely, NOT micro-manage
+
+RULE 6: FLOOR 3 NEVER BECOMES INTERPRETATION LAYER
+- Quality = Floor 3, Confidence = Floor 4, Conviction = Floor 5
+- Floor 3 produces scores, NOT confidence
+- Floor 3 produces candidates, NOT trade orders
+
+RULE 7: FLOOR 4 NEVER BECOMES DECISION LAYER
+- Heads interpret, Captain judges
+- Heads suggest opportunities, Captain approves trades
+
+RULE 8: REPLAY NEVER MODIFIES SYSTEM STATE
+- Replay is read-only
+- Replay workspace cannot trigger execution
+
+RULE 9: LOCAL-FIRST, CLOUD-OPTIONAL
+- Everything must work on a single laptop, zero paid infra
+- SQLite for dev, local filesystem for logs
+- No Docker/Kubernetes required for core operation
+
+RULE 10: TEST BEFORE INTEGRATE
+- Each module tests in isolation with mocked inputs
+- Integration only after module passes its tests
+- No untested code enters the system
+
+================================================================================
+SECTION 19 - QUALITY STANDARDS FOR ALL ROADMAP FILES
+================================================================================
+
+Every roadmap file in this system must meet these quality standards:
+
+1. DEEP DETAIL
+- Not a high-level summary
+- Every file, every module, every function contract defined
+- "What to build" + "What NOT to build" both explicit
+
+2. STEP-BY-STEP BUILD FLOW
+- Exact module order within each phase
+- Which module to build first, second, third...
+- What each module depends on within the same phase
+
+3. DEPENDENCY AWARENESS
+- All upstream dependencies listed
+- All downstream dependencies listed
+- Blocking vs non-blocking dependencies distinguished
+
+4. CONTRACT AWARENESS
+- Input contract for every module
+- Output contract for every module
+- Error contract for every module
+- Cross-module contract verification points
+
+5. WIRING AWARENESS
+- How modules connect within the same floor/side
+- How floors/sides connect to each other
+- Integration points and handoff contracts
+
+6. DATAFLOW AWARENESS
+- Where data comes from
+- Where data goes to
+- What transformation happens at each step
+
+7. VALIDATION AWARENESS
+- Unit validation: isolated tests for each module
+- Contract validation: contract alignment checks
+- Replay validation: replay scenarios where applicable
+- Integration validation: combined tests across modules
+
+8. TESTING AWARENESS
+- What tests prove this module works
+- What edge cases are covered
+- What failure modes are tested
+
+9. INTEGRATION AWARENESS
+- Where does this connect to the rest of the system
+- What is the first integration point
+- What is the full integration point
+
+10. PRODUCTION AWARENESS
+- What does this module need to run in production
+- What configurations must be set
+- What monitoring is needed
+
+================================================================================
+SECTION 20 - ROADMAP FILE CANONICAL TEMPLATE
+================================================================================
+
+Every roadmap file in this system follows this exact structure.
+This ensures consistency, completeness, and no ambiguity.
+
+----------------------
+ROADMAP_[COMPONENT_NAME]
+----------------------
+
+SECTION 1 — PURPOSE
+One-line identity + why this component exists.
+
+SECTION 2 — COMPONENT ARCHITECTURE
+Folder structure, files, module responsibilities.
+
+SECTION 3 — STEP-BY-STEP BUILD ORDER
+Exact order: which file to build first, second, third.
+Each step includes:
+- File name + purpose
+- Input contract (what it receives)
+- Output contract (what it produces)
+- Dependencies (what must exist first)
+- Validation (how to verify it works)
+
+SECTION 4 — INPUT/OUTPUT CONTRACTS
+Every input and output contract detailed.
+Data types, fields, formats, error states.
+
+SECTION 5 — DEPENDENCY MAP
+- Upstream dependencies (must exist before build)
+- Downstream dependencies (blocks these later)
+- Mock requirements (what can be faked)
+
+SECTION 6 — WIRING DIAGRAM
+How this component connects to others.
+Handoff contracts, integration points.
+
+SECTION 7 — DATA FLOW
+Step-by-step: how data moves through this component.
+Input → processing → output.
+
+SECTION 8 — VALIDATION MATRIX
+- Unit validation: tests for isolated logic
+- Contract validation: input/output field verification
+- Replay validation: replay scenario testing
+- Integration validation: cross-component testing
+
+SECTION 9 — CROSS-COMPONENT IMPACTS
+- Replay impact
+- Dashboard impact
+- Memory impact (Side C)
+- Execution impact (Side A)
+
+SECTION 10 — COMMON MISTAKES + ANTI-PATTERNS
+What to avoid, what creates rework, what breaks architecture.
+
+SECTION 11 — READY-TO-CODE CHECKLIST
+Explicit checklist: what conditions must be met before coding starts.
+
+================================================================================
+SECTION 21 - BUILD READINESS RULES (APPLIES TO ALL PHASES)
+================================================================================
+
+RULE 1: CONTRACT FIRST, CODE SECOND
+Before writing code: define input contract, output contract, error contract.
+
+RULE 2: MOCK BEFORE INTEGRATE
+Each floor testable with mock data from the floor below.
+
+RULE 3: ONE MODULE AT A TIME
+Within a floor, build one module, test it, verify, then next.
+
+RULE 4: NO MODULE LEFT UNTESTED
+Every module: unit test + integration test before marked complete.
+
+RULE 5: CONTRACT TEST AFTER EVERY INTEGRATION
+When two floors/sides connect: verify every output field matches.
+
+RULE 6: STOP AT FAILURE
+Phase exit criteria not met? Do NOT proceed. Fix first.
+
+RULE 7: REPLAY READINESS FROM PHASE 2
+Floor 2 replay-capable from day one. No retrofitting.
+
+RULE 8: ALERT MODE FROM PHASE 7
+Side A ALERT operational before PAPER testing begins.
+
+RULE 9: PAPER BEFORE REAL
+100+ simulated trades + zero critical failures before REAL.
+
+RULE 10: DASHBOARD LAST
+Don't build panels for data that doesn't exist upstream.
+
+RULE 11: LOCAL-FIRST BUILD
+Single laptop, zero paid cloud, SQLite, localhost.
+
+RULE 12: NEVER BUILD WHAT YOU CANNOT TEST
+Untestable code = untrustworthy code.
+
+================================================================================
+SECTION 22 - DAILY BUILD WORKFLOW
+================================================================================
+
+This is the RECOMMENDED daily workflow during build:
+
+STEP 1 — Open today's roadmap file
+(e.g., ROADMAP_FLOOR_01 if building Floor 1)
+
+STEP 2 — Check today's module from step-by-step order
+(e.g., "Today I build auth_manager.py")
+
+STEP 3 — Read the module's contract
+- Input contract
+- Output contract
+- Error contract
+- Dependencies
+
+STEP 4 — Write the module
+- Implement according to contract
+- Follow existing code style and conventions
+- NO scope creep (build what's specified, nothing more)
+
+STEP 5 — Write unit tests
+- Test normal cases
+- Test edge cases (empty input, corrupt data, timeout)
+- Test error cases (API down, auth failure, disconnect)
+
+STEP 6 — Run tests
+- `pytest tests/test_this_module/ -v`
+- All tests pass? Good.
+- Tests fail? Fix before moving on.
+
+STEP 7 — Verify contract alignment
+- Does output match what the consumer expects?
+- Are all mandatory fields present?
+- Are error states handled correctly?
+
+STEP 8 — Check architecture protection
+- No ownership violations
+- No floor/side boundary crossings
+- No intelligence in data layer, no decisions in display layer
+
+STEP 9 — Commit
+- Meaningful commit message
+- References roadmap file + phase
+
+STEP 10 — Mark progress
+- Update checklist in roadmap file
+- Note any issues found for tomorrow
+
+================================================================================
+SECTION 23 - LOCAL-FIRST REALITY CHECK
+================================================================================
+
+TARGET ENVIRONMENT:
+- Single Developer
+- Single Laptop
+- Zero Mandatory Paid Infrastructure
+- Zero Mandatory Cloud Dependency
+- Zero Mandatory Enterprise Stack
+
+CURRENT BUILD PATH (always use this):
+- Language: Python 3.11+
+- Storage: SQLite (file-based, zero setup)
+- Logging: Local filesystem, structured JSON
+- Testing: pytest (local)
+- WebSocket: Built-in asyncio or websockets library
+- Dashboard Dev: Streamlit or FastAPI + plain HTML/JS (localhost)
+- Replay: In-memory or file-based from stored data
+- Mock Data: Generated by shared/testing.py generators
+
+FUTURE SCALE PATH (never build for this now):
+- PostgreSQL: when SQLite concurrency limits hit
+- Docker: when deployment isolation needed
+- Cloud hosting: when remote access needed
+- CI/CD pipeline: when team grows
+- Object storage: when data volume explodes
+- TimescaleDB: when time-series performance demands it
+
+PRINCIPLE:
+Build for the single-laptop reality NOW.
+Design architecture so cloud migration is possible LATER.
+Never add infrastructure complexity that isn't needed today.
+
+================================================================================
+SECTION 24 - CROSS-PHASE RISKS
+================================================================================
+
+RISK 1: CONTRACT DRIFT
+- Problem: Floor A changes its output contract. Floor B (consumer) doesn't update.
+- Prevention: Contract registry in Floor 2. Contract tests after every integration.
+- Detection: Integration test fails. Manual code review.
+
+RISK 2: OWNERSHIP CREEP
+- Problem: Floor 1 starts doing validation (Floor 2's job). Floor 3 starts creating confidence (Floor 4's job).
+- Prevention: Architecture protection rules. Code review. Automated lint checks.
+- Detection: Variables/functions named "confidence" in floor_3_calculations/.
+
+RISK 3: SCOPE CREEP
+- Problem: "While we're building X, let's also build Y" — Y is not in the plan.
+- Prevention: Build exactly what the roadmap says. Anything else = separate phase.
+- Detection: Phase completion checklist vs delivered code.
+
+RISK 4: PREMATURE OPTIMIZATION
+- Problem: Optimizing performance before correctness is verified.
+- Prevention: Correctness before performance. Mock data → verify → optimize if needed.
+- Detection: Time spent on optimization before basic functionality works.
+
+RISK 5: OVER-ENGINEERING
+- Problem: Building for "what if" scenarios that may never happen.
+- Prevention: Build for what the architecture SPECIFIES. Not for what you IMAGINE.
+- Detection: Code complexity far exceeding what the contract requires.
+
+RISK 6: TESTING DEFERRED
+- Problem: "We'll add tests later" → later never comes.
+- Prevention: Tests written DURING module build, not after. Test file created before implementation.
+- Detection: `pytest` shows untested modules.
+
+RISK 7: DOCUMENTATION DEFERRED
+- Problem: "We'll document later" → later never comes.
+- Prevention: Docstrings written during implementation. README updated per phase.
+- Detection: Module has no docstring, no usage examples.
+
+RISK 8: INTEGRATION DELAYED TOO LATE
+- Problem: All modules built in isolation, then integration reveals contract mismatches everywhere.
+- Prevention: Early and frequent integration testing. Connect to adjacent modules as soon as both exist.
+- Detection: First integration attempt reveals multiple contract mismatches.
+
+================================================================================
+SECTION 25 - FINAL CANONICAL BUILD SEQUENCE (SUMMARY)
+================================================================================
+
+PHASE 0 — FOUNDATION (Project skeleton, types, config, logging, testing infra)
+  Roadmap: ROADMAP_PHASE_0
+
+PHASE 1 — FLOOR 1 (Market Connection — Angel One data ingress)
+  Roadmap: ROADMAP_FLOOR_01
+  Depends on: Phase 0 complete
+
+PHASE 2 — FLOOR 2 (Data Center — validation, cleaning, structuring, replay)
+  Roadmap: ROADMAP_FLOOR_02
+  Depends on: Phase 1 complete
+
+PHASE 3 — SIDE C BASE (Memory layer — event stores, query layer)
+  Roadmap: ROADMAP_SIDE_C
+  Depends on: Phase 2 data contracts (parallel safe with Phase 4+)
+
+PHASE 4 — FLOOR 3 (Calculation Engines — 6 domains)
+  Roadmap: ROADMAP_FLOOR_03
+  Depends on: Phase 2 complete
+
+PHASE 5 — FLOOR 4 (Department Heads — 6 heads + floor summary)
+  Roadmap: ROADMAP_FLOOR_04
+  Depends on: Phase 4 complete
+
+PHASE 6 — FLOOR 5 (Captain — decision engine, armed plans)
+  Roadmap: ROADMAP_FLOOR_05
+  Depends on: Phase 5 complete
+
+PHASE 7 — SIDE A (Execution — risk gate, state machine, paper/real broker)
+  Roadmap: ROADMAP_SIDE_A
+  Depends on: Phase 6 complete (contracts), Phase 1 operational (broker)
+  Parallel: Paper broker + state machine can start after Phase 6 contracts
+
+PHASE 8 — SIDE B (Dashboard — operator terminal, cockpit, workspaces)
+  Roadmap: ROADMAP_SIDE_B
+  Depends on: Phases 1-7 producing real data
+  Parallel: UI scaffolding can start after Phase 1
+
+PHASE 9 — FULL SYSTEM INTEGRATION (end-to-end wiring)
+  Roadmap: ROADMAP_FULL_SYSTEM_INTEGRATION
+  Depends on: Phases 0-8 complete
+
+PHASE 10 — TESTING GATES (system-wide validation)
+  Roadmap: ROADMAP_TESTING_AND_VALIDATION
+  Depends on: Phase 9 complete
+
+PHASE 11 — PRODUCTION READINESS (Paper → Real transition)
+  Roadmap: ROADMAP_DEPLOYMENT_AND_OPERATIONS
+  Depends on: Phase 10 complete (all tests passed)
+
+================================================================================
+END OF ROADMAP MASTER
+================================================================================

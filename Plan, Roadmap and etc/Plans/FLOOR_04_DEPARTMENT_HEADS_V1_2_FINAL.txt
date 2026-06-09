@@ -1,0 +1,2068 @@
+================================================================================
+ JUNIOR ALADDIN - FLOOR 4 DEPARTMENT HEADS PLAN
+ (Detailed Planning + Coding Blueprint Draft)
+================================================================================
+
+PURPOSE OF THIS FILE
+-------------------------------------------------------------------------------
+This file is the detailed planning and coding blueprint for FLOOR 4:
+DEPARTMENT HEADS.
+
+This is not just a conceptual note.
+This file is intended to become a practical reference for:
+- future coding
+- future review
+- future upgrades
+- maintaining alignment with Captain floor
+
+This document must answer not only WHAT a head does,
+but more importantly WHY it exists and WHY it is designed in a specific way.
+
+This file is Captain-aligned by design.
+FLOOR 4 must support Captain.
+FLOOR 4 must not become an independent over-designed intelligence kingdom.
+
+Golden Rule of Floor 4:
+Every Head must reduce complexity for Captain, not transfer complexity to Captain.
+
+
+================================================================================
+SECTION 1 - WHAT FLOOR 4 REALLY IS
+================================================================================
+
+FLOOR 4 is the expert interpretation floor.
+
+FLOOR 3 produces calculations.
+FLOOR 5 needs judgment.
+FLOOR 4 exists to convert calculated intelligence into structured expert opinion.
+
+Why this floor is necessary:
+If Captain directly reads raw calculations, then Captain becomes a god-object.
+That would create:
+- too much logic in one place
+- weaker explainability
+- difficult maintenance
+- poor scalability
+- re-reading complexity on every decision cycle
+
+Therefore the role of Floor 4 is:
+1. read calculations from Floor 3
+2. interpret them domain-wise
+3. maintain domain memory
+4. identify primary and backup setups
+5. define invalidation
+6. produce structured reports for Captain
+7. reduce complexity before it reaches Captain
+
+One-line definition:
+Department Heads are domain experts who convert calculation outputs into
+Captain-readable intelligence.
+
+
+================================================================================
+SECTION 2 - FINAL HEAD STRUCTURE
+================================================================================
+
+Locked core heads = 6
+
+1. Technical Head
+2. SMC Head
+3. ICT Head
+4. Options Head
+5. Macro Head
+6. Psychology Head
+
+Important locked points:
+- Price Action is NOT a separate head
+- basic candle pattern logic belongs inside Technical Head
+- contextual candle behavior (rejection, displacement, reclaim quality) belongs
+  inside SMC / ICT interpretation
+- Macro is a light-gate/context head, not a dominant trade engine
+- Psychology is a balanced brake head, not a directional trade head
+
+Why only 6 heads?
+Because Floor 4 should remain Captain-compatible.
+Adding too many heads would:
+- increase conflict
+- increase Captain parsing load
+- increase overlap
+- create false intelligence instead of strong intelligence
+
+Therefore current strongest architecture is 6 clear heads.
+
+
+================================================================================
+SECTION 3 - FLOOR 4 FOLDER STRUCTURE
+================================================================================
+
+Proposed rebuilt structure:
+
+floor_4_heads/
+│
+├── __init__.py
+├── head_types.py
+├── head_report_schema.py
+├── head_memory_base.py
+├── head_refresh_policy.py
+├── trigger_formatter.py
+├── invalidation_formatter.py
+├── head_state_manager.py
+├── floor_summary_builder.py
+│
+├── technical_head.py
+├── smc_head.py
+├── ict_head.py
+├── options_head.py
+├── macro_head.py
+└── psychology_head.py
+
+Why this structure is strong:
+- common reporting rules are centralized
+- memory rules are not duplicated blindly
+- every head still remains independent enough for clean coding
+- floor summary has its own module instead of being hidden inside Captain
+- implementation later becomes easier because the responsibilities are separated
+
+File responsibilities:
+
+head_types.py
+- dataclasses / enums / common value types
+- Bias, HeadState, TriggerType, SetupPriority, ReportFreshnessTag, etc.
+
+head_report_schema.py
+- standard report contract all heads must follow
+- prevents random head-specific output chaos
+
+head_memory_base.py
+- common memory interface/patterns
+- not all heads use same memory depth, but common memory design principles live here
+
+head_refresh_policy.py
+- common refresh rules: 1m base, 5m/15m deep, tick watch
+
+trigger_formatter.py
+- standard trigger object creation
+- keeps trigger format consistent across heads
+
+invalidation_formatter.py
+- standard invalidation object creation
+- because invalidation is mandatory in all heads
+
+head_state_manager.py
+- READY / UNCERTAIN / STALE logic
+- freshness score + tag handling support
+
+floor_summary_builder.py
+- creates Floor Summary for Captain
+- aggregates head outputs without replacing them
+
+technical_head.py
+- technical interpretation
+
+smc_head.py
+- smart money interpretation
+
+ict_head.py
+- ICT logic interpretation
+
+options_head.py
+- options pressure interpretation
+
+macro_head.py
+- macro gate / context interpretation
+
+psychology_head.py
+- discipline / brake interpretation
+
+
+================================================================================
+SECTION 4 - HOW FLOOR 4 FITS BETWEEN FLOOR 3 AND CAPTAIN
+================================================================================
+
+Flow:
+FLOOR 3 calculations
+   -> per-head interpretation
+   -> per-head memory update
+   -> primary/backup setup selection
+   -> report generation
+   -> floor summary generation
+   -> Captain
+
+Why this structure matters:
+Captain should not re-interpret everything.
+Captain should receive:
+- individual expert reports when needed
+- one compressed Floor Summary for fast top-level understanding
+
+Therefore Floor 4 outputs TWO intelligence layers:
+
+Layer A - Individual Head Reports
+- detailed, structured, domain-specific
+
+Layer B - Floor Summary
+- compact, aggregate, quick-read intelligence
+
+This is one of the strongest decisions in Floor 4.
+Because:
+- summary reduces routine complexity for Captain
+- full reports preserve depth for drill-down
+
+
+================================================================================
+SECTION 5 - COMMON OPERATING RHYTHM OF HEADS
+================================================================================
+
+Locked answer:
+Heads use a Hybrid rhythm.
+
+A. 1-minute base refresh
+-------------------------------------------------------------------------------
+Purpose:
+- keep Captain updated at intraday speed
+- refresh tactical interpretation
+- refresh setup relevance
+- refresh confidence and invalidation relevance
+
+Why needed:
+Captain’s heavy thinking happens at 1m candle close.
+Heads must therefore provide updated interpretable intelligence on that base rhythm.
+
+B. 5-minute / 15-minute deep refresh
+-------------------------------------------------------------------------------
+Purpose:
+- deeper structural refresh
+- stronger zone validity update
+- bigger timeframe confirmation refresh
+
+Why needed:
+Many important structural truths do not change meaningfully every 1 minute.
+If every head fully re-thinks structure on every 1m candle, noise and overwork rise.
+5m/15m refresh gives stronger structural truth.
+
+C. Tick-level light watch
+-------------------------------------------------------------------------------
+Purpose:
+- trigger watch only
+- invalidation touch awareness
+- micro confirmation watch for already-known setups
+
+Why needed:
+If heads do full thinking on every tick, the system will become noisy and slow.
+Therefore tick use is limited to lightweight observation only.
+
+Strong design reason:
+This rhythm aligns exactly with Captain’s two-speed architecture.
+That is why Floor 4 remains Captain-compatible.
+
+
+================================================================================
+SECTION 6 - COMMON MEMORY PRINCIPLE
+================================================================================
+
+Locked answer:
+Memory depth is Head-specific.
+
+Why not fixed memory for all heads?
+Because all domains think differently.
+Examples:
+- SMC needs longer structural memory
+- Psychology mainly needs intraday behavior memory
+- Options may need session + recent shift memory
+- Macro may need current day + prior carryover context
+
+Therefore all heads should share a common memory design pattern,
+but not a uniform memory depth.
+
+Common memory design principles:
+- memory must support Captain, not bloat the head
+- memory should keep only domain-relevant state
+- memory must make invalidation and setup selection easier
+- memory should help avoid repeating known mistakes
+- stale memory must be removable
+
+Every head must answer internally:
+- what do I need to remember?
+- for how long?
+- why does remembering this improve Captain’s decision quality?
+
+
+================================================================================
+SECTION 7 - COMMON REPORT STRUCTURE
+================================================================================
+
+Locked output style = Hybrid
+
+Meaning:
+Every head report will contain:
+- machine-readable structured fields
+- short witness-style summary (2-3 short points)
+
+Why hybrid is strongest:
+- pure machine structure is great for code, but weak for fast human review
+- pure narrative is easy to read, but bad for reliable machine parsing
+- hybrid preserves both utility and clarity
+
+Proposed common report fields:
+- head_name
+- state = READY / UNCERTAIN / STALE
+- freshness_score
+- freshness_tag
+- last_deep_update
+- bias
+- confidence
+- dominant_tf
+- timeframe_view
+- primary_setup
+- backup_setup
+- active_zones
+- armed_triggers
+- invalidation
+- bull_case
+- bear_case
+- witness_summary
+- timestamp
+
+Quality -> Confidence clarification:
+- Floor 3 may provide supporting quality-side inputs such as:
+  - smc_quality_score
+  - ict_delivery_score
+  - candidate_grade
+  - state quality context
+- these may support how a Head forms local confidence
+- but confidence ownership remains with Floor 4
+- conviction ownership remains with Captain
+- candidate_grade is NOT confidence
+- candidate_grade is NOT conviction
+- candidate_grade is NOT trade approval
+
+Meaning:
+Floor 3 provides quality material.
+Floor 4 Head interprets that material and creates confidence.
+Captain later transforms cross-head confidence and context into conviction.
+
+Captain-aligned interpretation rules:
+- head confidence is local confidence, not final trade conviction
+- final conviction always belongs to Captain
+- head report may suggest opportunity, but never approve trade
+- invalidation is mandatory in all heads
+
+Quality -> Confidence clarification:
+- Floor 3 may provide quality-side support inputs such as:
+  - smc_quality_score
+  - ict_delivery_score
+  - candidate_grade
+  - state quality context (READY / UNCERTAIN / STALE)
+- these may support Head-level confidence generation
+- but confidence ownership remains with Floor 4
+- conviction ownership remains with Captain
+- candidate_grade is NOT confidence
+- candidate_grade is NOT conviction
+- candidate_grade is NOT trade approval
+
+Meaning:
+Floor 3 gives quality material.
+Floor 4 turns that material into local expert confidence.
+Captain turns that confidence plus wider context into conviction.
+
+Why invalidation must be mandatory:
+Because Captain’s thesis integrity tracking and active trade supervision depend on it.
+Without invalidation, a head only says “I like this,”
+but never says “I am wrong if this breaks.”
+That is not professional intelligence.
+
+
+================================================================================
+SECTION 8 - FRESHNESS + STATE SYSTEM
+================================================================================
+
+Locked:
+- freshness_score + freshness_tag + last_deep_update
+- head state = READY / UNCERTAIN / STALE
+
+Why freshness matters:
+Captain must not make strong decisions on stale expert views.
+But stale meaning differs by head type.
+
+Examples:
+- Macro slightly stale may still be tolerable
+- SMC stale may be much more dangerous
+- Options stale near expiry may be very dangerous
+
+Why state matters:
+Captain should not treat all reports equally.
+If a head is:
+- READY -> normal trust
+- UNCERTAIN -> reduced interpretive weight
+- STALE -> caution / reduced trust / possible block depending on head type
+
+Confidence interaction clarification:
+- READY should usually support normal confidence formation when other evidence aligns
+- UNCERTAIN should push the Head toward more cautious confidence
+- STALE should reduce trust materially and therefore should not support strong confidence casually
+- this is a qualitative contract, not a hard mathematical formula
+- freshness and state together influence how confidently a Head can speak
+- state/freshness conditions may support or weaken confidence expression,
+  but confidence ownership still remains with Floor 4
+
+This becomes especially powerful when combined with Captain’s weighted confluence.
+
+
+================================================================================
+SECTION 9 - PRIMARY + BACKUP SETUP MODEL
+================================================================================
+
+Locked:
+Each head can carry max 2 active setups.
+- primary_setup
+- backup_setup
+
+Why 2 is the strongest balance:
+- 1 setup = too rigid, not enough flexibility
+- 3+ setups = noise and decision confusion
+- 2 setups = focused yet flexible
+
+Primary setup means:
+- strongest currently preferred opportunity idea in this domain
+
+Backup setup means:
+- next best meaningful alternative
+- may support same or alternate direction depending on regime
+
+Locked answer:
+Primary/backup direction can be dynamic by regime.
+Meaning:
+- trend day -> both may be same direction
+- range day -> backup may be opposite-side alternate
+
+Why explicit primary + backup is important:
+Because generic setup lists increase Captain load.
+Captain needs hierarchy, not raw option overload.
+
+
+================================================================================
+SECTION 10 - TRIGGER MODEL
+================================================================================
+
+Locked:
+Hybrid trigger style.
+
+Normal setup:
+- simple zone trigger
+- zone hit + one confirmation
+
+Premium setup:
+- multi-condition trigger
+- zone + reclaim + volume + context + structural support
+
+Why hybrid is strongest:
+- not all setups deserve complex trigger chains
+- but best setups should not be reduced to shallow triggers
+
+Captain benefit:
+- normal setups stay lightweight
+- top-grade setups stay high quality
+
+Trigger output must be standardized.
+That is why trigger_formatter.py is important.
+
+
+================================================================================
+SECTION 11 - CONFLICT HANDLING INSIDE A HEAD
+================================================================================
+
+Locked:
+Hybrid conflict reporting.
+
+If internal conflict exists, the head should not pretend certainty.
+It should report:
+- neutral or weak bias
+- reduced confidence
+- both bull_case and bear_case
+
+Why this matters:
+Captain should receive truth, not forced clarity.
+Professional systems must preserve uncertainty honestly.
+
+This is also why Floor 4 exists:
+not to fake neatness,
+but to convert complexity into honest structured interpretation.
+
+
+================================================================================
+SECTION 12 - FLOOR SUMMARY DESIGN
+================================================================================
+
+Locked answer:
+Captain receives both:
+- Floor Summary
+- Individual Head Reports
+
+Why this is strongest:
+- summary reduces routine parsing load
+- full reports preserve drill-down depth
+- Captain can stay efficient without becoming blind
+
+Important rule:
+Floor Summary does NOT make the final decision.
+Floor Summary compresses the state.
+Captain still judges.
+
+Floor Summary purpose:
+- overall bias snapshot
+- overall confidence snapshot
+- active setup count
+- head health snapshot
+- conflict presence
+- strongest opportunities snapshot
+- stale warnings snapshot
+
+Suggested Floor Summary fields:
+- summary_timestamp
+- floor_bias_snapshot
+- floor_confidence_snapshot
+- active_setup_count
+- primary_setups_by_head
+- backup_setups_by_head
+- ready_heads_count
+- uncertain_heads_count
+- stale_heads_count
+- conflict_present
+- stale_warning_present
+- strongest_domain_signal
+- strongest_context_signal
+- strongest_risk_warning
+- invalidation_summary
+- freshness_summary
+- stale_head_overview
+- summary_witness_lines
+
+How Floor Summary is created:
+1. collect all head states
+2. collect all head primary/backup setup summaries
+3. collect bias alignment and confidence shape
+4. collect stale/conflict warnings
+5. collect compact invalidation view across relevant heads
+6. collect freshness summary and stale-head overview
+7. compress into Captain-readable snapshot
+
+When Captain should use Floor Summary first:
+- routine heavy cycle start
+- quick first-pass understanding
+- fast check whether deep drill-down is even necessary
+
+When Captain should drill down into individual reports:
+- conflict present
+- strong conviction candidate exists
+- stale core head exists
+- context quality issue present
+- intervention review required
+- opposite case appears significant
+
+Why this design is important:
+If Captain always reads all detailed reports first, Floor 4 failed to reduce complexity.
+If Captain only reads summary, Floor 4 failed to preserve depth.
+Therefore Summary + Full Reports is the correct middle path.
+
+
+================================================================================
+SECTION 13 - TECHNICAL HEAD
+================================================================================
+
+Purpose
+-------------------------------------------------------------------------------
+Technical Head exists to answer one core question:
+"Is the market technically healthy, aligned, and structurally tradeable right now?"
+
+Why it exists:
+Captain should not directly interpret EMA/VWAP/RSI/ATR/MTF data.
+Technical Head converts those calculations into practical technical judgment.
+
+Inputs (from Floor 3)
+-------------------------------------------------------------------------------
+- EMA relationships
+- VWAP and VWAP distance
+- RSI / momentum state
+- ATR / volatility context
+- ADX / trend strength
+- Supertrend
+- MTF alignment score
+- basic candle pattern outputs
+- prior day technical levels
+
+Internal Thinking
+-------------------------------------------------------------------------------
+Technical Head must decide:
+- is trend aligned or fragmented?
+- is current move impulsive, healthy, weak, or overextended?
+- is price above/below key technical references with quality?
+- is the setup continuation-friendly or fade-prone?
+- does current technical state support Captain’s possible trade timing?
+
+Memory
+-------------------------------------------------------------------------------
+- recent trend shifts
+- recent MTF alignment evolution
+- recent VWAP relation history
+- previous day key technical levels
+- short chain of basic candle behavior
+
+Primary Setup
+-------------------------------------------------------------------------------
+Examples:
+- VWAP pullback continuation
+- trend continuation reclaim
+
+Backup Setup
+-------------------------------------------------------------------------------
+Examples:
+- technical breakout continuation
+- technical support/resistance rebound
+
+Invalidation
+-------------------------------------------------------------------------------
+Mandatory.
+Examples:
+- VWAP relation lost decisively
+- continuation structure broken
+- MTF alignment collapses below threshold
+
+Report Output
+-------------------------------------------------------------------------------
+- technical bias
+- confidence
+- dominant timeframe
+- timeframe_view
+- primary setup
+- backup setup
+- active technical zones
+- trigger candidates
+- invalidation
+- bull_case / bear_case
+- witness summary (2-3 points)
+- freshness + state
+
+Captain ला Value
+-------------------------------------------------------------------------------
+Technical Head tells Captain:
+"Is the market technically aligned enough to support action?"
+
+
+================================================================================
+SECTION 14 - SMC HEAD
+================================================================================
+
+Purpose
+-------------------------------------------------------------------------------
+SMC Head exists to answer:
+"Where is smart-money structure visible, and is current price interacting with it meaningfully?"
+
+Why it exists:
+Captain should not directly parse OB/FVG/liquidity/BOS/CHOCH maps.
+SMC Head converts smart-money structure into tradable expert interpretation.
+
+Inputs (from Floor 3)
+-------------------------------------------------------------------------------
+- swing structure
+- BOS / CHOCH markers
+- order block maps
+- FVG maps
+- liquidity pool maps
+- sweep detection
+- defended / broken level information
+
+Internal Thinking
+-------------------------------------------------------------------------------
+SMC Head must decide:
+- where is the strongest active structural opportunity?
+- is current interaction with OB/FVG/liquidity meaningful or weak?
+- is a sweep real, failed, or trap-like?
+- is market in continuation phase or trap/reversal phase?
+- is setup context high quality or only technically existing?
+
+Memory
+-------------------------------------------------------------------------------
+- active OBs
+- active FVGs
+- liquidity pools
+- recent defended levels
+- recent broken levels
+- recent trap-prone zones
+- short multi-day structural carryover where relevant
+
+Primary Setup
+-------------------------------------------------------------------------------
+Examples:
+- FVG retest
+- liquidity sweep reclaim
+- order block bounce
+
+Backup Setup
+-------------------------------------------------------------------------------
+Examples:
+- BOS continuation setup
+- defended imbalance continuation
+
+Invalidation
+-------------------------------------------------------------------------------
+Mandatory.
+Examples:
+- OB breaks
+- FVG loses context
+- reclaim fails
+- structure flips against setup
+
+Extra Mandatory Field
+-------------------------------------------------------------------------------
+context_quality_score = mandatory
+
+Ownership clarification:
+- Floor 3 provides the raw material for this through:
+  - maps
+  - states
+  - scores
+  - candidates
+- SMC Head then interprets that material and derives context_quality_score
+- ownership of context_quality_score therefore belongs to Floor 4 SMC Head
+
+Why:
+Setup Exists ≠ Good Setup.
+A visible FVG or OB alone is not enough.
+Captain needs to know how strong the context really is.
+
+Report Output
+-------------------------------------------------------------------------------
+- bias
+- confidence
+- context_quality_score
+- dominant timeframe
+- timeframe_view
+- primary setup
+- backup setup
+- active zones
+- armed triggers
+- invalidation
+- bull_case / bear_case
+- confluence note
+- witness summary
+- freshness + state
+
+Captain ला Value
+-------------------------------------------------------------------------------
+SMC Head tells Captain:
+"Where is the real structural smart-money edge, and how trustworthy is it?"
+
+
+================================================================================
+SECTION 15 - ICT HEAD
+================================================================================
+
+Purpose
+-------------------------------------------------------------------------------
+ICT Head exists to answer:
+"What institutional-style delivery context is active right now, and is price behaving in a way that supports a high-quality directional thesis?"
+
+Why it exists:
+Captain should not directly process premium/discount/displacement/MSS logic.
+ICT Head converts these into meaningful institutional interpretation.
+
+Inputs (from Floor 3)
+-------------------------------------------------------------------------------
+- premium/discount zones
+- displacement markers
+- MSS markers
+- liquidity interaction context
+- delivery-style context calculations
+- prior session / prior day reference data where relevant
+
+Internal Thinking
+-------------------------------------------------------------------------------
+ICT Head must decide:
+- is price in a premium or discount location?
+- was there a real displacement or weak move?
+- is MSS meaningful or noisy?
+- is market showing controlled delivery in one direction?
+- is the setup context strong enough to be trusted?
+
+Memory
+-------------------------------------------------------------------------------
+- previous day context
+- weekly directional carryover if useful
+- displacement history
+- timing-style context memory
+- premium/discount map continuity
+
+Primary Setup
+-------------------------------------------------------------------------------
+Examples:
+- premium/discount reaction
+- displacement reclaim
+
+Backup Setup
+-------------------------------------------------------------------------------
+Examples:
+- MSS continuation
+- delivery-aligned reversal attempt
+
+Invalidation
+-------------------------------------------------------------------------------
+Mandatory.
+Examples:
+- discount lost
+- premium invalidated
+- displacement erased
+- MSS fails to hold meaning
+
+Extra Mandatory Field
+-------------------------------------------------------------------------------
+context_quality_score = mandatory
+
+Ownership clarification:
+- Floor 3 provides the raw material for this through:
+  - maps
+  - states
+  - scores
+  - candidates
+- ICT Head then interprets that material and derives context_quality_score
+- ownership of context_quality_score therefore belongs to Floor 4 ICT Head
+
+Why:
+ICT-style setup without delivery quality or contextual support is weak.
+Captain needs to know quality, not only existence.
+
+Report Output
+-------------------------------------------------------------------------------
+- bias
+- confidence
+- context_quality_score
+- dominant timeframe
+- timeframe_view
+- primary setup
+- backup setup
+- active zones
+- armed triggers
+- invalidation
+- bull_case / bear_case
+- confluence note
+- witness summary
+- freshness + state
+
+Captain ला Value
+-------------------------------------------------------------------------------
+ICT Head tells Captain:
+"Does current price behavior reflect high-quality institutional delivery logic or not?"
+
+
+================================================================================
+SECTION 16 - OPTIONS HEAD
+================================================================================
+
+Purpose
+-------------------------------------------------------------------------------
+Options Head exists to answer:
+"Is the options market supporting, resisting, or distorting the price-side thesis?"
+
+Why it exists:
+Captain should not directly judge PCR/OI/IV/max-pain/walls.
+Options Head compresses derivatives pressure into interpretable pressure intelligence.
+
+Inputs (from Floor 3)
+-------------------------------------------------------------------------------
+- PCR
+- OI changes
+- max pain
+- call wall / put wall
+- IV state / skew
+- options pressure calculations
+- recent OI behavior
+
+Internal Thinking
+-------------------------------------------------------------------------------
+Options Head must decide:
+- does the options market confirm directional continuation?
+- is price pushing into strong wall resistance/support?
+- is there pressure expansion or pressure exhaustion?
+- is IV condition helpful or dangerous?
+
+Memory
+-------------------------------------------------------------------------------
+- session OI behavior
+- recent wall shifts
+- IV regime changes
+- short recent options behavior history
+
+Primary Setup
+-------------------------------------------------------------------------------
+Examples:
+- OI wall bounce
+- options pressure continuation
+
+Backup Setup
+-------------------------------------------------------------------------------
+Examples:
+- wall-break transition
+- pressure collapse follow-through
+
+Invalidation
+-------------------------------------------------------------------------------
+Mandatory.
+Examples:
+- wall disappears
+- supportive pressure collapses
+- derivatives bias flips sharply
+
+Report Output
+-------------------------------------------------------------------------------
+- bias
+- confidence
+- dominant timeframe or context bucket
+- primary setup
+- backup setup
+- active zones/walls
+- armed triggers
+- invalidation
+- bull_case / bear_case
+- witness summary
+- freshness + state
+
+Captain ला Value
+-------------------------------------------------------------------------------
+Options Head tells Captain:
+"Is the derivatives layer helping this trade, or quietly standing against it?"
+
+
+================================================================================
+SECTION 17 - MACRO HEAD
+================================================================================
+
+Purpose
+-------------------------------------------------------------------------------
+Macro Head exists to answer:
+"Does the outside environment allow or discourage taking directional risk right now?"
+
+Locked role:
+Macro is a light gate / context head.
+It is not a dominant directional strategy machine.
+
+Why it exists:
+Captain still needs background permission and caution.
+But macro should not overpower core price/structure logic on normal days.
+
+Inputs (from Floor 3 / Floor 1 context)
+-------------------------------------------------------------------------------
+- VIX condition
+- FII/DII state
+- global cue state
+- event calendar state
+- carryover macro context if relevant
+
+Internal Thinking
+-------------------------------------------------------------------------------
+Macro Head must decide:
+- is broader environment calm or risky?
+- is event risk nearby?
+- is macro background mildly supportive or cautionary?
+- should Captain become more conservative?
+
+Memory
+-------------------------------------------------------------------------------
+- current day macro state
+- recent carryover context
+- event schedule memory
+
+Primary Setup
+-------------------------------------------------------------------------------
+Locked answer: none
+
+Backup Setup
+-------------------------------------------------------------------------------
+Locked answer: none
+
+Why no setups here?
+Because Macro Head should not become a directional setup machine.
+Its role is permission, caution, event risk, and background bias.
+
+Invalidation
+-------------------------------------------------------------------------------
+Mandatory.
+Examples:
+- event risk passed
+- macro caution removed
+- volatility condition normalized
+
+Report Output
+-------------------------------------------------------------------------------
+- macro bias leaning (light)
+- confidence
+- caution level
+- event risk flag
+- invalidation
+- bull_case / bear_case if helpful
+- witness summary
+- freshness + state
+
+Captain ला Value
+-------------------------------------------------------------------------------
+Macro Head tells Captain:
+"Does the environment permit this trade, or should you reduce trust?"
+
+
+================================================================================
+SECTION 18 - PSYCHOLOGY HEAD
+================================================================================
+
+Purpose
+-------------------------------------------------------------------------------
+Psychology Head exists to answer:
+"Should the system be allowed to act with normal freedom right now, or should it brake, cool down, or block?"
+
+Locked role:
+Psychology is a balanced brake head.
+It is not a directional setup machine.
+
+Why it exists:
+Technical opportunity can exist while disciplined action is still wrong.
+Psychology Head protects Captain from repeated mistakes, trap-heavy behavior,
+and loss-driven degeneration.
+
+Inputs (system-internal)
+-------------------------------------------------------------------------------
+- losing trade sequence
+- cooldown state
+- repeated same-zone failures
+- trap concentration
+- session mistake memory
+- behavior/discipline markers
+
+Internal Thinking
+-------------------------------------------------------------------------------
+Psychology Head must decide:
+- trade allowed or not?
+- brake level low/medium/high?
+- cooldown active or not?
+- repeated mistake risk present?
+- current day trap density unusually high?
+
+Memory
+-------------------------------------------------------------------------------
+- today’s losses
+- cooldown history
+- same-zone repeated errors
+- intraday trap-heavy areas
+- intraday discipline markers
+
+Primary Setup
+-------------------------------------------------------------------------------
+Locked answer: none
+
+Backup Setup
+-------------------------------------------------------------------------------
+Locked answer: none
+
+Why no setups here?
+Because Psychology Head is not trying to find trades.
+It is trying to protect discipline.
+
+Invalidation
+-------------------------------------------------------------------------------
+Mandatory in brake sense.
+Examples:
+- cooldown completed
+- repeated mistake risk cleared
+- block condition lifted
+
+Report Output
+-------------------------------------------------------------------------------
+- trade_allowed
+- caution_level
+- cooldown_active
+- repeated_mistake_flag
+- trap_pressure
+- block_reason
+- invalidation
+- witness summary
+- freshness + state
+
+Captain ला Value
+-------------------------------------------------------------------------------
+Psychology Head tells Captain:
+"Even if a trade looks good, is disciplined execution still appropriate now?"
+
+
+================================================================================
+SECTION 19 - HOW CAPTAIN SHOULD CONSUME FLOOR 4 OUTPUTS
+================================================================================
+
+Captain consumption model:
+
+Step 1:
+Read Floor Summary first.
+Purpose:
+- quick overall state
+- conflict detection
+- stale warnings
+- strongest domain signal snapshot
+
+Step 2:
+Drill down into individual reports when needed.
+Captain should drill down if:
+- conflict present
+- strong conviction candidate found
+- core head stale (especially SMC/ICT)
+- context quality low or unusual
+- intervention review needed
+- opposite case seems strong
+
+Why this design is best:
+- summary reduces complexity
+- full reports preserve depth
+- Captain stays efficient without becoming blind
+
+
+================================================================================
+SECTION 20 - CORE DESIGN LAWS OF FLOOR 4
+================================================================================
+
+LAW 1
+Every Head must reduce complexity for Captain, not transfer complexity to Captain.
+
+LAW 2
+Every Head must define invalidation.
+If a head cannot explain when it is wrong, it is not useful.
+
+LAW 3
+Setup existence is not enough.
+Especially for SMC/ICT: Setup Exists ≠ Good Setup.
+
+LAW 4
+Freshness matters.
+Captain should not trust stale intelligence equally.
+
+LAW 5
+Confidence is local.
+Conviction is Captain’s job.
+
+LAW 6
+Heads may suggest opportunities.
+Only Captain may approve trades.
+
+LAW 7
+Macro and Psychology are not to be turned into fake directional setup machines.
+
+LAW 8
+Primary and backup setups must be explicit.
+Generic setup lists create noise.
+
+
+================================================================================
+SECTION 21 - FUTURE ARCHITECTURE NOTE
+================================================================================
+
+Accepted future idea (not hard-locked as current mandatory field):
+- reliability_score may be added later, especially for SMC/ICT
+
+Reason:
+confidence and reliability are not the same.
+- confidence = how strong current setup feels
+- reliability = how trustworthy this head’s opinion historically is
+
+This is not required for current Floor 4 implementation blueprint,
+but architecture should remain open enough for later addition.
+
+
+================================================================================
+SECTION 22 - FLOOR 4 COMPLETE STATUS
+================================================================================
+
+FLOOR 4 is now planned with the following locked features:
+- 6 Captain-aligned heads
+- no separate Price Action head
+- hybrid report style
+- hybrid operating rhythm
+- head-specific memory
+- hybrid trigger logic
+- hybrid conflict reporting
+- 2 setups max per actionable head
+- contextual veto support
+- READY / UNCERTAIN / STALE head states
+- freshness score + tag + last deep update
+- invalidation mandatory for all heads
+- SMC/ICT context_quality_score mandatory
+- Macro = light gate, no setup engine
+- Psychology = balanced brake, no setup engine
+- Floor Summary + Individual Reports dual output
+- strong Captain compatibility
+- strong coding-blueprint orientation
+
+This floor is now complete at architecture/planning level,
+subject only to future lower-floor wiring refinements.
+
+
+================================================================================
+NEXT FLOOR TO PLAN:
+ FLOOR 3 - CALCULATION ENGINES
+================================================================================
+
+================================================================================
+SECTION 23 - V1.1 CONTRACT TIGHTENING INTENT
+================================================================================
+
+This V1.1 edition is NOT a Floor 4 redesign.
+This V1.1 edition is NOT a new Head architecture.
+This V1.1 edition does NOT change the Head philosophy.
+This V1.1 edition does NOT remove any module or structure.
+
+This V1.1 edition exists only to:
+- tighten contracts
+- improve Captain V2.1 compatibility
+- improve Floor 3 compatibility
+- close audit gaps explicitly
+
+Strict interpretation:
+- existing Head architecture remains preserved
+- existing Head responsibilities remain preserved
+- existing Head philosophy remains preserved
+- existing module/folder structure remains preserved
+- this edition only appends missing contract declarations and compatibility rules
+
+Target identity:
+Floor 4 V1
+->
+Floor 4 V1.1 Contract Tightened Edition
+
+
+================================================================================
+SECTION 24 - V1.1 CHANGE SUMMARY
+================================================================================
+
+Updated file name:
+- ASSEMBLY_PLAN_02_FLOOR_4_DEPARTMENT_HEADS_V1_1_CONTRACT_TIGHTENED.txt
+
+Added sections list:
+- Section 23 - V1.1 Contract Tightening Intent
+- Section 24 - V1.1 Change Summary
+- Section 25 - Directional Head Common Contract Tightening
+- Section 26 - Candidate Grade Contract Tightening
+- Section 27 - Freshness Ownership Contract
+- Section 28 - Head Health Snapshot Builder Contract
+- Section 29 - Core Head Health Snapshot Contract
+- Section 30 - NO_SETUP Intelligence Propagation Contract
+- Section 31 - Floor Summary Contract Mapping to Captain V2.1
+- Section 32 - Floor 3 Consumption Mapping Tables
+- Section 33 - Report Trust Support Fields
+- Section 34 - Architecture Audit Interface Check
+
+Modified sections list:
+- No existing section deleted
+- No existing section shortened
+- No existing section replaced
+- No destructive rewrite performed
+- Existing architecture preserved; only appended tightening sections added
+
+Audit gaps resolved list (targeted):
+- confluence_note contract explicitness
+- candidate_grade contract clarity
+- freshness ownership ambiguity
+- head health snapshot aggregation explicitness
+- core head health snapshot builder explicitness
+- NO_SETUP propagation explicitness
+- floor summary mandatory Captain mapping explicitness
+- Floor 3 consumption explicitness
+- report trust support field explicitness
+
+New contracts added:
+- common directional report tightening
+- candidate grade contract
+- freshness ownership contract
+- summary health snapshot contract
+- no-setup propagation contract
+- Captain mandatory summary mapping contract
+- Floor 3 consumption tables
+- report trust support contract
+
+
+================================================================================
+SECTION 25 - DIRECTIONAL HEAD COMMON CONTRACT TIGHTENING
+================================================================================
+
+This section tightens Section 7 without replacing it.
+
+Every directional head now explicitly includes the following common fields in its
+report contract:
+- head_name
+- state = READY / UNCERTAIN / STALE
+- freshness_score
+- freshness_tag
+- last_deep_update
+- bias
+- confidence
+- dominant_tf
+- timeframe_view
+- primary_setup
+- backup_setup
+- active_zones
+- armed_triggers
+- invalidation
+- bull_case
+- bear_case
+- confluence_note
+- witness_summary
+- timestamp
+
+New explicit contract tightening:
+- confluence_note is mandatory as a defined common directional-report field,
+  not only an implied optional narrative artifact.
+
+Why this was required:
+Captain V2.1 now explicitly expects confluence_note during drill-down and summary
+trust refinement.  If this field remains only informally implied, some heads may
+emit it while others may not, creating inconsistency.
+
+This does not add new trading logic.
+It only makes the common Head contract explicit.
+
+
+================================================================================
+SECTION 26 - CANDIDATE GRADE CONTRACT TIGHTENING
+================================================================================
+
+This section formalizes candidate-grade meaning.
+
+Locked interpretation:
+Candidate Grade is a QUALITY grade.
+It is NOT:
+- confidence
+- conviction
+- trade approval
+- final directional permission
+
+Candidate Grade only describes setup candidate quality at Floor 3 / Floor 4
+interface level.
+
+Suggested conceptual meanings:
+- A = candidate quality high
+- B = candidate quality medium
+- C = candidate quality weak
+
+This applies primarily to Tier 1 domains and the setups they feed into Heads.
+
+Why this distinction matters:
+If candidate grade is confused with confidence or conviction,
+Floor 3 and Floor 4 boundaries break.
+
+Therefore:
+- candidate grade may help Heads rank candidates
+- local Head confidence is still created at Floor 4
+- final conviction is still created at Captain
+
+This tightens the quality/confidence/conviction boundary.
+
+
+================================================================================
+SECTION 27 - FRESHNESS OWNERSHIP CONTRACT
+================================================================================
+
+This section resolves freshness ambiguity between Floor 3 and Floor 4.
+
+Freshness fields:
+- freshness_score
+- freshness_tag
+- last_deep_update
+
+Ownership model:
+
+A. Source ownership
+Floor 3 is the source of timing/update reality because domain calculations are
+produced there.
+Floor 3 domain packets and/or packet metadata should therefore expose the update
+signals needed for freshness logic.
+
+B. Interpretation ownership
+Floor 4 owns Head freshness interpretation for Captain-facing reports.
+That means Head-level freshness fields are not invented randomly.
+They are derived/maintained from:
+- Floor 3 update timing metadata
+- head_refresh_policy rules
+- head-specific refresh expectations
+
+Therefore the split is:
+- Floor 3 provides update-time reality / metadata basis
+- Floor 4 computes Head-facing freshness representation
+
+Why this split is strongest:
+- avoids duplicate timing truth generation
+- keeps freshness semantics aligned with Head behavior
+- gives Captain one consistent freshness contract
+
+Who consumes freshness?
+- Heads consume Floor 3 update timing basis internally
+- Captain consumes Head-level freshness fields from Floor 4 reports and summary
+
+This resolves the audit gap around freshness ownership.
+
+
+================================================================================
+SECTION 28 - HEAD HEALTH SNAPSHOT BUILDER CONTRACT
+================================================================================
+
+This section formalizes how Floor Summary should aggregate Head health.
+
+Head states are locked as:
+- READY
+- UNCERTAIN
+- STALE
+
+Floor Summary health aggregation must include:
+- ready_heads_count
+- uncertain_heads_count
+- stale_heads_count
+- head_health_snapshot
+- stale_warning_present
+
+head_health_snapshot must be a compact per-head status map.
+Conceptually:
+head_health_snapshot = {
+  "technical": {"state": "READY", "freshness_tag": "fresh"},
+  "smc": {"state": "READY", "freshness_tag": "fresh"},
+  "ict": {"state": "UNCERTAIN", "freshness_tag": "warm"},
+  "options": {"state": "READY", "freshness_tag": "warm"},
+  "macro": {"state": "STALE", "freshness_tag": "stale"},
+  "psychology": {"state": "READY", "freshness_tag": "fresh"}
+}
+
+Why this was required:
+Simple counts are not enough.
+Captain summary-first flow needs to know WHICH heads are healthy or degraded,
+not just how many.
+
+This is still summary-level information.
+It does not replace full individual reports.
+
+
+================================================================================
+SECTION 29 - CORE HEAD HEALTH SNAPSHOT CONTRACT
+================================================================================
+
+This section formalizes the compact core snapshot required by Captain V2.1.
+
+core_head_health_snapshot must include:
+- SMC state
+- ICT state
+- Technical state
+- Macro state
+- Psychology state
+
+Conceptually:
+core_head_health_snapshot = {
+  "smc": {"state": "READY", "freshness_tag": "fresh"},
+  "ict": {"state": "READY", "freshness_tag": "fresh"},
+  "technical": {"state": "READY", "freshness_tag": "warm"},
+  "macro": {"state": "STALE", "freshness_tag": "stale"},
+  "psychology": {"state": "READY", "freshness_tag": "fresh"}
+}
+
+Why this exists separately from head_health_snapshot:
+Because Captain V2.1 summary-first workflow cares especially about a small set of
+critical heads before deciding whether drill-down is necessary.
+
+This does not create new logic.
+It makes the summary contract explicit.
+
+
+================================================================================
+SECTION 30 - NO_SETUP INTELLIGENCE PROPAGATION CONTRACT
+================================================================================
+
+This section formalizes how NO_SETUP intelligence must travel from Head logic to
+Floor Summary and then to Captain.
+
+Explicit forms:
+- READY_NO_SETUP
+- UNCERTAIN_NO_SETUP
+- STALE_NO_SETUP
+
+Meaning:
+1. READY_NO_SETUP
+- head is healthy
+- no valid setup exists now
+- healthy silence
+
+2. UNCERTAIN_NO_SETUP
+- no valid setup exists
+- head interpretation is unstable/conflicted
+- cautionary no-setup
+
+3. STALE_NO_SETUP
+- no valid setup exists
+- report health is degraded/stale
+- low-trust no-setup
+
+How this propagates:
+A. Head-level report
+- setup_presence may be explicit or derivable
+- setup_absence_context must be representable
+
+B. Floor Summary
+Summary must preserve no-setup quality in compact form where relevant.
+This can be expressed through:
+- strongest_domain_signal absence notes
+- stale_warning_present
+- head_health_snapshot
+- summary witness lines
+- summary no-setup context note if needed
+
+Why this was required:
+Captain V2.1 explicitly distinguishes healthy silence from uncertain/stale silence.
+Floor 4 must therefore preserve that distinction.
+
+
+================================================================================
+SECTION 31 - FLOOR SUMMARY CONTRACT MAPPING TO CAPTAIN V2.1
+================================================================================
+
+This section gives the exact Captain-facing mapping.
+
+Captain V2.1 mandatory Floor Summary fields expected:
+- summary_timestamp
+- floor_bias_snapshot
+- floor_confidence_snapshot
+- active_setup_count
+- primary_setups_by_head
+- backup_setups_by_head
+- ready_heads_count
+- uncertain_heads_count
+- stale_heads_count
+- conflict_present
+- stale_warning_present
+- strongest_domain_signal
+- strongest_context_signal
+- strongest_risk_warning
+- summary_witness_lines
+- core_head_health_snapshot
+- head_health_snapshot
+
+Floor 4 responsibility:
+Floor Summary builder must ensure these fields are present conceptually in the
+summary contract.
+
+Why explicit mapping matters:
+Without exact summary mapping, Captain summary-first workflow becomes partially
+implicit and future coding can drift.
+
+This section closes that gap.
+
+
+================================================================================
+SECTION 32 - FLOOR 3 CONSUMPTION MAPPING TABLES
+================================================================================
+
+This section tightens Section 19 by splitting consumption into:
+- consumed states
+- consumed maps
+- consumed scores
+- consumed candidates
+
+TECHNICAL HEAD CONSUMPTION
+-------------------------------------------------------------------------------
+Consumed States:
+- trend_state
+- momentum_state
+- technical_condition_state
+- mtf_state
+- candle_pattern_state
+- Common Market State Projection where shared market/session/regime context is useful
+
+Consumed Maps:
+- active_technical_level_map
+
+Consumed Scores:
+- no mandatory Tier 1 score
+- optional technical support score if later added
+
+Consumed Candidates:
+- technical continuation / reclaim candidates if exposed by Floor 3
+
+SMC HEAD CONSUMPTION
+-------------------------------------------------------------------------------
+Consumed States:
+- shared structure state
+- smc_state
+- ob_state
+- fvg_state
+- liquidity_state
+- sweep_state
+- mitigation_state
+
+Consumed Maps:
+- active_ob_map
+- active_fvg_map
+- active_liquidity_map
+
+Consumed Scores:
+- smc_quality_score
+
+Consumed Candidates:
+- SMC setup candidates
+
+ICT HEAD CONSUMPTION
+-------------------------------------------------------------------------------
+Consumed States:
+- shared structure state
+- ict_state
+- premium_discount_state
+- displacement_state
+- mss_state
+- delivery_context_state
+
+Consumed Maps:
+- active_pd_map
+- active_displacement_map
+- active_delivery_map
+
+Consumed Scores:
+- ict_delivery_score
+
+Consumed Candidates:
+- ICT setup candidates
+
+OPTIONS HEAD CONSUMPTION
+-------------------------------------------------------------------------------
+Consumed States:
+- options_state
+- pressure_state
+- wall_state
+- iv_state
+
+Consumed Maps:
+- active_wall_map
+- active_options_pressure_map
+
+Consumed Scores:
+- optional support score if present
+
+Consumed Candidates:
+- options setup candidates
+
+MACRO HEAD CONSUMPTION
+-------------------------------------------------------------------------------
+Consumed States:
+- macro_state
+- caution_state
+- event_risk_state
+- environment_state
+- Common Market State Projection where shared market/session/regime context is useful
+
+Consumed Maps:
+- none major by default
+
+Consumed Scores:
+- optional only
+
+Consumed Candidates:
+- none (locked)
+
+PSYCHOLOGY HEAD CONSUMPTION
+-------------------------------------------------------------------------------
+Consumed States:
+- support_psych_state_basic (if preserved and used)
+
+Consumed Maps:
+- none
+
+Consumed Scores:
+- none
+
+Consumed Candidates:
+- none
+
+FLOOR SUMMARY BUILDER CONSUMPTION
+-------------------------------------------------------------------------------
+Consumed Common Projection:
+- Common Market State Projection for shared market/session/regime snapshot support
+
+Why this is useful:
+The summary builder can compress head outputs more coherently when a shared
+market/session/regime reference is available from Floor 3.
+This does NOT replace Head interpretation.
+It supports consistent summary construction.
+
+Why these tables matter:
+They make Floor 3 -> Floor 4 wiring explicit enough for future coding.
+
+
+================================================================================
+SECTION 33 - REPORT TRUST SUPPORT FIELDS
+================================================================================
+
+This section clarifies which Head-provided fields support Captain trust weighting.
+
+Captain trust weighting depends on Head reports providing explicit support fields.
+These support fields are:
+- state
+- freshness_score
+- freshness_tag
+- last_deep_update
+- for SMC/ICT: context_quality_score
+- invalidation
+- setup presence/absence context
+
+Important note:
+These fields do NOT themselves create Captain conviction.
+They only support Captain trust weighting logic.
+
+This keeps the boundary clean:
+- Head provides trust-support fields
+- Captain decides how much trust to assign
+
+
+================================================================================
+SECTION 34 - ARCHITECTURE AUDIT INTERFACE CHECK
+================================================================================
+
+This section verifies whether the interface path is now clean enough:
+
+FLOOR 3
+-> rich structured intelligence
+-> domain packets + projection
+
+FLOOR 4
+-> domain-specific interpretation
+-> explicit common report contract
+-> floor summary contract
+-> health snapshots
+-> no-setup propagation
+
+CAPTAIN V2.1
+-> summary-first workflow
+-> drill-down when needed
+-> report trust weighting
+-> stale core head handling
+-> no-setup intelligence handling
+
+Interface cleanliness verdict:
+- Floor 3 responsibilities remain preserved
+- Floor 4 responsibilities remain preserved
+- Captain responsibilities remain preserved
+- no architecture replacement was performed
+- audit gaps were closed by contract clarification, not redesign
+
+This completes Floor 4 V1.1 Contract Tightened Edition intent.
+
+
+================================================================================
+SECTION 35 - FINAL STATUS OF FLOOR 4 V1.1 CONTRACT TIGHTENED EDITION
+================================================================================
+
+Floor 4 V1.1 preserves:
+- existing Head architecture
+- existing Head responsibilities
+- existing Head philosophy
+- existing folder/module structure
+- existing Captain-driven design
+
+And explicitly tightens:
+- common directional report contract
+- confluence_note contract
+- candidate_grade contract meaning
+- freshness ownership split
+- head health snapshot aggregation
+- core head health snapshot builder
+- no-setup propagation
+- floor summary mandatory mapping to Captain V2.1
+- Floor 3 consumption tables
+- report trust support fields
+- interface audit traceability
+
+This is therefore:
+NOT a redesign
+NOT a simplification
+NOT a replacement
+BUT
+Floor 4 V1.1 Contract Tightened Edition
+
+================================================================================
+END OF FLOOR 4 V1.1 CONTRACT TIGHTENING ADDITIONS
+================================================================================
+
+================================================================================
+SECTION 36 - V1.2 FINALIZATION INTENT
+================================================================================
+
+This V1.2 Final file is not a redesign.
+This V1.2 Final file does not add new architecture.
+This V1.2 Final file does not add floors or sides.
+This V1.2 Final file does not change ownership.
+This V1.2 Final file only tightens weak or implicit contracts so that Floor 4
+becomes:
+- Architecture Safe
+- Ownership Safe
+- Integration Safe
+- Replay Safe
+- Side A aligned
+- Side B aligned
+- Side C aligned
+- Audit Ready
+- Implementation Ready
+
+Minimal change rule:
+The existing Floor 4 V1.1 file remains the base.
+Only weak or ambiguous contract areas are clarified.
+
+
+================================================================================
+SECTION 37 - HEAD OWNERSHIP AND CONFIDENCE OWNERSHIP REINFORCEMENT
+================================================================================
+
+Floor 4 is the confidence layer.
+This finalization reinforces that identity explicitly.
+
+Floor 4 owns:
+- domain interpretation
+- local confidence generation
+- invalidation generation
+- setup prioritization
+- floor summary generation
+
+Floor 4 does NOT own:
+- conviction
+- final trade approval
+- execution
+- calculation truth
+- memory truth ownership
+
+Why this matters:
+It preserves the strongest cross-floor split:
+- Floor 3 computes quality
+- Floor 4 creates confidence
+- Floor 5 creates conviction and decision
+
+This is not a new rule.
+It is a final ownership reinforcement.
+
+
+================================================================================
+SECTION 38 - FLOOR 3 CONSUMPTION REINFORCEMENT
+================================================================================
+
+Floor 4 already consumes Floor 3 through explicit mapping tables.
+V1.2 Final clarifies the meaning of that dependency.
+
+Floor 4 depends on Floor 3 for:
+- states
+- maps
+- scores
+- candidates
+- common market state projection
+
+But Floor 4 does not inherit Floor 3 ownership.
+It interprets Floor 3 outputs.
+
+Why this matters:
+If later implementation begins to recompute Floor 3 logic inside Heads,
+then Floor 4 bloats and architecture drifts.
+
+This section reinforces that Heads consume and interpret,
+not recreate the intelligence factory.
+
+
+================================================================================
+SECTION 39 - CAPTAIN HANDOFF CLARIFICATION
+================================================================================
+
+Floor 4 -> Floor 5 handoff is already explicit.
+V1.2 Final reinforces what that means.
+
+Floor 4 gives Captain:
+- floor summary
+- individual head reports
+- confidence-bearing expert interpretation
+- invalidation-bearing expert interpretation
+- no-setup intelligence
+- trust-support fields
+
+Floor 4 does NOT give Captain:
+- conviction
+- final trade approval
+- execution commands
+
+Why this matters:
+Captain must remain the supreme judge.
+Floor 4 must remain the expert witness layer.
+
+This clarification strengthens Captain ownership preservation.
+
+
+================================================================================
+SECTION 40 - CROSS-HEAD CONTRACT CLARIFICATION
+================================================================================
+
+Heads coexist inside one floor,
+but one Head should not become another Head’s hidden owner.
+
+Cross-head interaction rule:
+- heads may align through shared upstream intelligence
+- heads may be compared by Captain
+- heads may be summarized by Floor Summary builder
+- heads should not directly rewrite each other’s opinions
+
+What this prevents:
+- SMC head silently mutating Technical meaning
+- Macro head dominating SMC structural interpretation
+- Psychology head turning into a directional gatekeeper beyond its role
+
+Why this matters:
+Cross-head coupling is one of the easiest ways to blur an interpretation layer.
+This clarification keeps Head isolation strong.
+
+
+================================================================================
+SECTION 41 - REPLAY COMPATIBILITY CLARIFICATION
+================================================================================
+
+Floor 4 is not a replay owner.
+Replay truth comes from lower layers and replay references later link through
+memory/review layers.
+
+V1.2 Final clarification:
+Floor 4 must remain replay-compatible by keeping reports reconstructable from:
+- Floor 3 states/maps/scores/candidates
+- Floor Summary logic
+- no-setup propagation logic
+- invalidation logic
+- freshness/state logic
+
+Why this matters:
+If later someone replays a past market state,
+Floor 4 outputs should be explainable from upstream intelligence,
+not behave like untraceable expert magic.
+
+This does not move replay ownership into Floor 4.
+It reinforces replay compatibility.
+
+
+================================================================================
+SECTION 42 - SIDE C COMPATIBILITY CLARIFICATION
+================================================================================
+
+Floor 4 is not a memory owner.
+But Floor 4 outputs may later be referenced by Side C in review or decision
+contexts.
+
+V1.2 Final clarification:
+- Floor 4 does not store memory
+- Floor 4 does not own journals
+- Floor 4 reports and floor summaries should remain referenceable where later
+  review or memory linkage is needed
+
+Examples:
+- head report references in decision review
+- no-trade reason summary references
+- floor summary references linked to Captain decision history
+
+Why this matters:
+It preserves Side C compatibility without turning Floor 4 into a memory layer.
+
+
+================================================================================
+SECTION 43 - DASHBOARD COMPATIBILITY CLARIFICATION
+================================================================================
+
+Floor 4 is one of the strongest feed layers for Side B.
+V1.2 Final clarifies what that means without turning Floor 4 into a display owner.
+
+Floor 4 should remain dashboard-compatible by exposing:
+- floor summary
+- head reports
+- freshness/state information
+- primary/backup setups
+- invalidation-bearing explainability support
+- no-trade explainability support
+
+Why this matters:
+Dashboard explainability depends heavily on Floor 4.
+But Floor 4 still does not own the dashboard.
+
+This is compatibility, not ownership transfer.
+
+
+================================================================================
+SECTION 44 - REVIEW SUPPORT CLARIFICATION
+================================================================================
+
+Floor 4 is not a journal layer.
+But it is one of the main layers that enables useful review.
+
+Why:
+- confidence exists here
+- invalidation exists here
+- no-setup reasoning exists here
+- floor summary exists here
+- freshness/state interpretation exists here
+
+V1.2 Final clarification:
+Floor 4 supports review by being structured and traceable,
+not by becoming the review store itself.
+
+This distinction is important for future Side C and dashboard review workspaces.
+
+
+================================================================================
+SECTION 45 - AUDITABILITY AND TRACEABILITY CLARIFICATION
+================================================================================
+
+Floor 4 is where explainable interpretation begins.
+V1.2 Final clarifies the auditability expectation.
+
+Critical auditability expectations include:
+- confidence remains attributable to supporting quality inputs
+- no-setup states remain explainable
+- invalidation remains inspectable
+- freshness/state logic remains reviewable
+- floor summary remains reconstructable from head outputs
+
+Why this matters:
+If Floor 4 confidence becomes a black box,
+Captain conviction becomes harder to trust later.
+
+This does not make Floor 4 a memory layer.
+It makes Floor 4 auditable.
+
+
+================================================================================
+SECTION 46 - FLOOR 4 V1.2 FINAL STATUS
+================================================================================
+
+Floor 4 V1.2 Final preserves:
+- existing Head architecture
+- existing Head responsibilities
+- existing Head philosophy
+- existing Captain-driven design
+- existing Floor 3 consumption model
+- existing Floor Summary model
+- existing confidence ownership
+- existing invalidation ownership
+- existing freshness/state model
+- existing no-setup propagation model
+
+And explicitly tightens:
+- head ownership reinforcement
+- confidence ownership reinforcement
+- Floor 3 dependency reinforcement
+- Captain handoff clarification
+- cross-head contract isolation
+- replay compatibility clarification
+- Side C compatibility clarification
+- dashboard compatibility clarification
+- review support clarification
+- auditability/traceability clarification
+
+This file is therefore:
+- not a redesign
+- not a new Head architecture
+- not an ownership change
+- not a Captain or execution shift
+
+It is the finalized contract-tightened Floor 4 planning file.
+
+================================================================================
+END OF FLOOR 4 V1.2 FINALIZATION ADDITIONS
+================================================================================

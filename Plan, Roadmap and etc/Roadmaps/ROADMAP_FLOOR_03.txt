@@ -1,0 +1,1070 @@
+================================================================================
+ROADMAP FLOOR 03: CALCULATION ENGINES
+================================================================================
+File: ROADMAP_FLOOR_03.txt
+Version: 1.0
+Status: Implementation Execution Document
+Depends On: ROADMAP_PHASE_0_FOUNDATION, ROADMAP_FLOOR_01, ROADMAP_FLOOR_02, ROADMAP_SIDE_C (Stage A)
+Next In Chain: ROADMAP_FLOOR_04
+================================================================================
+
+This is NOT an architecture document.
+This is an IMPLEMENTATION EXECUTION DOCUMENT.
+
+DO NOT:
+- Redefine architecture
+- Change ownership
+- Change contracts
+- Change dataflow
+- Change wiring
+- Change sequencing
+
+DO:
+- Define step-by-step build order
+- Define per-module contracts
+- Define per-module validation
+- Define wiring between modules
+- Define integration points
+- Make this coding-ready
+
+================================================================================
+SECTION 1: PURPOSE
+================================================================================
+
+Floor 3 is the calculation layer of the Junior Aladdin system. It consumes
+validated, cleaned, and structured data from Floor 2 Data Center and applies
+three independent calculation domains:
+
+1. SMC (Smart Money Concepts) — Market structure, FVG, Order Blocks, CHOCH
+2. ICT (Inner Circle Trader) — PD Arrays, Kill Zones, Liquidity concepts
+3. Technical — RSI, MA, ATR, Volume Profile, standard indicators
+
+Floor 3 produces calculated signals (NOT interpretations, NOT setups, NOT
+decisions). Each output is:
+- Deterministic: same input → same output, always
+- Repeatable: can be re-run in replay mode with identical results
+- Auditable: every output carries a calculation_log with full provenance
+
+Floor 3 outputs flow exclusively to Floor 4 (Department Heads). Floor 3 does
+NOT communicate with Captain, Side A, or Side B directly.
+
+CRITICAL ARCHITECTURE RULES:
+Rule 1: Floor 3 NEVER interprets — it only calculates
+Rule 2: Floor 3 NEVER outputs confidence, conviction, scores, or rankings
+Rule 3: Floor 3 NEVER outputs setups or trade signals
+Rule 4: Floor 3 is domain-agnostic — it does not know what the signals mean
+Rule 5: Every calculation is immutable — signal_id never changes after creation
+Rule 6: Floor 3 has zero dependency on Side C, Side A, Floor 4, Floor 5
+Rule 7: Floor 3 must be fully functional in replay mode (no live data needed)
+Rule 8: No engine imports from another engine — SMC does not call ICT
+
+================================================================================
+SECTION 2: COMPONENT ARCHITECTURE
+================================================================================
+
+FLOOR 3 DIRECTORY STRUCTURE:
+
+floor_3/
+├── __init__.py                    # Module init, exposes f3_orchestrator
+├── f3_types.py                    # Floor 3 type definitions (no imports beyond types)
+├── f3_contracts.py                # Input/output contract definitions
+├── f3_config.py                   # Calculation parameters, thresholds, timeframes
+├── f3_ingress.py                  # Floor 2 data ingress with contract validation
+├── f3_orchestrator.py             # Routes incoming data to appropriate engines
+├── f3_output_builder.py           # Packs calculation results into output contracts
+├── f3_validator.py                # Post-calculation validation layer
+├── f3_replay_adapter.py           # Replay mode support (reads from Side C replay store)
+├── smc/
+│   ├── __init__.py
+│   ├── smc_engine.py              # Main SMC calculation engine
+│   ├── fvg_calculator.py          # Fair Value Gap detection
+│   ├── ob_calculator.py           # Order Block detection
+│   ├── choch_calculator.py        # Change of Character detection
+│   ├── market_structure.py        # Market structure (HH/HL/LH/LL) detection
+│   └── smc_validator.py           # SMC-specific validation
+├── ict/
+│   ├── __init__.py
+│   ├── ict_engine.py              # Main ICT calculation engine
+│   ├── pd_array_calculator.py     # Premium/Discount Array calculation
+│   ├── kill_zone_calculator.py    # Kill Zone time detection
+│   ├── liquidity_calculator.py    # Liquidity level detection
+│   └── ict_validator.py           # ICT-specific validation
+├── technical/
+│   ├── __init__.py
+│   ├── technical_engine.py        # Main Technical calculation engine
+│   ├── rsi_calculator.py          # RSI calculation
+│   ├── ma_calculator.py           # Moving Average calculation
+│   ├── atr_calculator.py          # ATR calculation
+│   ├── volume_profile.py          # Volume Profile calculation
+│   └── technical_validator.py     # Technical-specific validation
+└── tests/
+    ├── __init__.py
+    ├── test_f3_types.py
+    ├── test_f3_contracts.py
+    ├── test_f3_config.py
+    ├── test_f3_ingress.py
+    ├── test_f3_orchestrator.py
+    ├── test_f3_output_builder.py
+    ├── test_f3_validator.py
+    ├── test_f3_replay_adapter.py
+    ├── test_smc_engine.py
+    ├── test_smc_fvg.py
+    ├── test_smc_ob.py
+    ├── test_smc_choch.py
+    ├── test_smc_market_structure.py
+    ├── test_ict_engine.py
+    ├── test_ict_pd_array.py
+    ├── test_ict_kill_zone.py
+    ├── test_ict_liquidity.py
+    ├── test_technical_engine.py
+    ├── test_technical_rsi.py
+    ├── test_technical_ma.py
+    ├── test_technical_atr.py
+    ├── test_technical_volume_profile.py
+    ├── test_contract_validation.py     # Cross-module contract alignment
+    ├── test_replay_validation.py       # Replay mode determinism
+    └── test_integration.py             # Full Floor 3 end-to-end
+
+================================================================================
+SECTION 3: STEP-BY-STEP BUILD ORDER
+================================================================================
+
+BUILD SEQUENCE (must be followed in this order):
+
+STEP 3.1 — f3_types.py (Zero external Floor 3 imports)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: Phase 0 types (from types.py)
+Imports from: types.py (MarketPhase, PacketEnvelope, FreshnessTag, DataHealth)
+              f3_types.py enums/types (nothing else from Floor 3)
+
+Define all Floor 3 specific enums and dataclasses:
+
+Enums:
+- CalculationDomain: SMC, ICT, TECHNICAL
+- EngineStatus: IDLE, CALCULATING, COMPLETE, ERROR
+- MarketStructureType: BULLISH_HH_HL, BEARISH_LH_LL, CHOP, BREAKOUT
+- FvgType: BULLISH_FVG, BEARISH_FVG
+- ObType: BULLISH_OB, BEARISH_OB
+- ChoChType: BULLISH_CHOCH, BEARISH_CHOCH
+- PdArrayType: PREMIUM, DISCOUNT, OPTIMAL_TRADE_ENTRY
+- KillZoneType: ASIAN, LONDON_OPEN, NY_AM_OPEN, NY_PM_CLOSE
+- LiquidityType: BUY_SIDE, SELL_SIDE, DOUBLE_DISTRIBUTION
+- TaIndicatorType: RSI, MA_FAST, MA_SLOW, ATR, VOLUME_PROFILE
+- CalculationQuality: NOMINAL, DEGRADED, INSUFFICIENT_DATA
+
+Dataclasses:
+- CalculationParameters: domain, timeframe, lookback_periods, thresholds dict
+- CalculationInput: packet_envelope_id, market_phase, symbol, timestamp, data dict
+- CalculationResult: signal_id (UUID), domain, indicator_type, value, timestamp, metadata dict
+- CalculationLog: signal_id, domain, engine_version, input_hash, parameters_used list, calculation_steps list, warnings list
+- CalculatedSignal: signal_id, domain, indicator_type, value, timestamp, quality, metadata, calculation_log
+- EngineRunReport: engine_name, domain, status, signals_generated list, duration_ms, errors list
+- Floor3Summary: domain_summaries dict, signals_count, engine_statuses dict, data_health
+
+Output contract (this module):
+- All enums and dataclasses exported from f3_types
+
+STEP 3.2 — f3_contracts.py (Depends on f3_types.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: f3_types.py, types.py
+Imports from: f3_types (all dataclasses), types (PacketEnvelope, FreshnessTag)
+
+Define input contract (Floor 2 → Floor 3):
+- InputContract: validated_data_stream (PacketEnvelope list), structured_packets (dict)
+- Contract validation rules:
+  - All packets must carry FreshnessTag
+  - All packets must carry DataHealth
+  - Rejected: raw/unvalidated packets from Floor 1
+  - Rejected: packets missing required fields for calculation domain
+
+Define output contract (Floor 3 → Floor 4):
+- OutputContract: CalculatedSignal list, EngineRunReport list, Floor3Summary
+- Contract rules:
+  - Every CalculatedSignal MUST have a unique signal_id (UUID v4)
+  - Every CalculatedSignal MUST carry a CalculationLog
+  - Every CalculationLog MUST contain input_hash for replay verification
+  - Output is ALWAYS a list (never None) — empty list = no signals found
+  - Floor3Summary ALWAYS present (never None)
+
+Define replay contract (Side C → Floor 3 during replay):
+- ReplayContract: replay_mode (bool), replay_data_stream (Side C read model)
+- When replay_mode=True, f3_ingress reads from replay data stream, NOT live Floor 2
+
+Output contract (this module):
+- InputContract, OutputContract, ReplayContract — all dataclasses with validation methods
+
+STEP 3.3 — f3_config.py (Depends on f3_types.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: f3_types.py, config.py (Phase 0)
+Imports from: f3_types (enums), config (base config patterns)
+
+Define calculation parameters:
+
+SMC parameters:
+- fvg_min_gap_pips: 0.5 (minimum gap to classify as FVG)
+- fvg_max_lookback_candles: 20 (how far back to check FVG mitigation)
+- ob_lookback_candles: 10 (order block formation window)
+- choch_required_consecutive: 2 (candles needed to confirm CHOCH)
+- market_structure_lookback: 50 (bars for HH/HL/LH/LL detection)
+
+ICT parameters:
+- pd_array_period: 20 (lookback for premium/discount calculation)
+- kill_zone_buffer_minutes: 15 (buffer for kill zone start/end)
+- liquidity_sweep_threshold_pips: 0.3 (threshold for liquidity sweep detection)
+- asian_range_start: "02:30" (IST)
+- asian_range_end: "09:15" (IST)
+- london_open_start: "12:30" (IST)
+- ny_am_open_start: "17:30" (IST)
+- ny_pm_close_start: "22:00" (IST)
+
+Technical parameters:
+- rsi_period: 14
+- rsi_overbought: 70
+- rsi_oversold: 30
+- ma_fast_period: 9
+- ma_slow_period: 21
+- atr_period: 14
+- volume_profile_period: 30 (bars per VPVR session)
+
+General parameters:
+- calculation_timeout_ms: 5000 (max time per calculation)
+- max_signals_per_domain_per_cycle: 50
+- min_data_points_per_calculation: 5 (below this → INSUFFICIENT_DATA quality)
+
+Output contract (this module):
+- F3Config dataclass with all parameters, load/save methods, validation
+
+STEP 3.4 — SMC Domain: smc_engine.py (Depends on Steps 3.1-3.3)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: f3_types.py, f3_contracts.py, f3_config.py
+Imports from: f3_types, f3_contracts, f3_config, fvg_calculator, ob_calculator,
+              choch_calculator, market_structure
+
+Build sub-modules first (3.4a-3.4d), then engine (3.4e):
+
+STEP 3.4a — smc/fvg_calculator.py
+- detect_fvg(candles: list) → list of FVG objects
+- check_mitigation(fvg, candles) → mitigated (bool), mitigated_at (timestamp)
+- Pure function: same candles → same FVGs every time
+- No state, no instance variables, no external calls
+- Validation: FVG gap must be ≥ fvg_min_gap_pips, FVG must span 3 consecutive candles
+
+STEP 3.4b — smc/ob_calculator.py
+- detect_order_blocks(candles: list, trend: str) → list of OB objects
+- classify_ob(strength: float) → BULLISH_OB / BEARISH_OB
+- Pure function: no state, no external calls
+- Validation: OB must be at swing point, must align with trend direction
+
+STEP 3.4c — smc/choch_calculator.py
+- detect_choch(candles: list, structure: MarketStructureType) → list of CHOCH objects
+- classify_choch(direction: str) → BULLISH_CHOCH / BEARISH_CHOCH
+- Pure function: no state, no external calls
+- Validation: requires choch_required_consecutive candles post-break to confirm
+
+STEP 3.4d — smc/market_structure.py
+- analyze_structure(candles: list) → MarketStructureType, swing_points list
+- detect_hh_hl(candles: list) → structure segments list
+- Pure function: no state, no external calls
+- Validation: minimum market_structure_lookback candles required
+
+STEP 3.4e — smc/smc_engine.py
+- Orchestrates all SMC sub-calculators
+- run(candles: list, parameters: CalculationParameters) → EngineRunReport
+- Calls each calculator in order: market_structure → fvg → ob → choch
+- Collects all CalculatedSignal objects
+- Builds CalculationLog from each step
+- No interpretation logic — pure calculation orchestration
+- Validation: engine_status must be COMPLETE; errors list must be empty
+
+STEP 3.5 — ICT Domain: ict_engine.py (Depends on Steps 3.1-3.3)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: f3_types.py, f3_contracts.py, f3_config.py
+Imports from: f3_types, f3_contracts, f3_config, pd_array_calculator,
+              kill_zone_calculator, liquidity_calculator
+
+Build sub-modules first (3.5a-3.5c), then engine (3.5d):
+
+STEP 3.5a — ict/pd_array_calculator.py
+- calculate_pd_array(candles: list, period: int) → list of PD Array objects
+- classify_pd(price: float, high: float, low: float, period: int) → PdArrayType
+- Pure function: no state, no external calls
+- Validation: must have pd_array_period minimum data points
+
+STEP 3.5b — ict/kill_zone_calculator.py
+- get_active_kill_zones(timestamp: datetime) → list of KillZoneType
+- get_next_kill_zone(timestamp: datetime) → KillZoneType, time_until_start
+- Time-based: uses kill_zone times from config (IST timezone)
+- Pure function: no state, timezone-aware
+- Validation: kill_zone_buffer_minutes applied to each zone boundary
+
+STEP 3.5c — ict/liquidity_calculator.py
+- detect_liquidity_levels(candles: list) → list of Liquidity objects
+- check_sweep(level: float, candles: list) → swept (bool), swept_at (timestamp)
+- Pure function: no state, no external calls
+- Validation: sweep requires close beyond level + liquidity_sweep_threshold_pips
+
+STEP 3.5d — ict/ict_engine.py
+- Orchestrates all ICT sub-calculators
+- run(candles: list, parameters: CalculationParameters) → EngineRunReport
+- Calls each calculator: pd_array → kill_zone → liquidity
+- Collects all CalculatedSignal objects
+- Builds CalculationLog from each step
+- Validation: engine_status must be COMPLETE; no unhandled timezone errors
+
+STEP 3.6 — Technical Domain: technical_engine.py (Depends on Steps 3.1-3.3)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: f3_types.py, f3_contracts.py, f3_config.py
+Imports from: f3_types, f3_contracts, f3_config, rsi_calculator, ma_calculator,
+              atr_calculator, volume_profile
+
+Build sub-modules first (3.6a-3.6d), then engine (3.6e):
+
+STEP 3.6a — technical/rsi_calculator.py
+- calculate_rsi(close_prices: list, period: int) → list of RSI values
+- Pure function: uses standard RSI formula ( Wilder's smoothing )
+- Validation: must have ≥ period + 1 data points
+- Output: list of (timestamp, rsi_value) pairs
+
+STEP 3.6b — technical/ma_calculator.py
+- calculate_ma(close_prices: list, period: int, ma_type: str) → list of MA values
+- ma_type: "SMA" or "EMA"
+- Pure function: no state, no external calls
+- Validation: must have ≥ period data points
+- Output: list of (timestamp, ma_value) pairs
+
+STEP 3.6c — technical/atr_calculator.py
+- calculate_atr(candles: list, period: int) → list of ATR values
+- Pure function: uses True Range formula
+- Validation: must have ≥ period + 1 candles
+- Output: list of (timestamp, atr_value) pairs
+
+STEP 3.6d — technical/volume_profile.py
+- calculate_volume_profile(candles: list, period: int) → VolumeProfile object
+- Includes: Point of Control (POC), Value Area High (VAH), Value Area Low (VAL)
+- Pure function: no state, no external calls
+- Validation: must have ≥ volume_profile_period candles
+- Output: VolumeProfile dataclass
+
+STEP 3.6e — technical/technical_engine.py
+- Orchestrates all Technical sub-calculators
+- run(candles: list, parameters: CalculationParameters) → EngineRunReport
+- Calls each calculator: rsi → ma → atr → volume_profile
+- Collects all CalculatedSignal objects
+- Builds CalculationLog from each step
+- Validation: engine_status must be COMPLETE; division by zero checked for RSI
+
+STEP 3.7 — f3_orchestrator.py (Depends on Steps 3.4-3.6)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: All engines (smc_engine, ict_engine, technical_engine), f3_types,
+              f3_contracts, f3_config, f3_ingress, f3_output_builder
+Imports from: All above modules
+
+Responsibilities:
+- receive_data(packets: list) → routes to appropriate domain engine(s)
+- route_to_domain(data: CalculationInput, domain: CalculationDomain) → EngineRunReport
+- collect_results(reports: list) → list of CalculatedSignal
+- handle_calculation_cycle() → Floor3Summary
+
+Routing logic:
+- Market phase determines which domains to activate:
+  - PRE_MARKET: SMC + ICT (structure + kill zone preparation)
+  - REGULAR: ALL domains active
+  - POST_MARKET: SMC + Technical (structure update + analysis)
+  - CLOSED: No calculations (return empty summary)
+- Data type determines engine:
+  - tick_stream → Technical (RSI, MA, ATR need tick/1m data)
+  - candle_stream → ALL domains
+  - options_snapshot → Technical (volume profile only)
+- Each engine run is independent — error in one does not block others
+- Timeout protection: if engine exceeds calculation_timeout_ms, mark as ERROR
+
+Validation:
+- All engines must return EngineRunReport before orchestrator proceeds
+- Empty engine report (no signals) is valid — not an error
+- Floor3Summary always produced, even if all engines return empty
+
+STEP 3.8 — f3_output_builder.py (Depends on Steps 3.1-3.7)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: f3_types.py, f3_contracts.py, f3_config.py
+Imports from: f3_types, f3_contracts
+
+Responsibilities:
+- build_output(signals: list, reports: list, domain: CalculationDomain) → OutputContract
+- pack_signal(domain, indicator_type, value, metadata) → CalculatedSignal with signal_id
+- build_calculation_log(domain, input_hash, steps, warnings) → CalculationLog
+- build_floor3_summary(reports: list, domain_summaries: dict) → Floor3Summary
+
+Key rules:
+- Every output MUST have unique signal_id (UUID v4, generated by output_builder)
+- signal_id is immutable — never changes after creation
+- calculation_log.input_hash must match the input data hash for replay verification
+- Empty signal list is valid — Floor3Summary shows 0 signals, not an error
+- NO metadata enrichment — output metadata is what engines produced
+- NO ordering/ranking of signals
+
+STEP 3.9 — f3_validator.py (Depends on Steps 3.4-3.8)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: f3_types.py, f3_contracts.py
+Imports from: f3_types, f3_contracts, f3_output_builder
+
+Validation layer runs AFTER calculation, BEFORE output dispatch to Floor 4.
+
+Validation checks:
+1. Output contract compliance:
+   - Every CalculatedSignal has signal_id (UUID, not None, not empty)
+   - Every CalculatedSignal has CalculationLog
+   - Every CalculationLog has input_hash
+   - Floor3Summary is not None
+
+2. Domain isolation check:
+   - No SMC signal has ICT metadata
+   - No ICT signal has Technical metadata
+   - Domain field matches actual engine domain
+
+3. Quality validation:
+   - NOMINAL: full data, no warnings, clean calculation
+   - DEGRADED: partial data, some warnings, calculation completed
+   - INSUFFICIENT_DATA: below min_data_points_per_calculation
+
+4. Determinism check (replay mode only):
+   - signal_id matches expected (re-run produces same signals)
+   - calculation_log matches expected
+   - input_hash matches stored input hash
+
+5. Contract boundary check:
+   - No Floor 4 types leaked into output
+   - No Captain types leaked into output
+   - No Side A types leaked into output
+
+STEP 3.10 — f3_ingress.py (Depends on Steps 3.1-3.3)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: f3_types.py, f3_contracts.py, f3_config.py
+Imports from: f3_types, f3_contracts, f3_config
+
+Responsibilities:
+- consume_floor2_output() → receives validated structured data from Floor 2
+- validate_input_contract(packets: list) → validated packets or REJECT
+- route_to_calculation_input(packets: list) → list of CalculationInput objects
+- In replay mode: read from f3_replay_adapter instead of live Floor 2 stream
+
+Contract validation at ingress:
+- ALL packets must carry FreshnessTag
+- ALL packets must carry DataHealth
+- Packet timestamp must be within acceptable range (not future, not too old)
+- Rejected packets logged to Side C HEALTH_EVENT with rejection reason
+
+Replay mode:
+- f3_replay_adapter.py reads stored Floor 2 data from Side C replay reference store
+- Replayed data must produce IDENTICAL CalculationInput objects
+- Replay mode flag available for all engines to skip time-dependent calculations
+
+STEP 3.11 — f3_replay_adapter.py (Stub — Depends on Side C REPLAY_REF query layer)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: f3_types.py, f3_contracts.py
+NOTE: Full implementation depends on Side C REPLAY_REF store query layer
+(ROADMAP_SIDE_C Stage B). Build as a STUB during Phase 3:
+- Define interface (get_replay_data, replay_mode_active flag)
+- Return empty/placeholder data for now
+- Full implementation completed when Side C Stage B is available
+
+Imports from: f3_types, f3_contracts
+
+Stub interface:
+- get_replay_data(session_id: str) → list of PacketEnvelope (stub: raises NotImplementedError
+  if called when replay_mode_active=True — prevents silent empty data)
+- replay_mode_active: bool (stub: returns False always)
+- set_replay_mode(active: bool) — called by replay orchestrator
+
+Full implementation (future):
+- Reconstructs data stream from Side C REPLAY_REF events
+- Output identical format to live Floor 2 stream for deterministic comparison
+
+Validation (stub mode):
+- Interface contract must match live f3_ingress output format
+- Stub must be replaceable without changing any code that calls it
+
+STEP 3.12 — floor_3_main.py (Depends on ALL Steps 3.1-3.11)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dependencies: All modules above
+Imports from: All modules
+
+Responsibilities:
+- Module initialization
+- f3_orchestrator lifecycle management
+- Error boundary: wrap ALL engine calls in try/except
+- Health reporting: emit HEALTH_EVENT to Side C on status changes
+- Graceful shutdown: complete current calculation cycle before exit
+
+================================================================================
+SECTION 4: INPUT/OUTPUT CONTRACTS
+================================================================================
+
+INPUTS (from Floor 2):
+
+| Input Category    | Source          | Format                             | Required Fields                             |
+|-------------------|-----------------|------------------------------------|---------------------------------------------|
+| Validated Ticks   | Floor 2 output  | PacketEnvelope[MIS] + FreshnessTag | timestamp, symbol, ltp, volume              |
+| 1m Candles        | Floor 2 output  | PacketEnvelope[1m Candle]          | open, high, low, close, volume, timestamp   |
+| Options Snapshots | Floor 2 output  | PacketEnvelope[Options]            | strike, OI, volume, iv, timestamp           |
+| Session Packets   | Floor 2 output  | PacketEnvelope[Session]            | session_type, start, end, status            |
+| Macro Support     | Floor 2 output  | PacketEnvelope[Macro]              | indicator, value, timestamp                 |
+
+OUTPUTS (to Floor 4):
+
+| Output Category     | Destination | Format                                  | Guaranteed Fields                              |
+|---------------------|-------------|-----------------------------------------|------------------------------------------------|
+| SMC Signals         | Floor 4     | CalculatedSignal[SMC] + CalculationLog  | signal_id, type, value, timestamp, quality     |
+| ICT Signals         | Floor 4     | CalculatedSignal[ICT] + CalculationLog  | signal_id, type, value, timestamp, quality     |
+| Technical Signals   | Floor 4     | CalculatedSignal[Technical] + CalcLog   | signal_id, type, value, timestamp, quality     |
+| Engine Run Reports  | Floor 4     | EngineRunReport list                    | engine_name, status, signals_count, errors     |
+| Floor 3 Summary     | Floor 4     | Floor3Summary                           | domain_summaries, signals_count, data_health   |
+| Health Events       | Side C      | HEALTH_EVENT                            | floor_3, status, engine_states, error_summary  |
+
+CONTRACT VIOLATIONS THAT MUST REJECT:
+1. Floor 2 packet without FreshnessTag → REJECT (return to Floor 2 with reason)
+2. Floor 2 packet without DataHealth → REJECT
+3. CalculatedSignal without signal_id → HALT (system error, do not forward)
+4. CalculatedSignal without CalculationLog → HALT
+5. CalculationLog without input_hash → HALT (replay cannot verify)
+
+================================================================================
+SECTION 5: DEPENDENCY MAP
+================================================================================
+
+INTERNAL DEPENDENCIES (Floor 3):
+
+Module                   Depends On                                    Depended By
+───────────────────────  ────────────────────────────────────────────  ─────────────────────────
+f3_types.py              types.py (Phase 0)                            ALL modules
+f3_contracts.py          f3_types.py                                   f3_ingress, f3_output_builder, f3_validator
+f3_config.py             f3_types.py, config.py (Phase 0)              ALL engine modules
+f3_ingress.py            f3_types, f3_contracts, f3_config             f3_orchestrator
+f3_replay_adapter.py     f3_types, f3_contracts, Side C query          f3_ingress (replay mode)
+smc_engine.py            f3_types, f3_contracts, f3_config             f3_orchestrator
+  smc/fvg_calculator.py  f3_types                                      smc_engine
+  smc/ob_calculator.py   f3_types                                      smc_engine
+  smc/choch_calculator   f3_types                                      smc_engine
+  smc/market_structure   f3_types                                      smc_engine
+ict_engine.py            f3_types, f3_contracts, f3_config             f3_orchestrator
+  ict/pd_array_calc.py   f3_types                                      ict_engine
+  ict/kill_zone_calc.py  f3_types, f3_config                           ict_engine
+  ict/liquidity_calc.py  f3_types                                      ict_engine
+technical_engine.py      f3_types, f3_contracts, f3_config             f3_orchestrator
+  tech/rsi_calculator.py f3_types                                      technical_engine
+  tech/ma_calculator.py  f3_types                                      technical_engine
+  tech/atr_calculator.py f3_types                                      technical_engine
+  tech/volume_profile.py f3_types                                      technical_engine
+f3_orchestrator.py       ALL sub-modules (3.4-3.10)                    floor_3_main
+f3_output_builder.py     f3_types, f3_contracts                        f3_orchestrator
+f3_validator.py          f3_types, f3_contracts, f3_output_builder     floor_3_main
+floor_3_main.py          ALL modules                                   N/A (entry point)
+
+EXTERNAL DEPENDENCIES:
+
+Floor 3 Depends On:
+- Phase 0: types.py, config.py, logging.py, errors.py
+- Floor 2: validated structured data output stream (live) + Side C REPLAY_REF (replay)
+- Side C: REPLAY_REF store (for replay mode data reconstruction)
+
+Floor 3 is Depended By:
+- Floor 4: receives CalculatedSignal, EngineRunReport, Floor3Summary
+
+Floor 3 does NOT depend on:
+- Side A (execution)
+- Side B (dashboard)
+- Floor 4 (department heads)
+- Floor 5 (captain)
+- Side C (except replay refs — read-only dependency)
+
+================================================================================
+SECTION 6: WIRING DIAGRAM
+================================================================================
+
+FLOOR 2 OUTPUT STREAM
+        │
+        ▼
+┌──────────────────────────────────────────────────────┐
+│  f3_ingress.py                                       │
+│  - Consumes validated packets                        │
+│  - Validates input contract                          │
+│  - Routes replay mode via f3_replay_adapter.py       │
+│  - Outputs: CalculationInput list                    │
+└────────────────────────┬─────────────────────────────┘
+                         │
+                         ▼
+┌──────────────────────────────────────────────────────┐
+│  f3_orchestrator.py                                  │
+│  - Routes data by market phase + data type           │
+│  - Handles calculation cycle                         │
+│  - Manages engine lifecycle                          │
+│  - Timeout protection                                │
+└────┬──────────┬──────────┬──────────┬────────────────┘
+     │          │          │          │
+     ▼          ▼          ▼          ▼
+┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────────────┐
+│ SMC     │ │ ICT     │ │Technical│ │ (future engine)  │
+│ Engine  │ │ Engine  │ │ Engine  │ │ Pluggable via    │
+│         │ │         │ │         │ │ domain registry  │
+│ FVG     │ │ PD Array│ │ RSI     │ │                  │
+│ OB      │ │ Kill Zn │ │ MA      │ │                  │
+│ CHOCH   │ │ Liq.    │ │ ATR     │ │                  │
+│ Mkt Str │ │         │ │ Vol Prof│ │                  │
+└────┬────┘ └────┬────┘ └────┬────┘ └─────────────────┘
+     │          │          │
+     └──────────┴──────────┘
+                         │
+                         ▼
+┌──────────────────────────────────────────────────────┐
+│  f3_output_builder.py                                │
+│  - Packs results into CalculatedSignal               │
+│  - Generates signal_id (UUID v4)                     │
+│  - Builds CalculationLog with input_hash              │
+│  - Builds Floor3Summary                              │
+└────────────────────────┬─────────────────────────────┘
+                         │
+                         ▼
+┌──────────────────────────────────────────────────────┐
+│  f3_validator.py                                     │
+│  - Output contract compliance                        │
+│  - Domain isolation check                            │
+│  - Quality validation                                │
+│  - Determinism check (replay)                        │
+│  - Contract boundary check                           │
+└────────────────────────┬─────────────────────────────┘
+                         │
+                         ▼
+┌──────────────────────────────────────────────────────┐
+│  Output: CalculatedSignal[] + Floor3Summary          │
+│  ──────────────────────────► Floor 4                  │
+│  Health: HEALTH_EVENT ────► Side C                    │
+└──────────────────────────────────────────────────────┘
+
+================================================================================
+SECTION 7: DATA FLOW
+================================================================================
+
+LIVE MODE FLOW:
+
+1. Floor 2 produces validated structured data stream
+2. f3_ingress polls Floor 2 output (push or poll — TBD at integration phase)
+3. f3_ingress validates each packet against InputContract
+4. f3_ingress converts packets to CalculationInput list
+5. f3_orchestrator receives CalculationInput list
+6. Orchestrator checks current market phase (from Floor 2 Session Packets)
+7. Orchestrator activates domain engines based on market phase + data type
+8. Each engine runs independently with its sub-calculators
+9. Engine returns EngineRunReport with CalculatedSignal list
+10. f3_output_builder collects all engine outputs
+11. Output builder generates signal_id for each signal
+12. Output builder builds CalculationLog with input_hash
+13. Output builder builds Floor3Summary
+14. f3_validator checks all outputs for contract compliance
+15. Validated outputs dispatched to Floor 4
+16. HEALTH_EVENT emitted to Side C
+
+REPLAY MODE FLOW:
+
+1. Replay orchestrator sets f3_replay_adapter.replay_mode_active = True
+2. f3_ingress detects replay mode — reads from f3_replay_adapter
+3. f3_replay_adapter reconstructs Floor 2 data from Side C REPLAY_REF events
+4. Same flow as live mode (Steps 4-16), but with replay mode flag
+5. f3_validator checks determinism — outputs must match recorded outputs exactly
+6. Any mismatch = replay failure (logged, system alerted)
+
+KEY DATA RULES:
+- Each engine calculation cycle is atomic — all 3 engines run or none
+- Engines do NOT share data — SMC results are not available to ICT
+- Signals flow one direction only: Floor 3 → Floor 4 (no reverse flow)
+- Empty signal list is valid (market closed → no calculations needed)
+- input_hash enables Floor 4 to verify data provenance without re-running calculations
+
+================================================================================
+SECTION 8: VALIDATION MATRIX
+================================================================================
+
+UNIT VALIDATION (per module, before integration):
+
+| Module                   | Unit Tests                              | Validates                                       |
+|--------------------------|-----------------------------------------|-------------------------------------------------|
+| f3_types.py              | test_f3_types.py                        | All enums/dataclasses instantiate correctly     |
+| f3_contracts.py          | test_f3_contracts.py                    | InputContract/OutputContract validate properly  |
+| f3_config.py             | test_f3_config.py                       | All params load from config, defaults correct   |
+| f3_ingress.py            | test_f3_ingress.py                      | Packet validation, rejection, replay routing    |
+| f3_orchestrator.py       | test_f3_orchestrator.py                 | Domain routing, market phase logic, timeout     |
+| f3_output_builder.py     | test_f3_output_builder.py               | signal_id generation, CalculationLog, summary   |
+| f3_validator.py          | test_f3_validator.py                    | All 5 validation checks pass/fail correctly     |
+| f3_replay_adapter.py     | test_f3_replay_adapter.py               | Replay data reconstruction matches live format  |
+| smc/fvg_calculator.py    | test_smc_fvg.py                         | FVG detection, mitigation check, edge cases     |
+| smc/ob_calculator.py     | test_smc_ob.py                          | OB detection, classification                    |
+| smc/choch_calculator.py  | test_smc_choch.py                       | CHOCH detection, confirmation                   |
+| smc/market_structure.py  | test_smc_market_structure.py            | HH/HL/LH/LL detection, swing points             |
+| smc/smc_engine.py        | test_smc_engine.py                      | End-to-end SMC calculation cycle                |
+| ict/pd_array_calculator  | test_ict_pd_array.py                    | PD Array detection, classification              |
+| ict/kill_zone_calc.py    | test_ict_kill_zone.py                   | Kill zone active/next, timezone handling        |
+| ict/liquidity_calc.py    | test_ict_liquidity.py                   | Liquidity level detection, sweep check          |
+| ict/ict_engine.py        | test_ict_engine.py                      | End-to-end ICT calculation cycle                |
+| tech/rsi_calculator.py   | test_technical_rsi.py                   | RSI formula, edge cases (division by zero)      |
+| tech/ma_calculator.py    | test_technical_ma.py                    | SMA/EMA formula, period edge cases              |
+| tech/atr_calculator.py   | test_technical_atr.py                   | True Range, ATR smoothing                       |
+| tech/volume_profile.py   | test_technical_volume_profile.py        | POC, VAH, VAL calculation                       |
+| tech/tech_engine.py      | test_technical_engine.py                | End-to-end Technical calculation cycle          |
+
+CONTRACT VALIDATION (cross-module):
+
+| Test File                         | Validates                                         |
+|-----------------------------------|---------------------------------------------------|
+| test_contract_validation.py       | f3_types enums align with f3_contracts contracts  |
+|                                   | InputContract rejects without FreshnessTag        |
+|                                   | OutputContract rejects without signal_id          |
+|                                   | Domain isolation: no cross-domain leaks           |
+|                                   | No Floor 4 / Captain / Side A types in output     |
+
+REPLAY VALIDATION:
+
+| Test File                         | Validates                                         |
+|-----------------------------------|---------------------------------------------------|
+| test_replay_validation.py         | Replay produces identical signals to live         |
+|                                   | input_hash matches across replay runs             |
+|                                   | All engines work without live Floor 2 stream      |
+|                                   | signal_id deterministic with same input           |
+
+INTEGRATION VALIDATION (end-to-end Floor 3):
+
+| Test File                         | Validates                                         |
+|-----------------------------------|---------------------------------------------------|
+| test_integration.py               | Full Floor 3 cycle: ingress → orchestrate → output → validate |
+|                                   | All 3 engines produce signals from real data      |
+|                                   | Market phase correctly routes to domain engines   |
+|                                   | Timeout protection works (engine hangs → error)   |
+|                                   | Empty market (closed) produces empty summary      |
+|                                   | Replay mode produces identical output             |
+|                                   | Error in one engine does not block others         |
+
+================================================================================
+SECTION 9: CROSS-COMPONENT IMPACTS
+================================================================================
+
+IMPACT ON REPLAY:
+
+Floor 3 replays entirely through Floor 2 replayed data. When replay mode is
+active:
+- f3_ingress reads from f3_replay_adapter (reconstructed PacketEnvelope from Side C)
+- All engines run identically (pure functions, deterministic)
+- f3_validator checks determinism: signal_id, input_hash, and output MUST match
+- Floor 3 does NOT need its own replay store — it reuses Floor 2 replay stream
+
+Key constraint: Floor 3 replay depends on Side C REPLAY_REF store being populated
+with Floor 2 data. Without Floor 2 replay data, Floor 3 cannot verify replay.
+
+IMPACT ON DASHBOARD (Side B):
+
+Floor 3 does NOT send data to Side B directly. Side B sees Floor 3 signals
+through Floor 4's summarized output. Dashboard can display:
+- Active signals per domain (count, type, quality)
+- Engine status (IDLE, CALCULATING, ERROR)
+- Floor 3 health (via HEALTH_EVENT → Side C → Side B read model)
+
+Dashboard does NOT display raw Floor 3 calculation logs or intermediate results.
+
+IMPACT ON MEMORY (Side C):
+
+Floor 3 contributes:
+- HEALTH_EVENT: engine status changes, validation failures, replay results
+- No other event types — Floor 3 does not create TRADE_JOURNAL, DECISION_JOURNAL,
+  EXECUTION_EVENT, OVERRIDE, BLOCKED_ACTION, or REVIEW_REF events
+
+IMPACT ON EXECUTION (Side A):
+
+Floor 3 does NOT communicate with Side A. All Floor 3 outputs pass through
+Floor 4 (interpretation) and Floor 5 (decision) before reaching Side A.
+
+Floor 3 is intentionally isolated from execution to maintain the separation
+between calculation and decision layers.
+
+================================================================================
+SECTION 10: COMMON MISTAKES + ANTI-PATTERNS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ARCHITECTURE-BREAKING MISTAKES:
+
+MISTAKE 1: Engine doing interpretation instead of calculation
+  - WRONG: smc_engine returns "bullish_fvg_setup" or "buy_signal"
+  - RIGHT: smc_engine returns "BULLISH_FVG at price X, timestamp Y"
+  - PREVENTION: Every engine output reviewed for interpretive language
+  - DETECTION: CI regex check: reject output fields containing "setup", "signal" (in trading sense), "trade"
+
+MISTAKE 2: Engine outputting confidence, conviction, or score
+  - WRONG: fvg_calculator returns "confidence: 0.85" or "strength: STRONG"
+  - RIGHT: fvg_calculator returns "fvg_type: BULLISH_FVG, gap: 2.5 pips, mitigated: False"
+  - PREVENTION: Quality field only in CalculatedSignal (NOMINAL/DEGRADED/INSUFFICIENT_DATA)
+  - DETECTION: CI check: no "confidence", "conviction", "score", "rank", "strength" in output
+
+MISTAKE 3: Engine producing setups or trade suggestions
+  - WRONG: ict_engine returns "kill_zone_entry: BUY at price X"
+  - RIGHT: ict_engine returns "active_kill_zone: LONDON_OPEN, asian_range: {high, low}"
+  - PREVENTION: Architect code review — every output field must be factual, not suggestive
+
+MISTAKE 4: Engine importing from another domain
+  - WRONG: smc/ob_calculator.py imports from ict/pd_array_calculator.py
+  - RIGHT: Each domain is completely independent
+  - PREVENTION: CI check: no imports between smc/, ict/, technical/ directories
+
+MISTAKE 5: Engine depending on Floor 4+ or Side A/B
+  - WRONG: smc_engine.py imports from floor_4 or side_a
+  - RIGHT: Floor 3 has zero dependency on anything above it
+  - PREVENTION: CI check: no imports from floor_4, floor_5, side_a, side_b
+
+MISTAKE 6: signal_id being mutable or re-generated
+  - WRONG: Regenerating signal_id on replay (breaks determinism)
+  - RIGHT: signal_id is UUID v4 generated once, never changed
+  - PREVENTION: f3_validator checks signal_id stability in replay mode
+
+MISTAKE 7: CalculationLog missing input_hash
+  - WRONG: Skipping input_hash because "replay not needed yet"
+  - RIGHT: input_hash ALWAYS computed, always stored, from Day 1
+  - PREVENTION: f3_validator.reject_if_missing_input_hash()
+
+MISTAKE 8: Engine using shared state between calculation cycles
+  - WRONG: smc_engine caching previous results across cycles
+  - RIGHT: Each calculation cycle is independent, pure functions throughout
+  - PREVENTION: Code review: no class-level state, no module-level mutable globals
+
+WHAT CREATES REWORK LATER:
+
+1. Skipping contract validation at ingress — "Floor 2 data is always clean"
+   → Fix: validate every packet at ingress, even in development
+   → Why: hides bugs that surface in integration as "Floor 3 wrong" when data was bad
+
+2. Hardcoding calculation parameters in engine code
+   → Fix: ALL parameters in f3_config.py, loaded at runtime
+   → Why: tuning requires code changes instead of config changes
+
+3. Writing non-deterministic calculations (using current time, random, etc.)
+   → Fix: inject timestamp, use seed-free deterministic math
+   → Why: replay fails, debugging impossible, audit broken
+
+4. Skipping CalculationLog for "simple" calculations (RSI, MA)
+   → Fix: EVERY signal gets a CalculationLog, no exceptions
+   → Why: Floor 4 needs audit trail for every signal, including "obvious" ones
+
+5. Letting one engine crash the entire Floor 3
+   → Fix: try/except around EVERY engine.run() call, independent engine execution
+   → Why: SMC error should not block ICT signals
+
+6. Not testing with empty data during development
+   → Fix: test Floor 3 with zero candles, one candle, missing fields
+   → Why: market open/close edges crash untested code
+
+7. Writing engines that assume specific timeframe or data availability
+   → Fix: check data availability before calculation, emit warning if insufficient
+   → Why: system adapts to available data, not crashes on missing data
+
+================================================================================
+SECTION 11: READY-TO-CODE CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ENTRY CRITERIA (before you write any Floor 3 code):
+
+[ ] Phase 0 foundation complete (types.py, config.py, logging.py, errors.py exist)
+[ ] Floor 1 complete (Angel One connection produces PacketEnvelope)
+[ ] Floor 2 complete (validated structured data stream available)
+[ ] Side C Stage A complete (event store base, HEALTH_EVENT emitter)
+[ ] Floor 2 → Floor 3 output contract finalized (packet format, stream mechanics)
+[ ] f3_types.py enums defined and reviewed (no future types added speculatively)
+[ ] f3_config.py parameters reviewed by domain expert (SMC/ICT/Technical params correct)
+[ ] TA-Lib or equivalent library researched — decision made: use pure Python implementations
+    (No external TA library dependency. RSI, MA, ATR implemented from standard formulas.)
+[ ] Library policy decided: numpy arrays ALLOWED for vectorized computation; pandas DataFrames
+    NOT ALLOWED (adds unnecessary dependency, masks data shape assumptions, complicates replay)
+[ ] Replay store (Side C REPLAY_REF) read contract reviewed
+[ ] Dependencies confirmed: Floor 3 has NO dependency on Floor 4, Floor 5, Side A, Side B
+
+BUILD CRITERIA (verify during each step):
+
+Per-file checklist (fill as you build each .py file):
+
+File: f3_types.py
+[ ] All enums defined (CalculationDomain, EngineStatus, MarketStructureType, FvgType,
+    ObType, ChoChType, PdArrayType, KillZoneType, LiquidityType, TaIndicatorType,
+    CalculationQuality)
+[ ] All dataclasses defined (CalculationParameters, CalculationInput, CalculationResult,
+    CalculationLog, CalculatedSignal, EngineRunReport, Floor3Summary)
+[ ] No imports beyond types.py (Phase 0) and Python standard library
+[ ] Unit tests passing (test_f3_types.py)
+
+File: f3_contracts.py
+[ ] InputContract defined with validate() method
+[ ] OutputContract defined with validate() method
+[ ] ReplayContract defined with validate() method
+[ ] Contract violations are LOGGED, not silently ignored
+[ ] Unit tests passing (test_f3_contracts.py)
+
+File: f3_config.py
+[ ] All calculation parameters defined (SMC, ICT, Technical, General)
+[ ] Config loads from YAML/JSON file, falls back to defaults
+[ ] Timezone-aware kill zone times defined in IST
+[ ] Unit tests passing (test_f3_config.py)
+
+File: f3_ingress.py
+[ ] consume_floor2_output() implemented
+[ ] validate_input_contract() implemented with ALL 3 rejection rules
+[ ] Rejected packets emit HEALTH_EVENT to Side C
+[ ] route_to_calculation_input() converts packets correctly
+[ ] Replay mode routing via f3_replay_adapter works
+[ ] Unit tests passing (test_f3_ingress.py)
+
+File: smc/fvg_calculator.py
+[ ] detect_fvg() pure function, no state
+[ ] check_mitigation() pure function
+[ ] Edge cases: contiguous FVGs, mitigated FVGs, zero-gap rejection
+[ ] Unit tests passing (test_smc_fvg.py)
+
+File: smc/ob_calculator.py
+[ ] detect_order_blocks() pure function
+[ ] classify_ob() pure function
+[ ] Edge cases: overlapping OBs, OBs at market edges
+[ ] Unit tests passing (test_smc_ob.py)
+
+File: smc/choch_calculator.py
+[ ] detect_choch() pure function
+[ ] classify_choch() pure function
+[ ] Edge cases: false breakouts, consecutive CHOCHs
+[ ] Unit tests passing (test_smc_choch.py)
+
+File: smc/market_structure.py
+[ ] analyze_structure() pure function
+[ ] detect_hh_hl() pure function
+[ ] Edge cases: chop/range vs trend, structure shifts
+[ ] Unit tests passing (test_smc_market_structure.py)
+
+File: smc/smc_engine.py
+[ ] run() returns EngineRunReport
+[ ] Orchestrates all 4 sub-calculators in correct order
+[ ] EngineRunReport.status is COMPLETE on success
+[ ] EngineRunReport.errors populated on failure
+[ ] Unit tests passing (test_smc_engine.py)
+
+File: ict/pd_array_calculator.py
+[ ] calculate_pd_array() pure function
+[ ] classify_pd() pure function
+[ ] Edge cases: price at boundaries, insufficient data
+[ ] Unit tests passing (test_ict_pd_array.py)
+
+File: ict/kill_zone_calculator.py
+[ ] get_active_kill_zones() timezone-aware, pure function
+[ ] get_next_kill_zone() timezone-aware, pure function
+[ ] Edge cases: zone boundaries, market holidays, timezone changes
+[ ] Unit tests passing (test_ict_kill_zone.py)
+
+File: ict/liquidity_calculator.py
+[ ] detect_liquidity_levels() pure function
+[ ] check_sweep() pure function
+[ ] Edge cases: double sweeps, partial sweeps
+[ ] Unit tests passing (test_ict_liquidity.py)
+
+File: ict/ict_engine.py
+[ ] run() returns EngineRunReport
+[ ] Orchestrates all 3 sub-calculators in correct order
+[ ] EngineRunReport.status is COMPLETE on success
+[ ] Unit tests passing (test_ict_engine.py)
+
+File: technical/rsi_calculator.py
+[ ] calculate_rsi() pure function, standard RSI formula
+[ ] Edge cases: all same prices, division by zero, minimum data points
+[ ] Unit tests passing (test_technical_rsi.py)
+
+File: technical/ma_calculator.py
+[ ] calculate_ma() pure function, SMA + EMA
+[ ] Edge cases: period = 1, period = len(prices), empty prices
+[ ] Unit tests passing (test_technical_ma.py)
+
+File: technical/atr_calculator.py
+[ ] calculate_atr() pure function, standard ATR formula
+[ ] Edge cases: gap days, all same prices, minimum candles
+[ ] Unit tests passing (test_technical_atr.py)
+
+File: technical/volume_profile.py
+[ ] calculate_volume_profile() pure function
+[ ] Edge cases: zero volume bars, single price level, insufficient data
+[ ] Unit tests passing (test_technical_volume_profile.py)
+
+File: technical/technical_engine.py
+[ ] run() returns EngineRunReport
+[ ] Orchestrates all 4 sub-calculators in correct order
+[ ] EngineRunReport.status is COMPLETE on success
+[ ] Unit tests passing (test_technical_engine.py)
+
+File: f3_orchestrator.py
+[ ] receive_data() routes by market phase + data type
+[ ] route_to_domain() activates correct engines
+[ ] Pre-market: SMC + ICT active, Technical inactive
+[ ] Regular: ALL active
+[ ] Post-market: SMC + Technical active, ICT inactive
+[ ] Closed: no engines active, empty summary returned
+[ ] Timeout: engine exceeding calculation_timeout_ms marked ERROR
+[ ] Error isolation: one engine failure does not block others
+[ ] Unit tests passing (test_f3_orchestrator.py)
+
+File: f3_output_builder.py
+[ ] build_output() returns OutputContract
+[ ] pack_signal() generates unique signal_id (UUID v4)
+[ ] build_calculation_log() computes input_hash
+[ ] build_floor3_summary() aggregates correctly
+[ ] Empty signal list → valid OutputContract (not error)
+[ ] Unit tests passing (test_f3_output_builder.py)
+
+File: f3_validator.py
+[ ] Output contract compliance check implemented
+[ ] Domain isolation check implemented
+[ ] Quality validation implemented
+[ ] Determinism check (replay mode) implemented
+[ ] Contract boundary check implemented
+[ ] All violations LOGGED with specific reason
+[ ] Unit tests passing (test_f3_validator.py)
+
+File: f3_replay_adapter.py
+[ ] get_replay_data() reconstructs PacketEnvelope from Side C
+[ ] replay_mode_active flag working
+[ ] Output identical format to live Floor 2 stream
+[ ] Unit tests passing (test_f3_replay_adapter.py)
+
+File: floor_3_main.py
+[ ] Module initialization complete
+[ ] Error boundary wraps all engine calls
+[ ] Health reporting to Side C implemented
+[ ] Graceful shutdown implemented
+
+VERIFICATION TESTS:
+
+[ ] Each unit test file has ≥5 test cases covering edge cases
+[ ] Contract validation test: InputContract rejects without FreshnessTag → test passes
+[ ] Contract validation test: OutputContract rejects without signal_id → test passes
+[ ] Contract validation test: Domain isolation — SMC output has no ICT metadata → passes
+[ ] Contract validation test: No Floor 4+ types in Floor 3 output → passes
+[ ] Replay validation test: Same input → same output (determinism) → passes
+[ ] Replay validation test: All engines work without live Floor 2 → passes
+[ ] Integration test: Full cycle ingress → orchestrate → output → validate → passes
+[ ] Integration test: Market phase = CLOSED → empty summary → passes
+[ ] Integration test: Error in one engine → others produce signals → passes
+[ ] No engine imports from another domain directory → CI check passes
+[ ] No Floor 4+ imports → CI check passes
+[ ] 0 warnings from f3_validator on clean calculation → passes
+
+EXIT CRITERIA (Phase 3 complete):
+
+[ ] All unit tests pass (22 test files)
+[ ] Contract validation tests pass
+[ ] Replay validation tests pass
+[ ] Integration tests pass
+[ ] Floor 3 produces valid output for all 3 domains with real data
+[ ] Floor 3 replay mode verified: identical output to live mode
+[ ] Floor 3 → Floor 4 output contract agreed and signed off
+[ ] Floor 3 HEALTH_EVENT integration with Side C working
+[ ] Floor 2 → Floor 3 input contract verified end-to-end
+[ ] 0 architecture violations (no interpretation, no confidence, no setups)
+[ ] No cross-domain imports
+[ ] All calculations pure/deterministic
+
+================================================================================
+END OF ROADMAP FLOOR 03
+================================================================================

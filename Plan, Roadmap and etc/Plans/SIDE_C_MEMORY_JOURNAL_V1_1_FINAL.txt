@@ -1,0 +1,1226 @@
+================================================================================
+ JUNIOR ALADDIN - SIDE C MEMORY / JOURNAL PLAN
+ (Detailed Planning + Coding Blueprint Draft)
+================================================================================
+
+PURPOSE OF THIS FILE
+-------------------------------------------------------------------------------
+This file converts the locked Side C architecture direction and Q1-Q20 decisions
+into one clean planning document for SIDE C: Memory / Observability / Journal.
+
+This is a review draft.
+It does NOT introduce new architecture.
+It does NOT add new floors.
+It does NOT add new sides.
+It does NOT shift ownership away from Floors 1-5, Side A, or Side B.
+
+This file is built to remain tightly aligned with:
+- all locked Floors 1-5
+- locked Side A
+- locked Side B
+- accepted Side C Q1-Q20 decisions
+
+Goal:
+Create a Side C planning document strong enough that later:
+- Full Architecture Audit
+- Integration Planning
+- Implementation Sequencing
+- Coding Roadmap
+can proceed without needing Side C redesign.
+
+
+================================================================================
+SECTION 1 - PURPOSE
+================================================================================
+
+One-line identity:
+SIDE C = Memory Layer
+
+Meaning:
+- Side A acts
+- Side B shows
+- Side C remembers
+
+Side C exists to:
+- persist system memory
+- persist trade memory
+- persist decision references
+- persist execution truth references
+- persist health/event history
+- persist replay/review links
+- expose queryable historical views
+
+Side C does not exist to think.
+It does not exist to judge.
+It does not exist to interpret.
+It does not exist to generate recommendations.
+
+
+================================================================================
+SECTION 2 - SIDE C PHILOSOPHY
+================================================================================
+
+Side C is the system’s memory, observability, and traceability layer.
+
+Its purpose is not to create new truth.
+Its purpose is not to create new intelligence.
+Its purpose is not to create new decisions.
+
+Its purpose is to preserve,
+link,
+and expose the truth already emitted by other layers.
+
+This makes Side C useful for:
+- operator review
+- forensic debugging
+- replay support
+- audit support
+- historical trade reasoning review
+- system health reconstruction
+
+Side C is not a passive dumping ground.
+It is a structured memory layer.
+But it must remain non-intelligent.
+
+
+================================================================================
+SECTION 3 - CORE PRINCIPLES
+================================================================================
+
+Locked principles:
+
+1. Side C stores facts
+2. Side C does not create truth
+3. Side C remembers
+4. Side C does not decide
+5. Side C links
+6. Side C does not interpret
+7. Side C may summarize
+8. Side C may not score, rank, recommend or analyse
+9. Correction = new event
+10. No silent mutation
+
+Why these principles matter:
+Without them, Side C can accidentally drift upward into:
+- intelligence
+- interpretation
+- decision support ranking
+- stealth governance
+
+That must never happen.
+
+
+================================================================================
+SECTION 4 - INTERNAL ARCHITECTURE
+================================================================================
+
+Locked internal split:
+Hybrid layered split
+
+Recommended internal structure:
+
+SIDE_C_MEMORY/
+│
+├── ingest_layer
+├── event_router
+├── event_store
+├── journal_store
+├── reference_store
+└── query_layer
+
+Logical flow:
+Source Layer / Floor / Side Owner
+ ↓
+Ingest Layer
+ ↓
+Event Router
+ ↓
+Event Store / Journal Store / Reference Store
+ ↓
+Query Layer
+ ↓
+Consumers (Dashboard / Replay / Review / Audit)
+
+Why this split is strong:
+- ingest stays separate from storage
+- storage families remain clear
+- references stay first-class
+- query concerns do not pollute storage design
+- future Side B / replay / audit access remains cleaner
+
+
+================================================================================
+SECTION 5 - INGEST LAYER
+================================================================================
+
+Purpose:
+The ingest layer receives memory-worthy events and records from approved sources.
+
+Responsibilities:
+- accept inputs from approved emitters only
+- identify record family
+- apply envelope normalization rules
+- forward to event router
+
+What Ingest Layer does NOT do:
+- interpret event meaning
+- rank importance beyond routing contracts
+- change ownership truth
+- generate analysis
+
+Why it exists:
+Sources should not write directly into memory storage.
+There should be a controlled ingress path.
+
+
+================================================================================
+SECTION 6 - EVENT ROUTER
+================================================================================
+
+Locked write model:
+Central Event Router
+
+Flow:
+Source
+ ↓
+Event Router
+ ↓
+Correct Side C Store
+
+Event Router responsibilities:
+- classify incoming event family
+- validate against write contract family
+- route to:
+  - event store
+  - journal store
+  - reference store
+- ensure schema family compatibility
+- preserve append-first behavior
+
+Why central router is strongest:
+- floors/sides do not write directly into stores
+- governance remains centralized
+- future normalization stays consistent
+- memory corruption risk reduces
+
+Event Router is not an event bus architecture.
+It is a controlled memory ingress router.
+
+
+================================================================================
+SECTION 7 - EVENT STORE
+================================================================================
+
+Purpose:
+Store normalized operational and system events that are not long-form journals,
+but are important for history, diagnostics, and reconstruction.
+
+Examples of event-store-suitable records:
+- execution events
+- health events
+- blocked actions
+- override events
+- state transitions
+- important system events
+
+Why event store exists separately:
+Because not every memory record is a trade journal.
+Some are operational event chains.
+
+Event store remains append-first.
+It should favor traceability over convenience mutation.
+
+
+================================================================================
+SECTION 8 - JOURNAL STORE
+================================================================================
+
+Purpose:
+Store journal-family records that represent durable narrative/business memory of
+trade, decision, and review lifecycle.
+
+Journal store is where higher-meaning record families live,
+without becoming an intelligence layer.
+
+Why separate from event store:
+A trade journal is not just another operational packet.
+A decision journal is not the same as a reconnect event.
+
+This separation helps:
+- retention policy
+- queries
+- review UX
+- side-B display
+
+
+================================================================================
+SECTION 9 - REFERENCE STORE
+================================================================================
+
+Purpose:
+Store linkable references and traceability anchors.
+
+Examples:
+- replay_ref
+- review_ref
+- source_ref
+- packet lineage refs
+- cross-system IDs
+
+Why separate from events/journals:
+References are linking instruments.
+They should not be forced into narrative or operational stores awkwardly.
+
+Reference Store strengthens:
+- replay linkage
+- review linkage
+- forensic traceability
+- future graph-like memory navigation
+
+
+================================================================================
+SECTION 10 - QUERY LAYER
+================================================================================
+
+Locked read direction:
+Hybrid query model
+
+Why query layer exists:
+Not all consumers should read raw stores directly.
+Complex review, audit, and replay queries need controlled access.
+
+Hybrid query model means:
+- simple views may be served through lightweight direct/simple projections
+- complex review/replay/audit access should go through a query layer
+
+Responsibilities:
+- query composition
+- read model support
+- family-aware retrieval
+- dashboard summary query support
+- replay reference lookup
+- audit lookup
+
+What Query Layer does NOT do:
+- interpret meaning
+- score trades
+- recommend actions
+- create intelligence
+
+
+================================================================================
+SECTION 11 - RECORD FAMILIES
+================================================================================
+
+Locked Side C record families:
+1. Trade Journal
+2. Execution Events
+3. Decision Journal
+4. Health Events
+5. Override History
+6. Replay References
+7. Review References
+8. Blocked Actions
+
+Why full family model is justified:
+System memory is not only trades.
+A useful memory layer must also preserve:
+- what was executed
+- why it was decided
+- what failed
+- what got blocked
+- what must be replayed or reviewed later
+
+
+================================================================================
+SECTION 12 - TRADE JOURNAL
+================================================================================
+
+Purpose:
+Store durable trade records for later review.
+
+Trade Journal owner:
+- Side A source
+
+Side C role:
+- store
+- link
+- expose through query models
+
+Trade Journal should include records such as:
+- trade_id
+- symbol
+- entry
+- exit
+- pnl
+- mode
+- exit_reason
+
+Why this family exists:
+A trade must remain reconstructable without forcing the operator to piece it
+together from low-level operational logs.
+
+Trade Journal Owner Rule:
+Trade Journal truth comes from Side A.
+Side C stores it.
+Side C does not own the trade truth itself.
+
+
+================================================================================
+SECTION 13 - DECISION JOURNAL
+================================================================================
+
+Purpose:
+Store durable decision-facing memory.
+
+Decision Journal owner:
+- Floor 5 source
+
+Examples of records:
+- trade_id
+- decision_id
+- conviction band
+- decision timestamp
+- heads used
+- no-trade reason summary where appropriate
+
+Why this family exists:
+Trade execution history alone cannot tell why the trade existed.
+Decision journal preserves the decision-side memory.
+
+Decision Journal Owner Rule:
+Decision truth comes from Captain/Floor 5.
+Side C stores it.
+Side C does not interpret it.
+
+
+================================================================================
+SECTION 14 - OVERRIDE HISTORY
+================================================================================
+
+Purpose:
+Store override and special authority intervention history.
+
+Override History owner:
+- originating authority source
+  (Side A override guard / Captain strategic override / operator-approved override path)
+
+Examples:
+- override_id
+- override_type
+- override_reason
+- timestamp
+- affected trade/order refs
+
+Why this family exists:
+Overrides are rare and sensitive.
+They deserve explicit durable memory.
+
+Side C stores override history.
+It does not judge whether the override was correct.
+
+
+================================================================================
+SECTION 15 - EXECUTION EVENTS
+================================================================================
+
+Purpose:
+Store operational truth emitted by Side A execution processes.
+
+Execution event examples:
+- order_placed
+- order_modified
+- order_cancelled
+- order_rejected
+- sl_hit
+- target_hit
+- partial_exit
+- override_event
+- reconcile event
+
+Owner:
+- Side A source
+
+Why this family exists:
+Execution event streams are not the same as trade journals.
+They are operational lifecycle memory.
+
+
+================================================================================
+SECTION 16 - HEALTH EVENTS
+================================================================================
+
+Purpose:
+Store health-relevant system events over time.
+
+Owner:
+- Floor 1 / Floor 2 source
+
+Examples:
+- feed_disconnected
+- feed_reconnected
+- auth_failed
+- source_degraded
+- data_health_changed
+- stale transitions
+- lock/unlock related health state transitions
+
+Why this family exists:
+Without historical health memory,
+incident diagnosis becomes weak.
+
+Side C stores the health timeline.
+It does not decide health implications.
+
+
+================================================================================
+SECTION 17 - REPLAY REFERENCES
+================================================================================
+
+Purpose:
+Store replay-facing references for later reconstruction and playback access.
+
+Owner:
+- originating replay-support source
+
+Examples:
+- trade_id -> replay_ref
+- decision_id -> replay_ref
+- source lineage -> replay_ref
+
+Why this family exists:
+Replay tooling needs stable link references,
+not just loose text logs.
+
+
+================================================================================
+SECTION 18 - REVIEW REFERENCES
+================================================================================
+
+Purpose:
+Store references that connect trades/events/decisions to later review artifacts.
+
+Owner:
+- originating review-support source
+
+Examples:
+- trade_id -> review_ref
+- decision_id -> review_ref
+- health event -> audit_ref
+
+Why this family exists:
+A memory layer should not only remember events,
+it should also support later structured review.
+
+
+================================================================================
+SECTION 19 - BLOCKED ACTIONS
+================================================================================
+
+Purpose:
+Store blocked action memory.
+
+Owner:
+- originating block source (mostly Side A execution governance paths)
+
+Examples:
+- blocked trade
+- blocked order action
+- blocked mode transition
+- blocked override
+
+Important because:
+A blocked action is also part of system history.
+It matters for diagnostics, governance, and operator review.
+
+
+================================================================================
+SECTION 20 - EVENT NORMALIZATION MODEL
+================================================================================
+
+Locked answer:
+Common Event Envelope + Family-Specific Payload
+
+Common Event Envelope should carry fields such as:
+- event_type
+- source
+- timestamp
+- severity
+- refs
+
+Family-specific payloads remain independent.
+
+Why this is strongest:
+- common governance stays possible
+- family-specific richness stays possible
+- no fake one-size-fits-all event model is forced
+
+This keeps Side C clean and future-proof.
+
+
+================================================================================
+SECTION 21 - LINKING MODEL
+================================================================================
+
+Locked answer:
+Extended refs mandatory, graph-like linkability possible later.
+
+Mandatory references may include:
+- trade_id
+- decision_id
+- order_id
+- override_id
+- replay_ref
+- review_ref
+
+Why this is strongest:
+- enough traceability for audit/review/replay
+- no need for full graph engine now
+- future linkability remains open
+
+This is one of the strongest Side C foundations.
+
+
+================================================================================
+SECTION 22 - RETENTION MODEL
+================================================================================
+
+Locked answer:
+Family-based retention + archive tiers
+
+Why this is strongest:
+Not all memory should live equally long in equally active storage.
+
+Typical direction:
+- Trade Journal -> long-term
+- Decision Journal -> long-term
+- Execution Events -> medium-term
+- Health Events -> medium-term
+- Noisy low-level operational events -> shorter-term
+
+Archive tiers may exist later without changing memory philosophy.
+
+
+================================================================================
+SECTION 23 - ARCHIVE MODEL
+================================================================================
+
+Archive model should respect record-family importance.
+It should allow:
+- durable memory where needed
+- cheaper or less active retention tiers where appropriate
+
+Archive is not deletion.
+Archive is long-term structured memory placement.
+
+Why this matters:
+A system memory layer should not force everything into one storage temperature.
+
+
+================================================================================
+SECTION 24 - GOVERNANCE MODEL
+================================================================================
+
+Locked answer:
+Strong governance
+
+Need:
+- approved emitters only
+- schema validation
+- append policy
+- write contracts
+
+Why strong governance is required:
+If Side C becomes easy to write into without discipline,
+its value as memory and forensic layer collapses.
+
+Side C should be easy to read,
+not easy to corrupt.
+
+
+================================================================================
+SECTION 25 - WRITE MODEL
+================================================================================
+
+Locked answer:
+Central Event Router write model
+
+Meaning:
+- Floors/Sides do not write directly into stores arbitrarily
+- approved emitters go through Event Router
+- Event Router routes to the correct memory family
+
+Why this is strongest:
+- ownership safe
+- contract safe
+- storage corruption risk reduced
+- future normalization manageable
+
+
+================================================================================
+SECTION 26 - READ MODEL
+================================================================================
+
+Locked answer:
+Hybrid read model
+
+Meaning:
+- simple dashboard summaries can use lightweight read projections
+- complex replay/review/audit queries should use query layer
+
+This balances:
+- performance
+- simplicity
+- future extensibility
+
+
+================================================================================
+SECTION 27 - DASHBOARD CONSUMPTION MODEL
+================================================================================
+
+Locked answer:
+Dashboard should consume Side C through read models / projections.
+Not raw stores directly.
+
+Why:
+- cleaner contracts
+- better caching
+- safer ownership
+- easier future scaling
+
+Examples Side B may consume:
+- trade history summaries
+- decision review summaries
+- override history summaries
+- recent blocked action summaries
+- health history summaries
+
+Dashboard remains a view/control terminal.
+It does not become memory owner.
+
+
+================================================================================
+SECTION 28 - REPLAY CONSUMPTION MODEL
+================================================================================
+
+Locked answer:
+Replay should be able to consume:
+- replay refs
+- trade links
+- decision links
+- review refs
+- relevant health refs
+
+Why this is strongest:
+Replay becomes operationally useful,
+not just a blind pointer to raw data.
+
+
+================================================================================
+SECTION 29 - OWNERSHIP MODEL
+================================================================================
+
+Journal Ownership Principle
+-------------------------------------------------------------------------------
+Trade Journal Owner
+= Side A source
+
+Decision Journal Owner
+= Floor 5 source
+
+Health Events Owner
+= Floor 1 / Floor 2 source
+
+Override History Owner
+= originating authority source
+
+Side C owns storage.
+Side C does not own truth.
+
+Why this matters:
+Ownership remains with the layer that produced the truth.
+Memory ownership is not truth ownership.
+
+
+================================================================================
+SECTION 30 - MEMORY ACCESS MODEL
+================================================================================
+
+Memory Access Principle
+-------------------------------------------------------------------------------
+Side C stores memory.
+Consumers do not own memory.
+Consumers request memory views.
+
+Why this matters:
+- Side B should not tightly couple to raw Side C stores
+- replay tools should not mutate memory
+- future audits should query through controlled access patterns
+
+This is one of the strongest Side C boundary rules.
+
+
+================================================================================
+SECTION 31 - QUERY CONTRACTS
+================================================================================
+
+Side C query contracts should support:
+- dashboard summaries
+- review queries
+- replay reference lookups
+- audit lookups
+
+Query contracts are read contracts.
+They must not imply write privilege or interpretation privilege.
+
+
+================================================================================
+SECTION 32 - STATE / RECORD CONTRACTS
+================================================================================
+
+Every record family must have:
+- owner
+- source
+- timestamp
+- reference chain
+
+Why this is mandatory:
+Without these,
+Side C stops being strong memory
+and becomes a generic event dump.
+
+
+================================================================================
+SECTION 33 - FLOOR MAPPING TABLE
+================================================================================
+
+Side C interacts with floors as follows:
+
+Floor 1
+- connection lifecycle events
+- auth failure events
+- reconnect/degrade/disconnect history
+
+Floor 2
+- data health events
+- review references
+- replay references
+- structured truth availability references
+
+Floor 3
+- no direct interpretation ownership transfer
+- only references/links where explicitly emitted and justified later
+
+Floor 4
+- no direct interpretation ownership transfer
+- only review/summary referenceable outputs where explicitly routed later
+
+Floor 5
+- decision journal
+- no-trade reason memory
+- conviction band references
+- Captain-level decision history
+
+This table keeps Side C aligned without stealing layer responsibilities.
+
+
+================================================================================
+SECTION 34 - SIDE MAPPING TABLE
+================================================================================
+
+Side A
+- trade journal source
+- execution events source
+- blocked actions source
+- override event source
+- order chain references
+
+Side B
+- dashboard consumes memory views
+- dashboard does not own Side C truth
+
+This keeps Side C cleanly connected to operational reality and operator review.
+
+
+================================================================================
+SECTION 35 - FUTURE COMPATIBILITY NOTES
+================================================================================
+
+Side C is designed to be compatible with:
+- future replay growth
+- future dashboard journal workspaces
+- future audit tooling
+- future reference-link expansions
+
+But it remains:
+- non-intelligent
+- non-decisive
+- non-interpretive
+
+No redesign should be needed later if these boundaries are preserved.
+
+
+================================================================================
+SECTION 36 - Q1–Q20 LOCK MAPPING
+================================================================================
+
+Q1-D
+- layered internal architecture reflected in Sections 4–10
+
+Q2-B
+- central event router reflected in Sections 6 and 25
+
+Q3-D
+- append-first core + mutable views/indexes reflected in Sections 22, 26, 30
+
+Q4-D
+- full record families reflected in Sections 11–19
+
+Q5-C
+- multi-key linking reflected in Section 21
+
+Q6-D
+- family-based retention + archive tiers reflected in Sections 22 and 23
+
+Q7-D
+- dashboard/review/replay/audit compatible read model reflected in Sections 10,
+  26, 27, 28, 31
+
+Q8-B
+- lightweight summaries allowed, no scoring/interpretation reflected in
+  Sections 20 and 35
+
+Q9-C
+- health event history depth reflected in Section 16
+
+Q10-C
+- replay refs + trade/decision/review/health refs reflected in Section 28
+
+Additional accepted principles reflected:
+- Side C stores facts
+- Side C does not create truth
+- Side C remembers
+- Side C does not decide
+- Side C links
+- Side C does not interpret
+- Correction = new event
+- No silent mutation
+- Memory access principle
+- Journal ownership principle
+
+
+================================================================================
+SECTION 37 - FINAL STATUS OF SIDE C DRAFT
+================================================================================
+
+This SIDE C draft preserves all locked architecture boundaries and introduces no
+new floors, no new sides, and no ownership shift.
+
+It is aligned to:
+- Side A = Action
+- Side B = View
+- Side C = Memory
+
+It keeps Side C as:
+- memory layer
+- observability layer
+- traceability layer
+
+It keeps Side C out of:
+- decision making
+- execution control
+- calculation
+- interpretation
+- scoring
+- recommendation
+
+This draft is now ready for review and later targeted audit/tightening.
+
+================================================================================
+END OF SIDE C MEMORY / JOURNAL DRAFT
+================================================================================
+
+================================================================================
+SECTION 38 - V1.1 FINALIZATION INTENT
+================================================================================
+
+This V1.1 file is not a redesign.
+This V1.1 file is not a new Side C architecture.
+This V1.1 file does not add new floors or new sides.
+This V1.1 file does not change ownership.
+This V1.1 file does not shift responsibilities.
+
+This file only tightens Side C so that it becomes:
+- Architecture Safe
+- Ownership Safe
+- Integration Safe
+- Replay Safe
+- Side A aligned
+- Side B aligned
+- Audit Ready
+- Implementation Ready
+
+Minimal-change rule:
+The existing Side C draft remains the base.
+Only weak or ambiguous contracts are tightened.
+
+
+================================================================================
+SECTION 39 - V1.1 CHANGE SUMMARY
+================================================================================
+
+Updated file name:
+- SIDE_C_MEMORY_JOURNAL_V1_1_FINAL.txt
+
+This finalization adds only contract clarifications in these areas:
+- replay authority chain
+- dashboard read-model consumption boundary
+- approved emitter governance
+- record-family contract tightening
+- traceability/reference-chain tightening
+- retention/archive clarification
+
+No architecture change performed.
+No ownership change performed.
+No responsibility shift performed.
+
+
+================================================================================
+SECTION 40 - REPLAY AUTHORITY CHAIN CONTRACT
+================================================================================
+
+Replay is a cross-system capability, but authority must remain explicit.
+
+Replay authority chain:
+
+Floor 2
+- owns replay-capable data readiness
+- owns raw / cleaned / structured replay capability
+
+Side C
+- owns storage of replay references and review references
+- links replay-able artifacts to trade / decision / health memory
+
+Side B
+- owns replay workspace visibility only
+- consumes replay references in read-only form
+
+Important rule:
+Replay authority is distributed but not ambiguous:
+- Floor 2 = replay-capable truth owner
+- Side C = replay reference memory owner
+- Side B = replay workspace consumer
+
+Why this clarification is needed:
+Without this explicit chain, replay can become conceptually “everyone’s feature”
+and later implementation can blur ownership.
+
+This does not create a new replay subsystem.
+It only makes the existing chain explicit.
+
+
+================================================================================
+SECTION 41 - DASHBOARD READ-MODEL CONSUMPTION CONTRACT
+================================================================================
+
+Side B must not consume raw Side C stores directly.
+This is now explicitly hardened.
+
+Dashboard consumption path:
+Side B
+  ↓
+Read Models / Projections
+  ↓
+Side C Query Layer
+  ↓
+Side C Stores
+
+Meaning:
+- dashboard does not own Side C memory
+- dashboard does not query raw journal/event stores arbitrarily
+- dashboard consumes controlled memory views
+- query-layer contract remains the safe boundary
+
+Why this tightening is needed:
+It protects:
+- caching
+- scaling
+- contract cleanliness
+- memory ownership boundaries
+
+This does not change the existing read model.
+It clarifies the boundary.
+
+
+================================================================================
+SECTION 42 - APPROVED EMITTER GOVERNANCE MATRIX
+================================================================================
+
+Side C already requires approved emitters only.
+V1.1 now makes emitter families more explicit.
+
+Approved emitter examples by record family:
+
+Trade Journal
+- Side A source
+
+Decision Journal
+- Floor 5 source
+
+Execution Events
+- Side A source
+
+Health Events
+- Floor 1 source
+- Floor 2 source
+- Side A health-related operational state source where applicable
+
+Override History
+- originating authority source
+  (Captain strategic override / Side A override guard / operator-approved override path)
+
+Replay References
+- Floor 2 replay-support source path
+- Side A / Floor 5 linkage emitters where justified by existing reference chain
+
+Review References
+- Floor 2 review-support source path
+- Floor 5 / Side A linked review paths where justified
+
+Blocked Actions
+- Side A governance paths
+- other approved governance sources if explicitly added later under same ownership rules
+
+Important rule:
+Approved emitter means the source of truth owner or its explicitly governed path.
+Side C still owns storage only.
+
+Why this tightening is needed:
+Governance was strong conceptually, but emitter families benefit from explicitness.
+
+
+================================================================================
+SECTION 43 - RECORD FAMILY CONTRACT TIGHTENING
+================================================================================
+
+The existing rule remains:
+Every record family must have:
+- owner
+- source
+- timestamp
+- reference chain
+
+V1.1 clarification:
+This is not merely a documentation preference.
+This is a mandatory storage contract for all Side C record families.
+
+Every stored record family should preserve enough metadata so that later:
+- audit
+- replay
+- review
+- cross-system traceability
+remain possible without guesswork.
+
+This applies to:
+- Trade Journal
+- Decision Journal
+- Execution Events
+- Health Events
+- Override History
+- Replay References
+- Review References
+- Blocked Actions
+
+Why this tightening is needed:
+Without making this operationally mandatory,
+Side C risks becoming a generic event dump instead of a trustworthy memory layer.
+
+
+================================================================================
+SECTION 44 - TRACEABILITY / REFERENCE CHAIN TIGHTENING
+================================================================================
+
+V1.1 clarification:
+The reference chain model should remain multi-key and cross-system safe.
+
+Reference chain may include where applicable:
+- trade_id
+- decision_id
+- order_id
+- override_id
+- replay_ref
+- review_ref
+- source_ref
+
+Important rule:
+Reference chains should support cross-system navigation,
+not cross-system ownership transfer.
+
+Meaning:
+A replay reference stored in Side C does not make Side C the replay truth owner.
+A decision reference stored in Side C does not make Side C the decision owner.
+
+Why this tightening is needed:
+This preserves traceability without corrupting ownership boundaries.
+
+
+================================================================================
+SECTION 45 - RETENTION / ARCHIVE CLARIFICATION
+================================================================================
+
+The existing retention direction remains valid.
+V1.1 makes family-level intent more explicit.
+
+Retention guidance by family:
+- Trade Journal -> long-term memory family
+- Decision Journal -> long-term memory family
+- Override History -> long-term or medium-long depending on policy
+- Execution Events -> medium-term operational memory
+- Health Events -> medium-term observability memory
+- Replay References -> retention aligned with replay usefulness
+- Review References -> retention aligned with review usefulness
+- Blocked Actions -> medium-term governance memory
+
+Archive guidance:
+- archive is not deletion
+- archive is colder but still structured memory
+- archive tiers must preserve reference usability where needed
+
+Why this tightening is needed:
+It reduces future ambiguity between “retained,” “archived,” and “discarded”
+without changing the existing retention architecture.
+
+
+================================================================================
+SECTION 46 - SIDE C FINAL STATUS
+================================================================================
+
+Side C V1.1 Final preserves:
+- existing Side C architecture
+- existing Side C philosophy
+- existing Side C record families
+- existing Side C query model
+- existing Side C memory access model
+- existing Side C ownership model
+- existing Side C write model
+- existing Side C dashboard and replay compatibility direction
+
+And explicitly tightens:
+- replay authority chain
+- dashboard read-model boundary
+- approved emitter governance
+- record family contract strength
+- traceability/reference-chain clarification
+- retention/archive intent
+
+This file is therefore:
+- not a redesign
+- not a new memory architecture
+- not a new side
+- not an ownership change
+
+It is the finalized contract-tightened Side C planning file.
+
+================================================================================
+END OF SIDE C V1.1 FINALIZATION ADDITIONS
+================================================================================

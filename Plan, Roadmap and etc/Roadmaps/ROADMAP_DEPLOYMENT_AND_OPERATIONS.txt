@@ -1,0 +1,1046 @@
+================================================================================
+ ROADMAP_DEPLOYMENT_AND_OPERATIONS — PRODUCTION READINESS + LAUNCH
+================================================================================
+ Canonical Phase Template v1.0 | Phase 11 of 11 | Final Operations Phase
+================================================================================
+
+----------------------------------------------------------------------
+SECTION 1 — PURPOSE
+----------------------------------------------------------------------
+
+Phase 11 transitions the Junior Aladdin system from a validated, tested
+paper-trading system to a live capital-deployed system.  This is the
+highest-stakes phase in the entire build — any mistake here costs real
+money.
+
+This phase has four pillars:
+
+  1. SAFETY VERIFICATION — Every capital protection mechanism is verified
+     one final time under conditions that mimic production.
+
+  2. PAPER → REAL TRANSITION — The system graduates from paper broker
+     to Angel One live broker through a controlled, multi-stage process
+     with clear go/no-go gates at each stage.
+
+  3. OPERATOR PREPARATION — The operator manual, runbook, troubleshooting
+     guide, and alert response procedures are written and reviewed.
+
+  4. LAUNCH — The system goes live in REAL mode with:
+     - Small initial capital (defined risk budget)
+     - Monitored first session (operator present)
+     - Gradual scaling (capital increases only after verified sessions)
+
+Phase 11 is the FINAL phase.  After this, the system is live.
+
+Primary goals (in priority order):
+
+  1. PROTECT CAPITAL — Zero unplanned losses during transition
+  2. VERIFY SAFETY — Every protection mechanism works before REAL capital
+  3. PAPER → REAL — Safe graduation through staged gating
+  4. OPERATOR READY — Manual, runbook, alerts all prepared
+  5. LAUNCH — First live session with controlled risk budget
+  6. MONITOR — Post-launch observation period with escalation path
+
+----------------------------------------------------------------------
+SECTION 2 — COMPONENT ARCHITECTURE
+----------------------------------------------------------------------
+
+Phase 11 adds NO new system components.  It activates existing components
+that were built in earlier phases but only used in ALERT/PAPER mode:
+
+  Previously active:
+    - All floors (1-5) — producing intelligence, interpretation, decisions
+    - Side C — storing all events
+    - Side B — displaying everything
+    - Side A — ALERT mode (always active) + PAPER mode (testing)
+    - Side A paper_broker — simulated execution
+
+  Now activated:
+    - Side A real_broker — Angel One live broker connection
+    - Side A mode_router REAL path — live execution routing
+    - Side A kill_switch — CRITICAL mode (flatten real positions)
+    - Side A reconciliation_engine — reconciling with live broker truth
+    - Side B control surface — operator can request mode switches,
+      capital changes, kill switch activation on live system
+
+  Additional Phase 11 deliverables (operator preparation):
+
+  operator_resources/
+  ├── OPERATOR_MANUAL.md              # Full system operation guide
+  ├── RUNBOOK.md                      # Incident response procedures
+  ├── TROUBLESHOOTING_GUIDE.md        # Common issues + fixes
+  ├── ALERT_RESPONSE_PROCEDURES.md    # Per-alert response playbook
+  ├── LAUNCH_CHECKLIST.md             # Pre-launch verification
+  └── escalation_contacts.md          # Who to contact for what
+
+----------------------------------------------------------------------
+SECTION 3 — STEP-BY-STEP BUILD ORDER
+----------------------------------------------------------------------
+
+Phase 11 has 7 STAGES.  Each stage has a GO/NO-GO decision point.
+NO-GO means an automatic rollback to the previous stage.
+
+──────────────────────────────────────────────────────────────────────
+STAGE 11.1 — FINAL SAFETY VERIFICATION
+──────────────────────────────────────────────────────────────────────
+
+Purpose:  One final pass of every capital protection mechanism.
+          This is NOT the same as Phase 10 testing — this verification
+          runs against the EXACT configuration that will be used for
+          REAL mode.
+
+Verification checklist (ALL must pass — NO exceptions):
+
+  RISK GATE (Side A):
+  [ ] Available capital check: rejects if insufficient capital
+  [ ] Required capital check: rejects if margin requirement too high
+  [ ] Margin availability: rejects if margin limit exceeded
+  [ ] Quantity sanity: rejects unrealistic quantities
+  [ ] Lot feasibility: rejects non-standard lot sizes
+  [ ] Max loss limit: rejects if per-trade or per-day loss limit exceeded
+  [ ] Mode validation: rejects if intent mode ≠ execution mode
+  [ ] Real lock state: rejects if loss lock active
+  [ ] Duplicate prevention: rejects duplicate intents
+  [ ] One-trade enforcement: rejects second trade while position active
+  [ ] Stale intent detection: rejects intents older than 60 seconds
+  [ ] Data health check: rejects if data stale/critical
+
+  KILL SWITCH (Side A):
+  [ ] SOFT: blocks new entries (existing trade continues)
+  [ ] CRITICAL: flattens position + freezes execution
+  [ ] Deactivation: restores normal operation
+  [ ] Alert fires on activation (dashboard + Side C HEALTH_EVENT)
+
+  LOSS LOCK (Floor 5):
+  [ ] 3 consecutive losses → REAL mode locked
+  [ ] Lock persists across sessions
+  [ ] Override required to unlock (with reason logging)
+  [ ] Psychology block: non-overridable
+
+  MODE ROUTER (Side A):
+  [ ] ALERT always active regardless of mode
+  [ ] PAPER → REAL transition works (idle state only)
+  [ ] REAL → PAPER transition works (idle state only)
+  [ ] Mode switch blocked during active trade
+  [ ] Dashboard reflects current mode correctly
+
+  CAPITAL LIMITS:
+  [ ] Per-trade capital limit enforced
+  [ ] Per-day capital loss limit enforced
+  [ ] Per-session capital limit enforced
+  [ ] Account balance tracked correctly
+  [ ] No negative balance possible
+
+  DATA HEALTH POLICY:
+  [ ] DEGRADED → stricter risk checks applied
+  [ ] STALE → block new entries, existing trades continue
+  [ ] CRITICAL → escalate, flatten if needed
+
+  RECONCILIATION:
+  [ ] Mismatch detection works (quantity, price, state)
+  [ ] Broker truth preferred over local state
+  [ ] UNKNOWN state → bounded reconcile → escalate if unresolved
+
+  OPERATOR OVERRIDE:
+  [ ] Override grants: mode change, kill switch, loss lock unlock
+  [ ] Override scope limited (exit/risk-side only after execution start)
+  [ ] Every override logged to Side C (OVERRIDE family)
+  [ ] Override requires confirmation (no single-click execute)
+
+  EMERGENCY FLOWS:
+  [ ] Floor 1 disconnect → reconnect → data health → risk gate responds
+  [ ] Broker disconnect → reconciliation → UNKNOWN → escalate
+  [ ] Two consecutive timeouts → SOFT kill switch auto-activates
+  [ ] Memory limit approaching → alert → safety degradation
+
+  DOCUMENTATION:
+  [ ] OPERATOR_MANUAL.md written and reviewed
+  [ ] RUNBOOK.md written and reviewed
+  [ ] TROUBLESHOOTING_GUIDE.md written and reviewed
+  [ ] ALERT_RESPONSE_PROCEDURES.md written and reviewed
+  [ ] LAUNCH_CHECKLIST.md written and reviewed
+
+  [ ] ALL safety verification items pass
+  [ ] GO/NO-GO: GO ________ (signature required)
+
+──────────────────────────────────────────────────────────────────────
+STAGE 11.2 — OPERATOR MANUAL + RUNBOOK
+──────────────────────────────────────────────────────────────────────
+
+Purpose:  Prepare the operator documentation that the human operator
+          will use to monitor and control the live system.
+
+BUILD STEP 11.2.1 — OPERATOR_MANUAL.md
+  Content:
+    1. System overview (floors, sides, data flow)
+    2. Dashboard tour (all workspaces, panels, controls)
+    3. System states and what they mean
+    4. Mode operations (ALERT/PAPER/REAL — what each means)
+    5. Trade lifecycle walkthrough (intent → execution → close)
+    6. Captain decision visibility (conviction, armed plans, no-trade)
+    7. Risk gate checks explained (all 12)
+    8. Loss lock mechanism (3 losses → REAL locked)
+    9. Kill switch (SOFT vs CRITICAL)
+    10. Override procedures (when, how, why)
+    11. Account management (capital, margin, P&L)
+    12. Session start/end procedures
+    13. Daily review process
+
+BUILD STEP 11.2.2 — RUNBOOK.md
+  Content (incident response procedures):
+    1. Alert severity classification (INFO/CAUTION/SEVERE/CRITICAL)
+    2. Alert: Risk gate block (investigate, no action needed if valid)
+    3. Alert: Loss lock activated (review trades, consider override)
+    4. Alert: Kill switch SOFT (check data health, resolve cause)
+    5. Alert: Kill switch CRITICAL (immediate attention — flatten caused?)
+    6. Alert: Broker disconnect (check network, wait for reconnect)
+    7. Alert: Reconcile mismatch (compare local vs broker, resolve)
+    8. Alert: UNKNOWN state (reconcile, escalate if unresolved)
+    9. Alert: Data health DEGRADED/STALE/CRITICAL (check Floor 1)
+    10. Alert: Memory/cpu/disk threshold (check system resources)
+    11. Incident: Paper trade vs real trade discrepancy
+    12. Incident: Dashboard not updating (check refresh, check source)
+    13. Incident: Multiple risk gate blocks (check config, check capital)
+    14. Recovery: Post-kill-switch recovery procedure
+    15. Recovery: Post-disconnect recovery procedure
+    16. Recovery: Post-loss-lock recovery procedure
+    17. Escalation: When to escalate and to whom
+    18. Post-incident review template
+
+BUILD STEP 11.2.3 — TROUBLESHOOTING_GUIDE.md
+  Content (common issues + fixes):
+    1. System won't start (check config, check dependencies)
+    2. Floor 1 not receiving data (check Angel One connection)
+    3. Floor 2 showing validation errors (check data format)
+    4. Floor 3 producing no signals (check input data)
+    5. Floor 4 heads showing stale (check freshness tags)
+    6. Floor 5 not producing decisions (check permission gate)
+    7. Side A not receiving intents (check captain_interface)
+    8. Side A risk gate blocking everything (check each check)
+    9. Paper broker not responding (check simulation_runner)
+    10. Real broker errors (check Angel One API, check auth)
+    11. Side C not storing events (check emitter, check router)
+    12. Side B dashboard blank (check server, check data sources)
+    13. Side B controls not working (check command handlers)
+    14. Replay fails (check data source, check comparator)
+
+BUILD STEP 11.2.4 — ALERT_RESPONSE_PROCEDURES.md
+  Content:
+    Per-alert playbook with:
+    - Alert name and severity
+    - Expected trigger conditions
+    - Immediate actions (30 seconds)
+    - Investigation actions (5 minutes)
+    - Resolution actions
+    - Escalation criteria
+    - Post-resolution verification
+    - Example alert flows with screenshots
+
+  Alert index:
+    CAUTION: Risk gate block, Duplicate intent, Mode mismatch
+    SEVERE: Loss lock active, Reconcile mismatch, Stale data
+    CRITICAL: Kill switch CRITICAL, Broker disconnect, UNKNOWN state,
+              Capital limit breached, Data health CRITICAL
+
+BUILD STEP 11.2.5 — LAUNCH_CHECKLIST.md
+  Content:
+    Pre-launch checklist (verifiable items only):
+    - Safety verification passed (Stage 11.1 sign-off)
+    - All documentation reviewed
+    - Capital budget defined and confirmed
+    - Risk limits configured
+    - Angel One API key + credentials ready
+    - REAL broker integration tested in ISOLATION (no live capital)
+    - Operator briefed on manual + runbook
+    - Alert notification channel configured
+    - Kill switch tested in REAL-simulation mode
+    - Rollback plan documented
+    - Post-launch monitoring period defined
+
+BUILD STEP 11.2.6 — escalation_contacts.md
+  Content: List of escalation contacts + their responsibilities
+
+VERIFICATION CHECKLIST (STAGE 11.2):
+  [ ] OPERATOR_MANUAL.md complete and reviewed
+  [ ] RUNBOOK.md complete and reviewed
+  [ ] TROUBLESHOOTING_GUIDE.md complete and reviewed
+  [ ] ALERT_RESPONSE_PROCEDURES.md complete and reviewed
+  [ ] LAUNCH_CHECKLIST.md complete and reviewed
+  [ ] escalation_contacts.md complete
+  [ ] All documentation uses consistent terminology
+  [ ] GO/NO-GO: GO ________ (signature required)
+
+──────────────────────────────────────────────────────────────────────
+STAGE 11.3 — REAL BROKER ISOLATED VERIFICATION
+──────────────────────────────────────────────────────────────────────
+
+Purpose:  Test the Angel One real broker integration WITHOUT live
+          capital.  This verifies that the broker connection, order
+          format, authentication, and error handling all work correctly
+          before any money is at risk.
+
+IMPORTANT: This stage uses 0 capital.  Orders are verified by checking
+           that the broker accepts the correct format, NOT by executing
+           real trades.  If the broker API supports sandbox/test mode,
+           use that.  Otherwise, verify format + auth only (do NOT
+           submit live orders).
+
+Verification checklist:
+
+  AUTHENTICATION:
+  [ ] Angel One login with valid credentials → success
+  [ ] Angel One login with invalid credentials → proper error
+  [ ] Token refresh works correctly
+  [ ] Token expiry handled gracefully (re-login flow)
+  [ ] Session management works (login → maintain → refresh cycle)
+
+  ORDER FORMAT:
+  [ ] LIMIT order formatted correctly for Angel One API
+  [ ] SL-LIMIT order formatted correctly
+  [ ] Order fields match broker requirements (tradingsymbol, exchange,
+      transactiontype, quantity, price, triggerprice, etc.)
+  [ ] CE/PE option strike formatting correct
+  [ ] Order validity (DAY/IOC) set correctly
+
+  ORDER LIFECYCLE (format verification only — no live order):
+  [ ] Place order request → broker returns expected response structure
+  [ ] Cancel order request → broker returns expected response structure
+  [ ] Modify order request → broker returns expected response structure
+  [ ] Get order status → broker returns expected response structure
+
+  ERROR HANDLING:
+  [ ] Broker timeout → retry logic works
+  [ ] Broker returns error → classified correctly (recoverable vs fatal)
+  [ ] Broker connection lost → reconnect flow works
+  [ ] Rate limit hit → backoff + retry logic works
+  [ ] Invalid token → re-authenticate flow works
+
+  POSITION + ACCOUNT:
+  [ ] Get positions → broker returns expected structure
+  [ ] Get holdings → broker returns expected structure
+  [ ] Get account summary → broker returns expected structure
+  [ ] Get margin → broker returns expected structure
+
+  PARITY VERIFICATION:
+  [ ] real_broker interface matches paper_broker interface
+      (same method signatures, same return types)
+  [ ] Core lifecycle: order → ack → fill flow matches (structure differs
+      only in source of truth: paper simulates, real uses broker)
+
+  [ ] ALL real broker verification items pass
+  [ ] GO/NO-GO: GO ________ (signature required)
+
+──────────────────────────────────────────────────────────────────────
+STAGE 11.4 — PAPER → REAL TRANSITION (STAGED)
+──────────────────────────────────────────────────────────────────────
+
+Purpose:  Graduate from PAPER mode to REAL mode through 3 controlled
+          sub-stages.  Each sub-stage has explicit duration and
+          exit criteria.  NO jumping stages.
+
+SUB-STAGE 11.4A — ALERT MODE OBSERVATION (duration: 3 sessions)
+
+  Run system in ALERT mode only (PAPER and REAL both disabled).
+  Observe that Captain produces correct intents, risk gate evaluates
+  correctly, and all systems function normally.
+
+  Verification:
+  [ ] 3 consecutive sessions without critical error
+  [ ] Captain produces at least 5 intents per session
+  [ ] Risk gate correctly blocks/rejects when expected
+  [ ] All events logged to Side C
+  [ ] Dashboard renders correctly
+  [ ] Operator observes and verifies system behaviour
+
+SUB-STAGE 11.4B — PAPER MODE VERIFICATION (duration: 5 sessions)
+
+  Run system in PAPER mode alongside ALERT.  Verify that paper broker
+  execution flow works correctly with realistic market conditions.
+
+  Note: This is a re-verification of Phase 10 gate 10.7 with the
+  production configuration.  Not all 100 trades — just verify that
+  the production config works correctly.
+
+  Verification:
+  [ ] At least 10 paper trades executed across 5 sessions
+  [ ] Paper broker applies realistic slippage
+  [ ] Risk gate operates correctly
+  [ ] State machine transitions correctly
+  [ ] Position manager tracks correctly
+  [ ] Protection model stages SL/TP correctly
+  [ ] All events logged to Side C
+  [ ] Dashboard renders paper trades correctly
+  [ ] ZERO critical failures
+  [ ] Operator reviews all paper trades
+
+SUB-STAGE 11.4C — REAL MODE ACTIVATION (duration: 1 session, min capital)
+
+  Switch to REAL mode with minimum capital only.
+  This is the FIRST live capital exposure.
+
+  CAPITAL POLICY:
+  - Initial REAL capital: DEFINED_RISK_BUDGET (e.g., ₹10,000 or 5% of
+    total risk capital — choose the smaller)
+  - Maximum 1 concurrent trade
+  - Per-trade risk: max 2% of REAL capital (e.g., ₹200)
+  - Per-day loss limit: max 5% of REAL capital (e.g., ₹500)
+  - Loss lock: 3 losses → REAL locked (no override for first session)
+
+  Verification:
+  [ ] Mode switch PAPER → REAL successful
+  [ ] ALERT still fires for every intent
+  [ ] Risk gate uses REAL capital for checks
+  [ ] Real broker receives orders
+  [ ] Reconciliation engine matches local vs broker truth
+  [ ] All events logged to Side C
+  [ ] Dashboard renders REAL mode correctly
+  [ ] Operator monitors first REAL session throughout
+  [ ] End-of-session review completed
+  [ ] P&L recorded (positive or negative — learning data)
+
+  [ ] ALL sub-stages pass
+  [ ] GO/NO-GO: GO ________ (signature required)
+
+──────────────────────────────────────────────────────────────────────
+STAGE 11.5 — GRADUAL CAPITAL SCALING
+──────────────────────────────────────────────────────────────────────
+
+Purpose:  After first REAL session, gradually increase capital exposure
+          in controlled steps.  Each step requires the previous step
+          to complete without critical failure.
+
+  SCALING STEPS:
+
+  Step A — Minimum capital (3 sessions)
+    Capital: DEFINED_RISK_BUDGET (e.g., ₹10,000)
+    Max trades per session: 3
+    Exit: 3 sessions without critical failure
+
+  Step B — 2× capital (5 sessions)
+    Capital: 2 × DEFINED_RISK_BUDGET (e.g., ₹20,000)
+    Max trades per session: 5
+    Exit: 5 sessions without critical failure
+
+  Step C — 5× capital (10 sessions)
+    Capital: 5 × DEFINED_RISK_BUDGET (e.g., ₹50,000)
+    Max trades per session: 5
+    Exit: 10 sessions without critical failure
+
+  Step D — Full capital (ongoing)
+    Capital: FULL_RISK_CAPITAL (e.g., ₹1,00,000)
+    Max trades per session: 1 (locked — one active trade)
+    Exit: N/A (ongoing operation)
+
+  SCALING RULES:
+  - Each step requires ALL previous steps to complete
+  - Any critical failure → pause scaling → investigate → fix → restart
+    from current step (not from beginning, unless root cause was
+    in a lower step's scope)
+  - Capital increases only after verified sessions (no time pressure)
+  - Operator can choose to stay at current level indefinitely
+
+  [ ] Step A complete (3 sessions, no critical failure)
+  [ ] Step B complete (5 sessions, no critical failure)
+  [ ] Step C complete (10 sessions, no critical failure)
+  [ ] Step D active (full capital, ongoing)
+  [ ] GO/NO-GO per step: GO ________ (signature required each step)
+
+──────────────────────────────────────────────────────────────────────
+STAGE 11.6 — POST-LAUNCH MONITORING
+──────────────────────────────────────────────────────────────────────
+
+Purpose:  After launch, monitor the system for a defined observation
+          period to catch any issues that only appear under sustained
+          real-market operation.
+
+  MONITORING PERIOD: 20 trading sessions (approximately 1 month)
+
+  DAILY MONITORING CHECKLIST:
+  [ ] System starts without error
+  [ ] Floor 1 data feeds active (all 4 sources)
+  [ ] Floor 2 validation stats healthy
+  [ ] Floor 3 engines producing signals
+  [ ] Floor 4 heads producing reports
+  [ ] Floor 5 Captain producing decisions
+  [ ] Side A mode correct (REAL), state idle
+  [ ] Side C events logged correctly
+  [ ] Side B dashboard renders correctly
+  [ ] No unhandled exceptions
+  [ ] Memory within bounds (< 2GB)
+  [ ] Cycle time within bounds (< 30s heavy, < 1s light)
+  [ ] Daily P&L recorded by operator
+
+  WEEKLY REVIEW CHECKLIST:
+  [ ] All trades reviewed (win/loss analysis)
+  [ ] Risk gate rejections reviewed (false positives?)
+  [ ] Captain decision quality reviewed (good decisions?)
+  [ ] Head report quality reviewed (consistent?)
+  [ ] Engine performance reviewed (no degradation?)
+  [ ] Side C events audited (no missing events?)
+  [ ] Dashboard rendering reviewed (any glitches?)
+  [ ] Operator feedback collected
+  [ ] Runbook updated if new scenarios discovered
+
+  POST-LAUNCH REVIEW (after 20 sessions):
+  [ ] Full system performance report generated
+  [ ] Trade statistics analysed (win rate, avg P&L, Sharpe, drawdown)
+  [ ] Risk gate effectiveness evaluated (false positive rate)
+  [ ] Captain decision accuracy evaluated
+  [ ] Operator satisfaction survey
+  [ ] System improvements backlog created
+  [ ] Next iteration priorities defined
+
+──────────────────────────────────────────────────────────────────────
+STAGE 11.7 — SYSTEM LOCK + FINAL SIGN-OFF
+──────────────────────────────────────────────────────────────────────
+
+Purpose:  Lock the system configuration, freeze the build, and obtain
+          final sign-off.  After this stage, the system is considered
+          PRODUCTION.
+
+  [ ] All safety mechanisms verified
+  [ ] All documentation complete
+  [ ] Real broker integration verified
+  [ ] Paper → real transition complete
+  [ ] Capital scaling at target level
+  [ ] Post-launch monitoring period complete
+  [ ] System performance report generated
+  [ ] All known issues documented
+  [ ] Improvement backlog created
+  [ ] Build documentation frozen
+  [ ] Final sign-off obtained
+
+  CONFIGURATION LOCK:
+  After Phase 11 sign-off, the following are frozen:
+  - System configuration (config files)
+  - Risk gate parameters
+  - Capital limits
+  - Mode settings
+  - Alert thresholds
+  - Documentation (MANUAL, RUNBOOK, TROUBLESHOOTING)
+
+  Changes after freeze require:
+  1. Change request with justification
+  2. Review by sign-off authority
+  3. Re-verification of affected safety mechanisms
+  4. Updated documentation
+
+================================================================================
+  PHASE 11 COMPLETE — SYSTEM IS NOW PRODUCTION
+================================================================================
+
+----------------------------------------------------------------------
+SECTION 4 — INPUT/OUTPUT CONTRACTS
+----------------------------------------------------------------------
+
+4.1  Input contracts
+
+  Phase 11 consumes:
+    - All existing system modules (fully built, tested, integrated)
+    - Angel One API credentials (for real_broker)
+    - Defined risk capital amount (operator-specified)
+    - Risk gate parameters (per-trade, per-day, per-session limits)
+    - Mode configuration (ALERT/PAPER/REAL)
+
+4.2  Output contracts
+
+  Phase 11 produces:
+    - OPERATOR_MANUAL.md         — Full system operation guide
+    - RUNBOOK.md                 — Incident response procedures
+    - TROUBLESHOOTING_GUIDE.md   — Common issues + fixes
+    - ALERT_RESPONSE_PROCEDURES.md — Per-alert response playbook
+    - LAUNCH_CHECKLIST.md        — Pre-launch verification
+    - escalation_contacts.md     — Escalation contacts
+    - Phase 11 completion certificate
+    - LIVE SYSTEM (production-ready)
+
+4.3  Completion certificate schema
+
+  {
+    "phase": 11,
+    "gate": "deployment_and_operations",
+    "timestamp": "<ISO datetime>",
+    "stages": {
+      "11.1_safety_verification": {
+        "status": "PASS",
+        "items_verified": 45,
+        "items_failed": 0
+      },
+      "11.2_operator_preparation": {
+        "status": "PASS",
+        "documents_created": 6
+      },
+      "11.3_real_broker_verification": {
+        "status": "PASS",
+        "items_verified": 20,
+        "items_failed": 0
+      },
+      "11.4_paper_real_transition": {
+        "status": "PASS",
+        "sub_stages_completed": 3
+      },
+      "11.5_capital_scaling": {
+        "status": "PASS",
+        "steps_completed": 4,
+        "current_capital": "<amount>"
+      },
+      "11.6_post_launch_monitoring": {
+        "status": "PASS",
+        "sessions_monitored": 20,
+        "issues_found": 0
+      },
+      "11.7_system_lock": {
+        "status": "PASS",
+        "configuration_frozen": true,
+        "sign_off_obtained": true
+      }
+    },
+    "overall_verdict": "PASS — SYSTEM IS PRODUCTION",
+    "launch_date": "<date>",
+    "initial_capital": "<amount>",
+    "current_capital": "<amount>",
+    "sign_off_by": "<name>"
+  }
+
+----------------------------------------------------------------------
+SECTION 5 — DEPENDENCY MAP
+----------------------------------------------------------------------
+
+Stage                          Depends On                        Blocks
+───────────────────────────────────────────────────────────────────────────
+11.1 — Safety Verification     Phase 10 complete                   11.2
+11.2 — Operator Preparation    11.1 pass                            11.3
+11.3 — Real Broker Isolated    11.2 pass (documents ready)         11.4
+11.4 — Paper → Real Transition 11.3 pass                            11.5
+11.5 — Capital Scaling         11.4 pass (first REAL session done)  11.6
+11.6 — Post-Launch Monitoring  11.5 pass (scaling at target)       11.7
+11.7 — System Lock             11.6 pass (monitoring period done)   NONE — COMPLETE
+
+ALL stages are SERIAL.  No stage can be skipped.
+Each stage has a GO/NO-GO decision.  NO-GO = rollback.
+
+EXTERNAL DEPENDENCIES:
+  - Angel One API credentials (Stage 11.3 requires working credentials)
+  - Defined risk capital (operator must allocate before Stage 11.4)
+  - Market is open (Stages 11.4-11.6 require live market data)
+
+STOP CONDITIONS:
+  - Any critical failure at any stage → immediate pause, investigate
+  - Capital breach → immediate CRITICAL kill switch → investigate
+  - If root cause found: fix → restart from current stage
+  - If root cause not found within 24h: rollback to PAPER mode
+
+----------------------------------------------------------------------
+SECTION 6 — WIRING DIAGRAM
+----------------------------------------------------------------------
+
+Phase 11 activates the REAL path in Side A:
+
+                    ┌─────────────┐
+   ALERT (always) ──►  ALERT path  ──► Dashboard notification
+                    └─────────────┘
+
+                    ┌─────────────┐
+   PAPER (Stage B)──►  PAPER path  ──► paper_broker
+                    └─────────────┘
+
+                    ┌─────────────┐
+   REAL (Stage C) ──►  REAL path   ──► real_broker ──► Angel One ──► Market
+                    └──────┬──────┘
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │ Reconcile   │◄──── broker truth
+                    └─────────────┘
+
+  ALL paths go through:
+    captain_interface → mode_router → intent_fingerprint → risk_gate
+    → state_machine → execution_core → order_lifecycle → position_manager
+    → protection_model → reconciliation → logging → blocked_action_journal
+
+  The ONLY difference between PAPER and REAL:
+    - PAPER: execution_core.submit_order() → paper_broker
+    - REAL:  execution_core.submit_order() → real_broker
+
+  ALERT mode:
+    - Fires notification (dashboard + log) for EVERY intent
+    - Does NOT execute (no broker path)
+    - Used for observation (Stage 11.4A)
+
+----------------------------------------------------------------------
+SECTION 7 — DATA FLOW
+----------------------------------------------------------------------
+
+7.1  Stage 11.4A — ALERT mode data flow
+
+  Captain intent ──► captain_interface ──► mode_router
+    └── ALERT path ──► dashboard notification ──► log
+    └── No execution path (PAPER + REAL disabled)
+
+7.2  Stage 11.4B — PAPER mode data flow
+
+  Captain intent ──► captain_interface ──► mode_router
+    ├── ALERT path ──► dashboard notification (always fires)
+    └── PAPER path ──► risk_gate ──► execution_core ──► paper_broker
+        └── paper_broker ──► simulated fill (slippage, delay)
+            └── state machine ──► position manager ──► protection model
+
+  Identical to Phase 10 paper simulation, but with production config.
+
+7.3  Stage 11.4C+ — REAL mode data flow
+
+  Captain intent ──► captain_interface ──► mode_router
+    ├── ALERT path ──► dashboard notification (always fires)
+    └── REAL path ──► risk_gate ──► execution_core ──► real_broker
+        └── real_broker ──► Angel One API ──► broker ack/fill
+            └── state machine ──► position manager ──► protection model
+            └── reconciliation_engine ◄── broker truth
+
+  Key differences from PAPER:
+    - Real broker sends live orders (real capital at risk)
+    - Reconciliation engine actively compares local vs broker
+    - Broker truth is final authority
+    - SL/TP are real broker orders (not simulated)
+
+7.4  Error data flow (REAL mode)
+
+  Any execution error ──► reconciliation ──► broker truth check
+    └── If recoverable ──► retry (max 3)
+    └── If unrecoverable ──► blocked_action_journal ──► Side C
+    └── If capital breach ──► CRITICAL kill switch ──► flatten
+    └── If broker disconnect ──► reconnect flow ──► reconcile
+    └── If unknown state ──► bounded reconcile ──► escalate
+
+7.5  Recovery data flow (REAL mode)
+
+  Kill switch activated:
+    SOFT: block new entries, existing trade continues
+    CRITICAL: flatten position → freeze → operator resolves
+    Recovery: operator reviews → resolves cause → deactivates
+      → replay last healthy state → resume
+
+  Broker disconnect:
+    Reconnect (auto, max 3 attempts)
+    → reconcile local vs broker after reconnect
+    → if match: resume normal operation
+    → if mismatch: escalate (SEVERE) → operator intervention
+
+  Loss lock (3 losses):
+    Captain sets REAL mode locked
+    → operator reviews trades
+    → if override: logged reason + limited unlock
+    → if no override: system stays locked (forced cooldown)
+
+----------------------------------------------------------------------
+SECTION 8 — VALIDATION MATRIX
+----------------------------------------------------------------------
+
+8.1  Safety verification (Stage 11.1)
+
+  Category              Items         Pass Criteria
+  ─────────────────────────────────────────────────────────
+  Risk gate             12 checks     ALL pass (no bypass)
+  Kill switch           4 checks      SOFT blocks, CRITICAL flattens
+  Loss lock             4 checks      3 losses → REAL locked
+  Mode router           5 checks      ALERT always fires, transitions work
+  Capital limits        5 checks      Enforced per-trade/day/session
+  Data health policy    3 checks      DEGRADED/STALE/CRITICAL mapping
+  Reconciliation       4 checks      Detect, broker truth, UNKNOWN handle
+  Operator override     4 checks      Limited scope, logged, confirmed
+  Emergency flows       4 checks      Disconnect, timeout, memory, auto-SOFT
+  Documentation         6 checks      All documents complete
+
+  Total: 51 safety verification items
+
+8.2  Real broker verification (Stage 11.3)
+
+  Category              Items         Pass Criteria
+  ─────────────────────────────────────────────────────────
+  Authentication        6 checks      Login, token, refresh, expiry
+  Order format          6 checks      LIMIT, SL-LIMIT, CE/PE, validity
+  Order lifecycle       4 checks      Place, cancel, modify, get status
+  Error handling        5 checks      Timeout, error, disconnect, rate, token
+  Position + account    4 checks      Positions, holdings, summary, margin
+  Parity                2 checks      Interface match, lifecycle match
+
+  Total: 27 real broker verification items
+
+8.3  Paper → Real transition (Stage 11.4)
+
+  Sub-stage             Duration      Pass Criteria
+  ─────────────────────────────────────────────────────────
+  11.4A ALERT observe   3 sessions    No critical errors, 5+ intents/session
+  11.4B PAPER verify    5 sessions    10+ paper trades, ZERO critical failures
+  11.4C REAL activate   1 session     First live trade, min capital, monitored
+
+8.4  Capital scaling (Stage 11.5)
+
+  Step        Capital          Sessions    Exit Criteria
+  ─────────────────────────────────────────────────────────
+  A (Minimum) DEFINED_BUDGET   3           No critical failures
+  B (2×)      2× budget        5           No critical failures
+  C (5×)      5× budget        10          No critical failures
+  D (Full)    Full capital     Ongoing     N/A
+
+8.5  Post-launch monitoring (Stage 11.6)
+
+  Period      Duration       Activities
+  ─────────────────────────────────────────────────────────
+  Daily       20 sessions    System health, P&L, exceptions
+  Weekly      4 weeks        Trade review, decision quality, audit
+  Final       1 review       Full performance report, backlog
+
+----------------------------------------------------------------------
+SECTION 9 — CROSS-COMPONENT IMPACTS
+----------------------------------------------------------------------
+
+9.1  Impact on Floor 1
+
+  - Floor 1 must provide LIVE market data during REAL mode
+  - Disconnect handling becomes capital-critical (not just test-critical)
+  - Data health signals directly impact risk gate (STALE → block new)
+
+9.2  Impact on Floor 2
+
+  - Floor 2 validation affects capital safety during REAL mode
+  - Governance review becomes real (not just test)
+  - Data health packets become capital-protection inputs
+
+9.3  Impact on Floor 3
+
+  - Floor 3 signals drive live decisions (real capital consequences)
+  - Calculation quality directly affects P&L
+  - Empty/invalid signals cause no-trade (correct behaviour)
+
+9.4  Impact on Floor 4
+
+  - Floor 4 head reports drive live Captain decisions
+  - Head health (stale detection) becomes capital-critical
+  - NO_SETUP intelligence must be respected (Psych/Macro)
+
+9.5  Impact on Floor 5
+
+  - Floor 5 decisions have real capital consequences
+  - Conviction bands directly affect trade/no-trade decisions
+  - Loss lock protects capital (3 losses → REAL locked)
+  - Psychology block must be non-overridable
+
+9.6  Impact on Side A
+
+  - Side A is the CAPITAL PROTECTION layer in REAL mode
+  - Risk gate is the FINAL safety net before live capital
+  - Reconciliation engine is the TRUTH VERIFIER
+  - Kill switch is the EMERGENCY BRAKE
+  - All 12 risk gate checks must be 100% reliable
+  - UNKNOWN state handling becomes capital-critical
+
+9.7  Impact on Side C
+
+  - Side C records EVERY event for audit trail
+  - Trade journal is FINANCIAL RECORD (regulatory relevance)
+  - Decision journal is ACCOUNTABILITY record
+  - Blocked actions are SAFETY AUDIT trail
+  - No events can be lost during REAL mode
+
+9.8  Impact on Side B
+
+  - Side B is the OPERATOR'S WINDOW into live system
+  - Mode indicator must be accurate (ALERT/PAPER/REAL)
+  - Execution state must update in real-time
+  - Alert panel is the OPERATOR'S ATTENTION DIRECTOR
+  - Command handlers must use request_ prefix (capital-critical)
+  - Dashboard must never display stale REAL mode data
+
+9.9  Impact on operator
+
+  - Operator is the HUMAN SAFETY NET
+  - Operator monitors but does NOT control execution in normal operation
+  - Operator intervenes only in: kill switch, override, mode change
+  - Operator reviews trades daily
+  - Operator follows runbook for all incidents
+  - Operator escalates when runbook procedures are insufficient
+
+----------------------------------------------------------------------
+SECTION 10 — COMMON MISTAKES
+----------------------------------------------------------------------
+
+10.1 Architecture-breaking mistakes (will fail Phase 11)
+
+  Mistake 1: Skipping safety verification
+    Prevention: Stage 11.1 is MANDATORY.  No REAL capital without it.
+    Detection:   Stage gate blocks REAL mode activation
+
+  Mistake 2: Testing real broker with live capital
+    Prevention: Stage 11.3 uses 0 capital — format verification only.
+    Detection:   Check shows order placed with real money → P0 violation
+
+  Mistake 3: Going directly from PAPER to REAL without ALERT observation
+    Prevention: Stage 11.4 requires ALERT → PAPER → REAL sequence.
+    Detection:   Mode history shows jump → gate fails
+
+  Mistake 4: Scaling capital too fast
+    Prevention: Stage 11.5 requires minimum sessions per step.
+                No shortcuts.  No exceptions.
+    Detection:   Scaling step skipped → gate fails
+
+  Mistake 5: Ignoring post-launch monitoring
+    Prevention: Stage 11.6 requires 20 sessions of monitoring.
+    Detection:   Monitoring log shows fewer than 20 sessions
+
+  Mistake 6: Operating without documentation
+    Prevention: Stage 11.2 requires all documentation before REAL mode.
+    Detection:   Pre-launch checklist finds missing documents
+
+  Mistake 7: Operator overriding loss lock without review
+    Prevention: Override requires: reason logging + trade review.
+    Detection:   Override audit shows missing review
+
+  Mistake 8: Not having a rollback plan
+    Prevention: Rollback plan documented in LAUNCH_CHECKLIST.md.
+                PAPER mode is always available as fallback.
+    Detection:   No rollback procedure documented → gate fails
+
+  Mistake 9: Phase 11 rushed due to excitement
+    Prevention: Each stage has minimum duration.
+                REAL mode is not the goal — SAFE REAL mode is the goal.
+    Detection:   Timeline shows stages completed faster than minimum
+
+10.2 What creates rework later (and how to prevent it)
+
+  Rework 1: Real broker integration issues discovered during Stage 11.4C
+    Fix:      Fix broker integration, re-verify Stage 11.3, restart 11.4
+    Prevent:  Stage 11.3 thorough verification with all error paths
+
+  Rework 2: Risk gate parameters too strict (blocks all trades in REAL)
+    Fix:      Adjust parameters, re-verify safety
+    Prevent:  Test risk gate with realistic market data in PAPER mode
+
+  Rework 3: Risk gate parameters too loose (allows risky trades)
+    Fix:      Tighten parameters, re-verify safety
+    Prevent:  Conservative initial parameters → relax cautiously
+
+  Rework 4: Dashboard not updated for REAL mode specifics
+    Fix:      Update dashboard, verify rendering
+    Prevent:  Test dashboard with REAL mode data in Stage 11.4B
+
+  Rework 5: Operator not trained on runbook procedures
+    Fix:      Operator training, dry-run of procedures
+    Prevent:  Runbook review + simulation before Stage 11.4C
+
+  Rework 6: Reconciliation issues during first REAL trades
+    Fix:      Investigate mismatch, fix reconciliation logic
+    Prevent:  Stage 11.3 includes reconciliation test with broker mock
+
+  Rework 7: Post-launch issues not documented
+    Fix:      Retrospective documentation
+    Prevent:  Daily monitoring log + weekly review process
+
+----------------------------------------------------------------------
+SECTION 11 — READY-TO-CODE CHECKLIST
+----------------------------------------------------------------------
+
+11.1 Entry criteria (Phase 11 may begin when ALL are true)
+
+  [ ] Phase 10 complete: all testing gates passed
+  [ ] ROADMAP_TESTING_AND_VALIDATION signed off
+  [ ] completion_certificate.json from Phase 10 shows PASS
+  [ ] All floors and sides built, tested, and wired
+  [ ] Contracts frozen at version 1.0
+  [ ] All 53 contract tests pass (from Phase 9)
+  [ ] All 10 replay tests pass (from Phase 9)
+  [ ] All 16 integration tests pass (from Phase 9)
+  [ ] All 8 non-functional tests pass (6 from Phase 9, 2 from Phase 10)
+  [ ] Paper simulation: 100+ trades, ZERO critical failures (from Phase 10)
+  [ ] Angel One API credentials ready (for real_broker)
+  [ ] Defined risk capital amount confirmed by operator
+  [ ] Risk gate parameters defined and reviewed
+  [ ] Operator identified and briefed
+  [ ] Git working tree clean (no uncommitted changes)
+  [ ] Market is open for at least part of the day (for live verification)
+
+11.2 Per-stage verification
+
+  Stage 11.1 — Final Safety Verification:
+    [ ] Risk gate: all 12 checks verified
+    [ ] Kill switch: SOFT + CRITICAL verified
+    [ ] Loss lock: 3 losses → REAL locked verified
+    [ ] Mode router: ALERT always fires, transitions work
+    [ ] Capital limits: per-trade/day/session enforced
+    [ ] Data health policy: DEGRADED/STALE/CRITICAL mapping
+    [ ] Reconciliation: detect, broker truth, UNKNOWN handle
+    [ ] Operator override: limited scope, logged, confirmed
+    [ ] Emergency flows: disconnect, timeout, auto-SOFT
+    [ ] ALL documentation written and reviewed
+    [ ] Safety verification passed (sign-off obtained)
+
+  Stage 11.2 — Operator Preparation:
+    [ ] OPERATOR_MANUAL.md complete
+    [ ] RUNBOOK.md complete
+    [ ] TROUBLESHOOTING_GUIDE.md complete
+    [ ] ALERT_RESPONSE_PROCEDURES.md complete
+    [ ] LAUNCH_CHECKLIST.md complete
+    [ ] escalation_contacts.md complete
+
+  Stage 11.3 — Real Broker Isolated Verification:
+    [ ] Authentication verified (login, token, refresh)
+    [ ] Order format verified (LIMIT, SL-LIMIT)
+    [ ] Order lifecycle verified (place, cancel, modify, status)
+    [ ] Error handling verified (timeout, error, disconnect, rate limit)
+    [ ] Position + account queries verified
+    [ ] Parity with paper_broker verified
+    [ ] ZERO live capital orders placed during test
+
+  Stage 11.4 — Paper → Real Transition:
+    [ ] 11.4A: 3 ALERT sessions without critical error
+    [ ] 11.4B: 5 PAPER sessions, 10+ trades, ZERO critical failures
+    [ ] 11.4C: First REAL session, min capital, monitored
+    [ ] End-of-session review completed for each sub-stage
+
+  Stage 11.5 — Capital Scaling:
+    [ ] Step A complete (min capital, 3 sessions)
+    [ ] Step B complete (2× capital, 5 sessions)
+    [ ] Step C complete (5× capital, 10 sessions)
+    [ ] Step D active (full capital, ongoing)
+
+  Stage 11.6 — Post-Launch Monitoring:
+    [ ] Daily monitoring completed (20 sessions)
+    [ ] Weekly reviews completed (4 weeks)
+    [ ] Final performance report generated
+    [ ] Improvement backlog created
+
+  Stage 11.7 — System Lock:
+    [ ] All stages passed
+    [ ] Configuration frozen
+    [ ] Documentation finalised
+    [ ] Final sign-off obtained
+
+11.3 Integration verification
+
+  [ ] ALL 7 stages pass
+  [ ] Safety verification: all 51 items pass
+  [ ] Real broker verification: all 27 items pass
+  [ ] Paper → real transition: all 3 sub-stages pass
+  [ ] Capital scaling: all steps complete
+  [ ] Post-launch monitoring: 20 sessions without critical failure
+  [ ] System lock: configuration frozen, sign-off obtained
+
+11.4 Exit criteria (Phase 11 complete when ALL are true)
+
+  [ ] ALL 7 stages pass verification
+  [ ] System is running in REAL mode with defined capital
+  [ ] Capital scaling completed to target level
+  [ ] Post-launch monitoring period complete (20 sessions)
+  [ ] No critical failures during monitoring period
+  [ ] All documentation written, reviewed, and finalised
+  [ ] System performance report generated
+  [ ] Improvement backlog created and prioritised
+  [ ] Configuration frozen
+  [ ] Final sign-off obtained
+  [ ] Junior Aladdin is PRODUCTION
+
+================================================================================
+ END OF ROADMAP_DEPLOYMENT_AND_OPERATIONS
+================================================================================
+================================================================================
+ END OF 13-ROADMAP BUILD EXECUTION DOCUMENT SERIES
+================================================================================

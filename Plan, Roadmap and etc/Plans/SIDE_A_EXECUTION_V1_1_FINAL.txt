@@ -1,0 +1,1390 @@
+================================================================================
+ JUNIOR ALADDIN - SIDE A EXECUTION PLAN
+ (Detailed Planning + Coding Blueprint Draft)
+================================================================================
+
+PURPOSE OF THIS FILE
+-------------------------------------------------------------------------------
+This file converts the already locked SIDE A execution decisions into one clean,
+structured implementation-planning document.
+
+This is a draft for review.
+It is NOT a rewrite of the architecture.
+It is NOT a new execution philosophy.
+It does NOT reopen locked Q1-Q50 decisions.
+
+This file uses only the locked execution decisions and accepted clarifications.
+Its job is to make them implementation-readable.
+
+Locked upstream architecture already assumed:
+- FLOOR 5 Captain = Decision Layer
+- FLOOR 4 Department Heads = Interpretation Layer
+- FLOOR 3 Calculation Engines = Structured Intelligence Factory
+- FLOOR 2 Data Center = Truth Layer
+- FLOOR 1 Market Connection = Connection Layer
+
+SIDE A must remain:
+- tactical
+- mechanical
+- operational
+- safe
+- recoverable
+- auditable
+
+SIDE A must NOT become:
+- an intelligence layer
+- a strategy layer
+- a Captain replacement
+- a discretionary trade judge
+
+
+================================================================================
+SECTION 1 - PURPOSE
+================================================================================
+
+One-line identity:
+SIDE A = Action Layer
+
+Meaning:
+Captain decides.
+SIDE A executes.
+
+Why SIDE A exists:
+A trade decision is not enough.
+The system also needs a controlled layer that can:
+- route the trade to the correct mode
+- perform pre-trade safety checks
+- place and manage orders
+- maintain position safety
+- survive broker uncertainty
+- enforce protection rules
+- log execution truth
+- remain disciplined under live capital risk
+
+This side exists to turn a decision into an operationally safe action.
+
+
+================================================================================
+SECTION 2 - EXECUTION PHILOSOPHY
+================================================================================
+
+SIDE A philosophy is governed by one final safety principle:
+
+PROTECT FIRST, THEN OPTIMIZE
+
+Meaning:
+1. protection first
+2. risk control second
+3. execution quality third
+4. optimization last
+
+This principle overrides convenience.
+It also overrides excessive cleverness.
+
+SIDE A is not trying to be smart.
+It is trying to be:
+- correct
+- safe
+- predictable
+- recoverable
+- consistent
+
+Captain is the Strategic Commander.
+Execution is the Tactical Operator.
+
+This means:
+- Captain creates the approved intent
+- Execution carries it out mechanically
+- Captain may intervene only in rare exceptional battlefield conditions
+
+
+================================================================================
+SECTION 3 - STRICT GUARDRAILS
+================================================================================
+
+RULE 1
+SIDE A does not create trades.
+It only receives approved execution intent.
+
+RULE 2
+SIDE A does not interpret market meaning.
+No SMC/ICT/technical judgment happens here.
+
+RULE 3
+SIDE A does not create confidence or conviction.
+Those belong to Floors 4 and 5.
+
+RULE 4
+SIDE A may reject, delay, shrink, retry, or flatten for safety reasons.
+It may never “invent” a better trade.
+
+RULE 5
+SIDE A may reduce size for safety.
+It may never increase size beyond Captain intent.
+
+RULE 6
+After execution start, Captain must not override the entry side.
+Captain override is limited to exit/risk-side intervention.
+
+RULE 7
+SIDE A must preserve one-trade discipline.
+If an active live trade exists, a new execution intent should not become a new
+live trade.
+
+RULE 8
+Operational uncertainty must be represented honestly.
+UNKNOWN / PENDING_RECONCILE states are allowed.
+
+RULE 9
+Execution must remain safety-biased under degraded conditions.
+
+RULE 10
+Logs must tell the operational truth,
+not replace the intelligence layers.
+
+
+================================================================================
+SECTION 4 - INTERNAL ARCHITECTURE
+================================================================================
+
+Locked execution structure = Hybrid Layered Split
+
+Recommended internal shape:
+
+SIDE_A_EXECUTION/
+│
+├── mode_router
+├── risk_gate
+├── execution_core
+├── order_lifecycle_manager
+├── position_manager
+└── execution_logging_layer
+
+Logical flow:
+Captain
+ ↓
+Execution Intent
+ ↓
+Mode Router
+ ↓
+Risk Gate
+ ↓
+Execution Core
+ ↓
+Order Lifecycle Manager
+ ↓
+Position Manager
+ ↓
+Execution Logging Layer
+
+Captain may intervene later only through rare override pathways.
+
+Why this split is strong:
+- ownership stays clear
+- debugging stays easier
+- future audit stays cleaner
+- giant all-in-one execution engine is avoided
+
+
+================================================================================
+SECTION 5 - MODE MODEL
+================================================================================
+
+Locked mode model:
+ALERT always active + PAPER/REAL switch
+
+Meaning:
+ALERT is not a separate full execution mode.
+ALERT is the always-on information / notification layer.
+
+Actual action path changes only between:
+- PAPER
+- REAL
+
+Execution flow:
+Captain
+ ↓
+Execution Intent
+ ↓
+Alert Layer (Always Active)
+ ↓
+Execution Mode Router
+ ↓
+PAPER path OR REAL path
+
+Why this is strongest:
+- Captain logic remains the same
+- Head logic remains the same
+- only final action destination changes
+- architecture stays clean
+- live transition and testing are easier
+
+
+================================================================================
+SECTION 6 - MODE ROUTER
+================================================================================
+
+Purpose:
+Mode Router decides where approved execution intent goes.
+It does not judge the trade.
+It does not modify market logic.
+
+Responsibilities:
+- identify current execution mode
+- always trigger alert/info path
+- route approved intent to:
+  - simulated execution path
+  - real broker execution path
+- enforce mode transition governance
+
+What Mode Router does NOT do:
+- strategy change
+- trade approval
+- trade re-interpretation
+- risk intelligence
+
+Why Mode Router must exist:
+If execution core internally mixes ALERT, PAPER, and REAL too deeply,
+complexity and testing burden increase.
+
+
+================================================================================
+SECTION 7 - RISK GATE
+================================================================================
+
+Locked strength:
+Very Strong
+
+Purpose:
+The Risk Gate asks only one question:
+Can this approved trade be safely and validly executed right now?
+
+It does NOT ask:
+Is this a good trade?
+That question was already answered above.
+
+Pre-Order Risk Checks:
+- available capital
+- required capital
+- margin availability
+- quantity sanity
+- lot feasibility
+- max loss limits
+- mode validation
+- real lock state
+- duplicate execution prevention
+- stale intent detection
+- one-trade enforcement
+- intent fingerprint duplicate check
+
+Why this gate is strong:
+Execution sits closest to capital.
+A weak gate here would be dangerous.
+
+Locked size policy:
+- Captain size = default truth
+- SIDE A never increases size
+- reduce-only adjustment allowed if needed for capital/margin/safety reasons
+- any reduce-only adjustment must be logged
+
+One-Trade Enforcement Contract
+-------------------------------------------------------------------------------
+Locked upstream rule already exists: one active trade at a time.
+SIDE A must enforce this operationally as a safety contract.
+
+Enforcement points:
+1. at execution intent entry
+2. at pre-order risk gate
+3. at live state transition if a second active live trade would be created
+
+Behavior:
+- if one active live trade already exists, a new execution intent must not become
+  a second live trade
+- the action should be blocked, not silently ignored
+- the block should be recorded in blocked-action journal
+
+Blocked-action guidance:
+- severity should be at least CAUTION
+- if the second intent appears during already unstable/recovering execution state,
+  severity can escalate higher according to current execution conditions
+
+Why this tightening is needed:
+Captain follows the one-trade rule by design, but SIDE A must not rely on blind
+trust.  SIDE A must act as the final operational safety net against accidental
+multi-position creation.
+
+Intent Fingerprint Contract
+-------------------------------------------------------------------------------
+SIDE A should maintain a lightweight intent fingerprint contract for duplicate-
+intent protection.
+
+Purpose:
+- detect accidental duplicate intent submissions
+- distinguish same trade_id from materially same execution intent attempts
+- improve safe idempotent behavior without changing strategy logic
+
+Minimum contract idea:
+- trade_id remains mandatory
+- intent_fingerprint is a lightweight execution-safe identity companion
+- it is not market intelligence
+- it is not Captain conviction
+- it is not a new trade decision field
+
+Duplicate-intent handling behavior:
+- if trade_id + intent_fingerprint indicates the same execution intent is being
+  re-fired unintentionally, SIDE A should block or safely ignore the duplicate
+  path according to current lifecycle state
+- duplicate-intent blocks should be journaled through blocked-action tracking
+
+Why this tightening is needed:
+trade_id alone may not be enough to protect against accidental duplicate
+execution attempts under retry, delayed signal routing, or operator/system edge
+cases.
+
+================================================================================
+SECTION 8 - EXECUTION CORE
+================================================================================
+
+Purpose:
+Execution Core is the broker/simulator-facing actor.
+It is responsible for operational order actions.
+
+Responsibilities:
+- order submit
+- broker communication
+- acknowledgement tracking
+- rejection capture
+- retry invocation
+- reprice invocation
+- fill event handling
+- command delivery to order lifecycle manager / position manager support flow
+
+What Execution Core does NOT own:
+- final trade decision
+- position truth ownership
+- long-term trade management logic
+- full strategic override logic
+
+Why this split matters:
+Execution Core should stay focused on action delivery,
+not become the entire execution universe.
+
+
+================================================================================
+SECTION 9 - ORDER LIFECYCLE MANAGER
+================================================================================
+
+Purpose:
+Track and manage order states through their lifecycle.
+
+Default managed lifecycle states:
+- placed
+- acknowledged
+- partial_fill
+- filled
+- modified
+- cancelled
+- rejected
+- expired
+
+Real-mode critical paths can go deeper through reconciliation and recovery,
+but the default lifecycle remains managed, not giant.
+
+Responsibilities:
+- track order state transitions
+- coordinate SL/TGT linkage
+- track modify/cancel events
+- support retry/reprice path
+- maintain order-chain references
+- support partial-fill aware transitions
+
+Locked SL/TGT linkage policy:
+- not independent
+- OCO-style logical linkage + position quantity sync
+
+Why lifecycle manager is separate:
+Because order states and position states are related,
+but not identical.
+
+
+================================================================================
+SECTION 10 - POSITION MANAGER
+================================================================================
+
+Purpose:
+Position Manager is the primary owner of open trade management state.
+
+Locked ownership split:
+- Position Manager = position truth owner
+- Order Lifecycle Manager = execution-state owner
+- Execution Core = broker interaction owner
+- Captain = rare strategic override authority
+
+Position Manager responsibilities:
+- active positions tracking
+- filled quantity truth
+- pending quantity awareness
+- SL state
+- target state
+- trail state
+- breakeven state
+- partial-exit state
+- time-exit state
+- exposure tracking
+- position consistency view
+
+Why this is strongest:
+Position truth should not be hidden inside raw broker operations.
+It should be owned explicitly.
+
+
+================================================================================
+SECTION 11 - PAPER / REAL HANDLING
+================================================================================
+
+PAPER Mode
+-------------------------------------------------------------------------------
+Locked target:
+Deep realism (as target), but with practical bounded complexity.
+
+Paper should simulate, as realistically as practical:
+- slippage
+- brokerage / charges
+- spread effect
+- delay
+- rejection possibility
+- selective partial fill simulation
+
+Paper capital model:
+- default rolling paper account
+- optional reset available
+
+REAL Mode
+-------------------------------------------------------------------------------
+Locked live philosophy:
+- strict live safety
+- primary order discipline = LIMIT + SL-LIMIT
+- no unnecessary flexible live behavior
+
+Real mode also supports:
+- broker communication
+- real acknowledgements
+- real rejection handling
+- real partial fill handling
+- real lock / override governance
+
+Paper ≈ Real parity policy:
+- high parity on core lifecycle behavior
+- selected advanced realism can remain lighter in paper where justified
+
+
+================================================================================
+SECTION 12 - LIFECYCLE STATES
+================================================================================
+
+Recommended major execution states:
+- IDLE
+- INTENT_RECEIVED
+- RISK_PASSED
+- ORDER_PENDING
+- PARTIAL_FILL
+- FILLED
+- PROTECTED
+- MANAGING
+- EXITING
+- CLOSED
+- FAILED
+- LOCKED
+- UNKNOWN / PENDING_RECONCILE
+
+Why explicit major states are useful:
+- debugging
+- audit clarity
+- dashboard visibility
+- recovery handling
+- unknown-state safety
+
+Detailed substates can exist in documentation/implementation,
+but these major states define the main execution state machine.
+
+
+================================================================================
+SECTION 13 - STATE MACHINE
+================================================================================
+
+High-level state machine flow:
+
+IDLE
+ ↓
+INTENT_RECEIVED
+ ↓
+RISK_PASSED or FAILED
+ ↓
+ORDER_PENDING
+ ↓
+PARTIAL_FILL / FILLED / REJECTED / UNKNOWN
+ ↓
+PROTECTED
+ ↓
+MANAGING
+ ↓
+EXITING
+ ↓
+CLOSED
+
+Exceptional branches:
+- LOCKED
+- UNKNOWN / PENDING_RECONCILE
+- EMERGENCY FLATTEN PATH
+
+State Transition Table
+-------------------------------------------------------------------------------
+| Current State         | Event/Condition                     | Next State                 |
+|----------------------|-------------------------------------|----------------------------|
+| IDLE                 | Captain intent received             | INTENT_RECEIVED            |
+| INTENT_RECEIVED      | Risk gate passed                    | RISK_PASSED                |
+| INTENT_RECEIVED      | Risk gate failed                    | FAILED                     |
+| RISK_PASSED          | order submitted                     | ORDER_PENDING              |
+| ORDER_PENDING        | partial fill                        | PARTIAL_FILL               |
+| ORDER_PENDING        | full fill                           | FILLED                     |
+| ORDER_PENDING        | reject                              | FAILED                     |
+| ORDER_PENDING        | timeout/unclear                     | UNKNOWN / PENDING_RECONCILE|
+| PARTIAL_FILL         | protection staged                   | PROTECTED                  |
+| FILLED               | protection placed                   | PROTECTED                  |
+| PROTECTED            | active management begins            | MANAGING                   |
+| MANAGING             | exit condition triggered            | EXITING                    |
+| EXITING              | close complete                      | CLOSED                     |
+| ANY ACTIVE STATE     | critical lock / emergency flatten   | LOCKED or CLOSED           |
+| UNKNOWN              | reconcile success                   | MANAGING / PROTECTED       |
+| UNKNOWN              | unrecoverable / fail-safe           | FAILED / CLOSED            |
+
+This table is the behavioral backbone of SIDE A.
+
+
+================================================================================
+SECTION 14 - PROTECTION MODEL
+================================================================================
+
+Execution protection philosophy:
+Protection must be established as early as practical.
+
+Locked principle:
+Protect First, Then Optimize
+
+This means:
+- unprotected live exposure is dangerous
+- optimization must wait behind protection
+
+Protective model:
+- entry fill intent
+- immediate protection intent
+- protection adjustment if partial/reconcile needs it
+
+Why this is strong:
+Protection is the first tactical duty of execution.
+
+
+================================================================================
+SECTION 15 - PARTIAL FILL HANDLING
+================================================================================
+
+Locked policy:
+Hybrid
+
+REAL mode:
+- partial-fill aware management is mandatory
+
+PAPER mode:
+- selective realism simulation is acceptable
+
+Partial fill handling means:
+- actual filled quantity tracked
+- pending remainder tracked
+- SL quantity adjusted
+- TGT quantity adjusted
+- position truth updated
+
+Why this matters:
+Ignoring partial fills can create false risk accounting and false position truth.
+
+Partial fill does NOT mean a new trade.
+It means an update to the current trade state.
+
+
+================================================================================
+SECTION 16 - RECONCILIATION MODEL
+================================================================================
+
+Locked recovery logic:
+Hybrid
+
+Key clarification retained:
+- local snapshot = recovery aid / audit/reference layer
+- broker truth = final live authority
+
+Reconciliation flow:
+Detect
+ ↓
+Classify
+ ↓
+Compare local snapshot vs broker truth
+ ↓
+Reconcile
+ ↓
+Safe Action
+
+Why this is strong:
+- local history is useful
+- broker truth cannot be ignored in live mode
+- blindly trusting either side is weak
+
+Reconciliation should also support:
+- reconnect recovery
+- unclear acknowledgement recovery
+- partial fill state repair
+- position/order mismatch handling
+
+
+================================================================================
+SECTION 17 - RECOVERY MODEL
+================================================================================
+
+Recovery is a first-class execution concern.
+
+Key recovery principles:
+- UNKNOWN state must be allowed
+- UNKNOWN state must be bounded
+- reconcile attempts must exist
+- unresolved uncertainty must escalate
+
+Unknown / Pending Reconcile policy:
+- short bounded window
+- reconcile attempts
+- then escalate / flatten / fail-safe
+
+Why:
+Unknown state can happen in real markets.
+Force-fitting it into failed/rejected immediately may be unsafe.
+
+
+================================================================================
+SECTION 18 - KILL-SWITCH GOVERNANCE
+================================================================================
+
+Locked policy:
+Hybrid kill-switch behavior
+
+Soft Kill Switch:
+- block new entries
+- existing trades continue under management
+
+Critical Kill Switch:
+- flatten path
+- freeze execution
+
+Why this is strongest:
+Not all kill events are equal.
+A soft safety stop and a full flatten emergency should not be treated the same.
+
+Important note:
+Critical flatten path must remain compatible with controlled fallback / safety
+flatten philosophy.
+
+Data Health Execution Policy Table
+-------------------------------------------------------------------------------
+Execution safety should react to upper-layer operational health facts without
+becoming an intelligence or decision layer.
+
+Suggested contract-level behavior mapping:
+
+| Data Health State | Execution Behavior |
+|------------------|--------------------|
+| DEGRADED         | allow execution with stricter caution/risk checks |
+| STALE            | block new entries; existing protected trades continue under management |
+| CRITICAL         | trigger safety escalation / lock path / flatten policy as already governed |
+
+Important rule:
+- these states do NOT become trade intelligence
+- these states do NOT generate directional bias
+- these states do NOT replace Captain's final authority
+- they are operational safety facts that influence execution caution behavior
+
+Why this tightening is needed:
+Execution already had degraded/stale safety philosophy locked through Q33, but
+this table makes the contract explicit and implementation-readable.
+
+================================================================================
+SECTION 19 - OVERRIDE GOVERNANCE
+================================================================================
+
+Captain override policy (already locked):
+- no entry override after execution start
+- override is exit/risk-side only
+
+Allowed override behaviors:
+- size reduction
+- SL tighten
+- risk reduction
+- emergency exit
+- battlefield override
+
+Manual override governance:
+- current blocked action only
+- no global resume
+- no multi-trade approval window
+- strict minimal operator power
+
+Override aftereffect policy:
+- current action may proceed
+- temporary caution / risk flag may remain
+- future governance awareness increases
+
+Override hierarchy:
+- safety > strategy convenience
+- every override must be logged and state-updated
+
+
+================================================================================
+SECTION 20 - OPERATOR INTERACTION RULES
+================================================================================
+
+Locked operator interaction style:
+Minimal
+
+Allowed:
+- override popup
+- critical confirmation
+- manual cancel / flatten only if governance permits in future operational policy
+- visible blocked action messaging
+
+Not allowed:
+- free-form live execution policy edits
+- hidden live behavior modifications
+- governance bypass through UI convenience
+
+Manual actions visibility:
+- event log mandatory
+- Captain state update required
+- hidden operator actions forbidden
+
+Why:
+REAL mode should remain deterministic and auditable.
+
+
+================================================================================
+SECTION 21 - LOGGING MODEL
+================================================================================
+
+Locked logging model:
+Hybrid
+
+Layer 1 - Normal Detailed Operational Log
+- entry
+- exit
+- pnl
+- timestamps
+- mode
+- order lifecycle
+- fills
+- slippage
+- capital context
+- execution reason
+- exit reason
+
+Layer 2 - Critical Audit-Depth Log
+For critical events only:
+- Captain override
+- emergency exit
+- risk block
+- execution rejection
+- broker error
+- stale data warning
+- degraded health state
+- unexpected execution path
+
+Why hybrid is strongest:
+- every event does not need full forensic depth
+- but critical events must remain richly visible
+
+Accepted execution logging refinement:
+A future optional lightweight context logging extension can be reserved,
+but heavy forensic snapshot logging is not mandatory for every trade in V1.
+
+
+================================================================================
+SECTION 22 - BLOCKED ACTION JOURNAL
+================================================================================
+
+Locked policy:
+Hybrid blocked action journaling
+
+Blocked action records should at minimum preserve:
+- timestamp
+- trade_id
+- block_reason
+- mode
+- severity
+
+Critical blocked actions can carry deeper detail.
+
+Why this matters:
+Blocked actions are part of system memory and future diagnostics,
+but every simple rejection does not need full audit explosion.
+
+Blocked Action Severity Taxonomy
+-------------------------------------------------------------------------------
+- INFO
+- CAUTION
+- SEVERE
+- CRITICAL
+
+One-Trade Enforcement severity guidance:
+- duplicate or second-live-trade block events should at minimum register as CAUTION
+- if they occur during unstable/recovery/unknown conditions, escalation can rise
+  higher according to current execution state
+
+
+================================================================================
+SECTION 23 - ESCALATION MODEL
+================================================================================
+
+Locked escalation model:
+Four-level
+
+Escalation levels:
+- NORMAL
+- CAUTION
+- SEVERE
+- EMERGENCY
+
+Why four levels help:
+- clearer operational language
+- safer dashboard future integration
+- better logging / observability
+- better human review
+
+Execution Action Priority Table
+-------------------------------------------------------------------------------
+| Priority Order | Action Type |
+|----------------|-------------|
+| 1              | Emergency Flatten |
+| 2              | Captain Override |
+| 3              | Risk Reduction |
+| 4              | SL Tighten |
+| 5              | Breakeven |
+| 6              | Partial Exit |
+| 7              | Optimization Actions |
+
+Why this ordering exists:
+Capital protection and execution safety dominate optimization.
+This table does not replace Captain authority.
+It tells SIDE A how to resolve simultaneous valid management actions.
+
+Escalation Matrix
+-------------------------------------------------------------------------------
+| Situation Type                          | Suggested Escalation |
+|----------------------------------------|----------------------|
+| normal fill / normal management        | NORMAL               |
+| degraded feed / moderate execution risk| CAUTION              |
+| stale state / mismatch / repeated fail | SEVERE               |
+| unprotected position / flatten required| EMERGENCY            |
+
+This is classification, not decision ownership.
+
+
+================================================================================
+SECTION 24 - OWNERSHIP TABLES
+================================================================================
+
+Ownership Matrix
+-------------------------------------------------------------------------------
+| Component                | Owns What                                              |
+|-------------------------|--------------------------------------------------------|
+| Mode Router             | route selection only                                   |
+| Risk Gate               | execution feasibility / safety checks                  |
+| Execution Core          | broker/simulator interaction                           |
+| Order Lifecycle Manager | order state lifecycle                                  |
+| Position Manager        | position truth / active trade management state         |
+| Captain                 | strategic override only                                |
+
+Important locked ownership points:
+- Execution Core does not own strategy
+- Position Manager owns position truth
+- Order Lifecycle Manager owns order-state transitions
+- Captain owns rare strategic override, not routine trade management
+
+
+================================================================================
+SECTION 25 - CONTRACT TABLES
+================================================================================
+
+A. Captain -> SIDE A Contract
+-------------------------------------------------------------------------------
+Execution intent should include enough to act safely, such as:
+- trade_id
+- action
+- option_side
+- selected_strike
+- trade_class
+- entry_plan
+- invalidation_level
+- stop_loss_plan
+- target_plan
+- execution_mode context
+- capital context
+- intervention allowance
+
+B. SIDE A internal contract direction
+-------------------------------------------------------------------------------
+Mode Router
+ -> Risk Gate
+ -> Execution Core
+ -> Order Lifecycle Manager
+ -> Position Manager
+ -> Logging Layer
+
+C. SIDE A state contracts
+-------------------------------------------------------------------------------
+- execution major states
+- blocked action severity
+- unknown/reconcile state
+- override event state
+
+
+================================================================================
+SECTION 26 - FLOOR 5 -> SIDE A INTERFACE
+================================================================================
+
+Captain gives:
+- one approved execution intent
+- not a debate
+- not raw intelligence
+- not full head reasoning
+
+SIDE A consumes:
+- approved execution intent
+- risk-relevant execution context
+- mode context
+- override permissions
+
+Captain retains:
+- strategic ownership
+- rare override authority
+
+SIDE A retains:
+- tactical execution ownership
+
+This boundary is one of the strongest parts of the architecture.
+
+
+================================================================================
+SECTION 27 - SIDE A -> FUTURE SIDE B INTERFACE
+================================================================================
+
+Future Dashboard (Side B) should be able to consume from SIDE A:
+- mode state
+- execution state
+- order lifecycle state
+- active position state
+- blocked action events
+- override events
+- escalation level
+- real lock / caution state
+- execution logs summaries
+
+Why this matters:
+Execution state must be visible,
+but SIDE B should remain view/control oriented,
+not execution-owning.
+
+
+================================================================================
+SECTION 28 - SIDE A -> FUTURE SIDE C INTERFACE
+================================================================================
+
+Future System Memory / Journal (Side C) should be able to receive from SIDE A:
+- trade_id-linked lifecycle events
+- order chain references
+- blocked action records
+- override records
+- reconciliation events
+- execution logs
+- slippage / fill / latency facts
+
+Locked journal-linking direction:
+Hybrid
+- trade_id mandatory
+- order chain mandatory
+- critical events can carry extra refs
+
+Why this matters:
+SIDE A should remain operational,
+but should still emit enough clean references so that a future memory layer can
+preserve history and diagnostics.
+
+
+================================================================================
+SECTION 29 - FINAL EXECUTION SAFETY PRINCIPLE
+================================================================================
+
+Final locked SIDE A principle:
+PROTECT FIRST, THEN OPTIMIZE
+
+This is the final execution-side doctrine.
+Whenever two valid actions conflict,
+capital protection and state safety must dominate strategy optimization.
+
+This principle should govern:
+- protective order timing
+- stale state handling
+- emergency flatten
+- override behavior
+- risk reduction priority
+- blocked action severity
+
+
+================================================================================
+SECTION 30 - COMPLETE STATUS OF SIDE A
+================================================================================
+
+SIDE A is currently defined with the following locked architecture:
+- ALERT always active + PAPER/REAL switch
+- execution mechanical + rare Captain override
+- deep realism target for paper path
+- managed trade model + Captain override
+- hybrid logging
+- REAL strict order philosophy
+- exit/risk-side override only after execution start
+- rolling paper account default + optional reset
+- full layered risk checks
+- execution logs + journal split
+- EOD hybrid close policy
+- risk-first action priority hierarchy
+- hybrid idempotency
+- hybrid recovery with broker truth final authority
+- high paper-real parity on core lifecycle
+- hybrid order timeout model
+- hybrid protective order staging
+- hybrid orphan handling
+- hybrid rejection retry + reprice
+- hybrid update frequency
+- hybrid size adjustment with reduce-only safety
+- hybrid reprice envelope ownership
+- hybrid operator/automation conflict governance
+- hybrid journal-failure resilience
+- expiry-specific earlier close windows
+- bounded UNKNOWN/PENDING_RECONCILE handling
+- automatic protective resync with escalation
+- 4-level blocked action severity
+- intent fingerprint support
+- protect-first final doctrine
+- hybrid partial fill handling
+- OCO-style logical SL/TGT linkage + quantity sync
+- degraded/stale execution safety handling
+- manual action visibility to Captain
+- strict lot/capital/liquidity feasibility rules
+- ownership split between Position Manager / OLM / Execution Core
+- override aftereffect caution flag
+- explicit UNKNOWN state support
+
+This side is execution-architecture complete at planning-decision level.
+
+================================================================================
+END OF SIDE A DRAFT-READY EXECUTION BLUEPRINT SOURCE
+================================================================================
+
+================================================================================
+SECTION 31 - V1.1 FINALIZATION INTENT
+================================================================================
+
+This V1.1 file is not an execution redesign.
+This V1.1 file does not add new architecture.
+This V1.1 file does not add floors or sides.
+This V1.1 file does not change ownership.
+This V1.1 file only tightens weak contracts and clarifies integration-facing
+execution boundaries.
+
+This finalization focuses on:
+- Floor 5 -> Side A contract strength
+- Side A -> Side C traceability clarity
+- Side B visibility compatibility
+- replay/ref linkage visibility
+- broker-truth authority clarity
+- auditability clarity
+
+Minimal change rule:
+The current execution draft remains the base.
+Only weak or implicit contracts are tightened.
+
+
+================================================================================
+SECTION 32 - V1.1 CHANGE SUMMARY
+================================================================================
+
+Updated file name:
+- SIDE_A_EXECUTION_V1_1_FINAL.txt
+
+This finalization adds only contract clarifications in these areas:
+- Captain execution-intent identity support
+- partial-fill / protection ownership clarification
+- unknown / reconcile escalation clarity
+- Side C traceability and reference-chain clarification
+- Side B visibility compatibility reinforcement
+- broker-truth final authority reinforcement
+- auditability clarity
+
+No architecture change performed.
+No ownership change performed.
+No decision logic change performed.
+
+
+================================================================================
+SECTION 33 - CAPTAIN -> SIDE A CONTRACT TIGHTENING
+================================================================================
+
+The Captain -> SIDE A contract is already explicit.
+V1.1 strengthens only the execution-readiness interpretation of that contract.
+
+Execution intent must remain:
+- one approved intent
+- not raw intelligence
+- not full Head reasoning
+- not a debate
+
+V1.1 clarification:
+The Captain intent should remain identifiable not only by trade_id,
+but should support execution-safe intent identity through the already accepted
+intent fingerprint concept where applicable.
+
+Why this is needed:
+- duplicate-intent protection
+- retry edge-case safety
+- better operational traceability
+
+This does not create a new decision layer.
+It strengthens execution safety at the contract edge.
+
+
+================================================================================
+SECTION 34 - PARTIAL FILL / PROTECTION OWNERSHIP CLARIFICATION
+================================================================================
+
+The architecture already states:
+- Execution Core = broker interaction owner
+- Order Lifecycle Manager = order-state owner
+- Position Manager = position truth owner
+
+V1.1 clarification:
+In partial fill scenarios,
+these three ownerships must remain sharply separated.
+
+Execution Core
+- receives broker-side partial fill truth
+
+Order Lifecycle Manager
+- updates order-side lifecycle transitions
+
+Position Manager
+- updates actual filled quantity truth
+- updates protection quantity truth
+- updates remaining exposure truth
+
+Why this tightening is needed:
+Partial fills are one of the most dangerous places for ownership blur.
+This clarification prevents later implementation from collapsing all partial-fill
+logic into one vague component.
+
+
+================================================================================
+SECTION 35 - UNKNOWN / RECONCILE GOVERNANCE CLARIFICATION
+================================================================================
+
+UNKNOWN / PENDING_RECONCILE already exists as a major state.
+V1.1 tightens its governance meaning.
+
+UNKNOWN / PENDING_RECONCILE means:
+- execution truth is not yet safely classifiable as filled / failed / closed
+- bounded reconciliation is required
+- local history is useful
+- broker truth remains final live authority
+
+Required posture while in UNKNOWN / PENDING_RECONCILE:
+- no optimistic assumption of success
+- no silent continuation as if nothing happened
+- bounded reconciliation attempts
+- escalation if state remains unresolved
+
+Why this tightening is needed:
+This state is one of the most safety-critical execution states.
+It must remain visible, bounded, and auditable.
+
+
+================================================================================
+SECTION 36 - BROKER TRUTH FINAL AUTHORITY (REINFORCED)
+================================================================================
+
+This principle was already accepted and remains locked.
+V1.1 reinforces it because it is central to integration safety.
+
+Rule:
+- local snapshot = recovery aid / audit/reference layer
+- broker truth = final live authority
+
+Meaning:
+During live-state mismatch, reconnect, or reconciliation:
+- local state helps explain and reconstruct
+- broker truth decides final live position/order reality
+
+Why this reinforcement matters:
+Without this explicit reminder, later implementation can drift into local-state
+overconfidence during recovery.
+
+This is not a new rule.
+It is a final contract reinforcement.
+
+
+================================================================================
+SECTION 37 - SIDE A -> SIDE C TRACEABILITY TIGHTENING
+================================================================================
+
+The Side A -> Side C contract is already explicit.
+V1.1 makes traceability expectations clearer.
+
+Side A should continue to emit enough references so that Side C can preserve:
+- trade-linked lifecycle events
+- order-chain references
+- blocked action records
+- override records
+- reconciliation events
+- slippage / fill / latency facts
+
+V1.1 clarification:
+The Side A traceability model should remain compatible with the accepted Side C
+reference-chain philosophy.
+Where applicable, Side A records should remain linkable through:
+- trade_id
+- order chain references
+- override references
+- reconcile references
+
+Why this tightening is needed:
+The architecture already points in this direction.
+This clarification makes Side C compatibility more implementation-explicit.
+
+This does not turn Side A into Side C.
+It only clarifies the references SIDE A should expose.
+
+
+================================================================================
+SECTION 38 - SIDE B VISIBILITY COMPATIBILITY TIGHTENING
+================================================================================
+
+The Side A -> Side B interface is already explicit.
+V1.1 strengthens visibility expectations for operationally sensitive states.
+
+Side B should be able to surface from Side A:
+- mode state
+- execution state
+- order lifecycle state
+- active position state
+- blocked action events
+- override events
+- escalation level
+- real lock / caution state
+- unknown / reconcile visibility
+
+Why this tightening is needed:
+Unknown or locked execution states are operator-critical.
+They must not remain invisible or only discoverable in deep logs.
+
+This does not change ownership.
+Side B remains a view/control terminal.
+It simply gets a stronger compatibility statement for critical Side A states.
+
+
+================================================================================
+SECTION 39 - REPLAY / REVIEW LINKAGE CLARIFICATION
+================================================================================
+
+SIDE A should not own replay.
+SIDE A should not own review authority.
+
+But SIDE A should emit enough references so that future replay/review systems can
+reconstruct what happened.
+
+V1.1 clarification:
+The Side A output should remain replay-friendly and review-friendly through:
+- execution logs
+- order chain references
+- slippage/fill facts
+- reconcile events
+- override/blocked-action linkage
+
+Why this matters:
+This strengthens future compatibility with:
+- Side B replay workspace
+- Side C memory/review models
+- integration-level forensic workflows
+
+
+================================================================================
+SECTION 40 - AUDITABILITY CLARIFICATION
+================================================================================
+
+SIDE A was already designed to be auditable.
+V1.1 makes the auditability posture more explicit.
+
+Critical execution behaviors that must remain auditable include:
+- blocked actions
+- duplicate-intent protection outcomes
+- override actions
+- emergency flatten events
+- reconciliation events
+- partial fill transitions
+- retry/reprice actions where they materially affect outcome
+
+Why this is needed:
+Execution is the closest layer to live capital.
+If it is not auditable,
+then later review and trust become weak even if strategy logic is correct.
+
+This is not a request for full heavy forensic logging on every event.
+It is a clarification that critical execution truth must remain reconstructable.
+
+
+================================================================================
+SECTION 41 - SIDE A V1.1 FINAL STATUS
+================================================================================
+
+Side A V1.1 Final preserves:
+- existing execution architecture
+- existing execution philosophy
+- existing ownership split
+- existing mode model
+- existing lifecycle model
+- existing protection model
+- existing reconciliation model
+- existing recovery model
+- existing Side B visibility direction
+- existing Side C compatibility direction
+
+And explicitly tightens:
+- Captain intent identity support
+- partial fill/protection ownership boundaries
+- UNKNOWN/reconcile governance meaning
+- broker truth final authority reinforcement
+- Side A -> Side C traceability expectations
+- Side B critical state visibility compatibility
+- replay/review linkage friendliness
+- execution auditability expectations
+
+This file is therefore:
+- not a redesign
+- not a new execution architecture
+- not an ownership rewrite
+
+It is the finalized contract-tightened execution planning file.
+
+================================================================================
+END OF SIDE A V1.1 FINALIZATION ADDITIONS
+================================================================================

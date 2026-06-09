@@ -1,0 +1,999 @@
+================================================================================
+ JUNIOR ALADDIN - FLOOR 1 MARKET CONNECTION PLAN
+ (Detailed Planning + Coding Blueprint Draft)
+================================================================================
+
+PURPOSE OF THIS FILE
+-------------------------------------------------------------------------------
+This file is the detailed planning and coding blueprint for FLOOR 1:
+MARKET CONNECTION.
+
+This file is a review draft.
+It is built using only the currently locked architecture decisions.
+It is not an architecture rewrite.
+
+Floor 1 must remain tightly aligned with all locked upper floors:
+- Floor 5 Captain ✅ LOCK
+- Floor 4 Department Heads ✅ LOCK
+- Floor 3 Calculation Engines ✅ LOCK
+- Floor 2 Data Center ✅ LOCK
+
+This floor must remain lean, stable, and reliable.
+It must not become smart.
+It must not become interpretive.
+It must not become a data processing layer.
+
+
+================================================================================
+SECTION 1 - FLOOR 1 IDENTITY
+================================================================================
+
+One-line identity:
+FLOOR 1 = Connection Layer
+
+Meaning:
+Floor 1 exists to:
+- connect
+- fetch
+- subscribe
+- receive
+- route
+- monitor
+- reconnect
+- maintain source status
+
+That is all.
+
+Why this floor exists:
+If the system cannot reliably receive market reality,
+all upper floors become blind.
+So Floor 1 is not the floor where intelligence starts.
+It is the floor where visibility starts.
+
+Floor 1 should be judged by:
+- stability
+- recoverability
+- source observability
+- handoff clarity
+- operational trust
+
+Not by:
+- intelligence
+- setup accuracy
+- signal quality
+- trade quality
+
+
+================================================================================
+SECTION 2 - STRICT GUARDRAILS (LOCKED)
+================================================================================
+
+RULE 1
+Floor 1 = Connection Layer only.
+
+RULE 2
+Floor 1 must not become smart.
+
+RULE 3
+Floor 1 will NOT do:
+- validation
+- cleaning
+- intelligence
+- scoring
+- setup detection
+- interpretation
+- trade decision support
+
+RULE 4
+Floor 1 may produce operational facts,
+but not market judgments.
+
+Allowed examples:
+- source state = DEGRADED
+- latency = 420ms
+- reconnect_count = 3
+- heartbeat_age = 2.1s
+
+Not allowed examples:
+- source is reliable enough for trading
+- market is bullish
+- this setup is strong
+- feed quality supports long bias
+
+RULE 5
+Floor 1 must hand off packets to Floor 2 cleanly,
+not process them into higher-layer meaning.
+
+RULE 6
+Floor 1 must remain simple enough that failure diagnosis is easy.
+
+RULE 7
+If Floor 1 fails, the whole system becomes blind.
+Therefore simplicity and reliability matter more than cleverness.
+
+
+================================================================================
+SECTION 3 - FLOOR 1 PLACE IN THE FULL SYSTEM
+================================================================================
+
+System chain:
+MARKET
+ -> FLOOR 1 Market Connection
+ -> FLOOR 2 Data Center
+ -> FLOOR 3 Structured Intelligence Factory
+ -> FLOOR 4 Domain Experts
+ -> FLOOR 5 Captain
+
+What Floor 1 receives:
+- source connections
+- feed packets
+- manual ingress inputs where necessary
+
+What Floor 1 gives upward:
+- raw packets
+- source envelope
+- feed routing identity
+- source health facts
+- connection lifecycle facts
+
+What Floor 1 does NOT give upward:
+- cleaned packets
+- validated packets
+- structured intelligence
+- setup candidates
+- interpreted states
+
+
+================================================================================
+SECTION 4 - SOURCE ARCHITECTURE
+================================================================================
+
+Locked direction:
+Current live primary = Angel One
+Future backup hooks = supported in architecture, not implemented now
+Macro/support feeds = mixed by data type
+
+Therefore Floor 1 source architecture should be designed as:
+
+A. Primary Live Market Source
+- Angel One
+
+B. Future Backup Source Slots
+- architecture-ready but not active now
+
+C. Macro / Support Feed Sources
+- mixed by data type
+- each feed may come from the most practical source
+
+D. Manual / Semi-Manual Source Lane
+- manual calendar
+- manual event packets
+- manual override packets
+
+Why this architecture is strongest:
+- current reality is respected (Angel One now)
+- future scaling is not blocked
+- source flexibility exists where one-source reality is impossible
+- manual inputs do not become random side hacks
+
+
+================================================================================
+SECTION 5 - ADAPTER ARCHITECTURE
+================================================================================
+
+Locked direction:
+Hybrid Adapter Architecture
+
+This means two distinct layers:
+1. Source Adapter Layer
+2. Feed Adapter Layer
+
+This separation should be strong,
+but shared utilities are allowed.
+
+-------------------------------------------------------------------------------
+5.1 SOURCE ADAPTER LAYER
+-------------------------------------------------------------------------------
+Purpose:
+Handle source-specific realities.
+
+Responsibilities:
+- source protocol handling
+- source authentication integration
+- source session usage
+- source connection lifecycle
+- source reconnect attempts
+- source-specific packet receiving
+
+Examples:
+- Angel One Adapter
+- Future Backup Adapter
+- Macro Source Adapter
+- Manual Source Adapter
+
+Why this layer exists:
+Different sources behave differently.
+Source-specific concerns should not leak directly into feed routing logic.
+
+-------------------------------------------------------------------------------
+5.2 FEED ADAPTER LAYER
+-------------------------------------------------------------------------------
+Purpose:
+Handle feed identity and packet routing after source acquisition.
+
+Responsibilities:
+- feed identity tagging
+- feed routing classification
+- packet forwarding by feed type
+- envelope association
+- handoff to Floor 2 path
+
+Examples:
+- Spot Feed Adapter
+- Options Feed Adapter
+- VIX Feed Adapter
+- Calendar Feed Adapter
+- Macro Feed Adapter
+
+Why this layer exists:
+The same source may carry multiple feed types.
+And future source switching should not break feed contracts.
+
+-------------------------------------------------------------------------------
+5.3 SHARED UTILITIES (ALLOWED)
+-------------------------------------------------------------------------------
+Shared utilities may exist for:
+- logging
+- retry helpers
+- connection utilities
+- common packet wrappers
+
+Why shared utilities are allowed:
+They reduce duplication without collapsing the source/feed separation.
+
+
+================================================================================
+SECTION 6 - AUTH LIFECYCLE (DETAILED)
+================================================================================
+
+Locked direction:
+Auth module separate, but connection lifecycle managed by Floor 1.
+
+Meaning:
+Authentication should not be mixed blindly into all connection code.
+But Floor 1 must remain responsible for operational handling of auth-related
+connection realities.
+
+Auth split model:
+
+A. Auth Module responsibilities
+- login
+- token generation
+- token refresh
+- credential lifecycle handling
+- auth-specific failures
+
+B. Floor 1 responsibilities around auth
+- session monitoring
+- auth failure detection
+- reconnect attempts after auth problems
+- source recovery attempts
+- surfacing AUTH_FAILED lifecycle state
+
+Why this split is strongest:
+- auth logic stays modular
+- connection lifecycle stays operationally coherent
+- responsibilities remain clean
+
+Important explicit state:
+AUTH_FAILED
+
+Why AUTH_FAILED must exist:
+Because:
+- AUTH_FAILED != DEGRADED
+- AUTH_FAILED != STALE
+- AUTH_FAILED != DISCONNECTED
+
+It is a distinct operational problem and must be visible as such.
+
+
+================================================================================
+SECTION 7 - CONNECTION LIFECYCLE (DETAILED)
+================================================================================
+
+Locked direction:
+Graded lifecycle with retry loop.
+
+Lifecycle states:
+- HEALTHY
+- DEGRADED
+- STALE
+- AUTH_FAILED
+- DISCONNECTED
+
+Connection lifecycle stages:
+
+1. CONNECT
+-------------------------------------------------------------------------------
+- source adapter initiates connection
+- auth/session checked as needed
+- feed subscriptions started
+- initial source state becomes HEALTHY if normal
+
+2. MONITOR
+-------------------------------------------------------------------------------
+- heartbeat observed
+- packet arrival continuity observed
+- latency tracked
+- reconnect count tracked
+- lifecycle state tracked
+
+3. DEGRADED
+-------------------------------------------------------------------------------
+Entered when:
+- latency rises materially
+- heartbeat quality weakens
+- packet flow becomes unstable
+- source health weakens but not fully stale/disconnected
+
+Behavior:
+- keep receiving if possible
+- keep retry/recovery observation active
+- report degraded fact upward
+
+4. STALE
+-------------------------------------------------------------------------------
+Entered when:
+- feed has stopped updating meaningfully
+- packet age/heartbeat age crosses threshold
+- source appears alive but truth freshness is weak
+
+Behavior:
+- continue lifecycle handling
+- continue retries/recovery as appropriate
+- report stale fact upward
+
+5. AUTH_FAILED
+-------------------------------------------------------------------------------
+Entered when:
+- auth/token/session problem breaks source usability
+
+Behavior:
+- auth recovery path triggered
+- reconnect may depend on auth refresh
+- report explicit AUTH_FAILED state upward
+
+6. DISCONNECTED
+-------------------------------------------------------------------------------
+Entered when:
+- source is no longer connected or reachable
+
+Behavior:
+- retry loop remains active
+- operator/system visibility remains available
+- no fake healthy signal emitted
+
+7. RECONNECT / RECOVERY
+-------------------------------------------------------------------------------
+- retry loop continues
+- recovery attempts logged
+- lifecycle state updates continue
+- if source recovers, state can move back upward through recovery path
+
+Why graded lifecycle is strongest:
+A binary connected/disconnected model is too weak.
+Upper floors and debugging need richer operational truth.
+
+
+================================================================================
+SECTION 8 - MONITORING MODEL
+================================================================================
+
+Locked answer:
+Hybrid monitoring
+- deep for core feeds
+- lighter for support feeds
+
+Core feeds requiring deeper monitoring:
+- Spot Feed
+- Options Feed
+- VIX Feed
+- Primary Market Feed
+
+Support feeds with lighter monitoring:
+- Economic Calendar
+- FII/DII feeds
+- Global Reference feeds
+- secondary support feeds
+
+Mandatory monitoring facts:
+- latency
+- heartbeat
+- reconnect_count
+- lifecycle_state
+
+Expanded meaning:
+- latency = packet delay / responsiveness fact
+- heartbeat = source liveness rhythm fact
+- reconnect_count = operational instability fact
+- lifecycle_state = current connection health state
+
+Why monitoring must remain factual:
+Floor 1 reports:
+- latency = 420ms
+- state = DEGRADED
+
+Floor 1 must not say:
+- source is trading-safe
+
+That judgment belongs higher.
+
+
+================================================================================
+SECTION 9 - PACKET ENVELOPE CONTRACT (INDEPENDENT)
+================================================================================
+
+Locked answer:
+Lean operational envelope
+
+Mandatory packet envelope fields:
+- source
+- feed_type
+- connection_id
+- packet_id
+- routing_id
+- received_at
+- source_timestamp (if available)
+
+Why this envelope is correct:
+- enough for governance and routing
+- not bloated with intelligence meaning
+- not overloaded with auth internals
+
+Important note:
+Auth/session internals should not be stuffed into packet envelopes.
+Those remain operational internals.
+
+Envelope purpose:
+- packet governance
+- source identity
+- feed identity
+- traceability
+- routing clarity
+
+Not envelope purpose:
+- business intelligence
+- trade context
+- interpreted market meaning
+
+
+================================================================================
+SECTION 10 - SOURCE HEALTH CONTRACT (INDEPENDENT)
+================================================================================
+
+Locked answer:
+Floor 1 -> Floor 2 source health output = lifecycle state + metrics
+
+Mandatory source health facts:
+- lifecycle_state
+- latency
+- heartbeat_age
+- reconnect_count
+
+Why this is stronger than state-only:
+State alone is not enough operational truth.
+Richer metrics help:
+- Data Center governance
+- review engine triggers
+- debugging
+- upper-level light health signals
+
+Again, this remains factual.
+Floor 1 does not interpret what those facts mean for trade.
+
+
+================================================================================
+SECTION 11 - MANUAL INGRESS LANE (INDEPENDENT)
+================================================================================
+
+Locked answer:
+Manual and semi-manual feeds must have an explicit ingress lane.
+
+Why this is needed:
+Certain feeds or events may arrive via controlled manual input.
+These should not bypass governance or be hidden hacks.
+
+Examples:
+- MANUAL_CALENDAR
+- MANUAL_EVENT
+- MANUAL_OVERRIDE
+
+Important rule:
+Manual packets still go through regular governance discipline.
+They are not rogue objects.
+
+Manual packet governance minimum:
+- source tag
+- timestamp
+- traceability
+- reviewability
+
+Why this is strongest:
+- preserves accountability
+- avoids hidden side channels
+- keeps future auditability intact
+
+
+================================================================================
+SECTION 12 - FLOOR 1 -> FLOOR 2 HANDOFF CONTRACTS (DETAILED)
+================================================================================
+
+This is one of the most important sections in Floor 1.
+
+Floor 1 must hand off to Floor 2:
+
+1. Original Raw Packet
+-------------------------------------------------------------------------------
+Purpose:
+- preserve exact source truth
+
+2. Minimal Source Envelope
+-------------------------------------------------------------------------------
+Purpose:
+- provide governance fields around raw truth
+
+3. Feed Routing Identity
+-------------------------------------------------------------------------------
+Examples:
+- SPOT_FEED
+- OPTIONS_FEED
+- VIX_FEED
+- CALENDAR_FEED
+- MACRO_FEED
+
+Purpose:
+- let Floor 2 classify ingress cleanly
+
+4. Source Health Facts
+-------------------------------------------------------------------------------
+- lifecycle_state
+- latency
+- heartbeat_age
+- reconnect_count
+
+Purpose:
+- let Floor 2 preserve operational truth
+
+5. Manual Source Tags where relevant
+-------------------------------------------------------------------------------
+Purpose:
+- preserve governance parity across manual and automated feeds
+
+Why this handoff matters:
+If Floor 1 hands off too little,
+Floor 2 loses truth and operational context.
+If Floor 1 hands off too much processed meaning,
+Floor 1 starts drifting upward.
+
+This handoff therefore stays operational and factual.
+
+
+================================================================================
+SECTION 13 - TRACEABILITY CHAIN
+================================================================================
+
+Accepted strong observation:
+Major feeds should support stronger traceability chain.
+
+Major feed trace chain:
+- connection_id
+- packet_id
+- routing_id
+
+Why this is strong:
+It makes debugging, packet tracking, and source-path reconstruction easier.
+
+This can later align naturally with Floor 2 traceability / transform-stage lineage.
+
+Floor 1 traceability role:
+- assign and preserve packet-level ingress identity
+- not full lifecycle interpretation
+
+
+================================================================================
+SECTION 14 - FAILOVER PHILOSOPHY
+================================================================================
+
+Locked answer:
+Graded failover / graceful degradation
+
+If fallback source is unavailable,
+Floor 1 behavior should be:
+HEALTHY
+ ↓
+DEGRADED
+ ↓
+STALE
+ ↓
+DISCONNECTED
+
+with retry loop continuing.
+
+Why this is correct:
+- immediate hard stop is too brittle
+- graceful degradation gives upper floors richer operational truth
+- retry keeps recovery alive
+
+Important architecture note:
+Floor 1 reports state.
+Floor 1 does not decide whether trade should stop.
+
+That remains a higher-floor concern.
+
+
+================================================================================
+SECTION 15 - FUTURE BACKUP HOOKS (INDEPENDENT)
+================================================================================
+
+Locked direction:
+Current primary = Angel One
+Future backup hooks = architecture-ready, not implemented now
+
+Why future backup hooks matter now:
+Even if only one source exists today,
+architecture should not hard-code the impossible assumption that this will never
+change.
+
+Future backup hooks can include:
+- future backup source adapter slots
+- common feed contracts that survive source replacement
+- source policy registry entries
+- fallback-ready routing interfaces
+
+This does NOT mean backup is implemented now.
+It means future scale is not blocked by today’s structure.
+
+
+================================================================================
+SECTION 16 - WHY FLOOR 1 MUST STAY SIMPLE
+================================================================================
+
+This is one of the strongest architecture truths of the whole system.
+
+Floor 1 failure blinds the entire system.
+Therefore Floor 1 should be:
+- simple
+- stable
+- observable
+- recoverable
+
+If Floor 1 becomes too smart:
+- bugs become harder to isolate
+- failures become harder to classify
+- responsibilities blur
+- trust in the full stack drops
+
+Therefore the strongest version of Floor 1 is NOT the smartest one.
+It is the most reliable one.
+
+Locked separation:
+- Floor 1 = Connection Layer
+- Floor 2 = Truth Layer
+- Floor 3 = Intelligence Layer
+- Floor 4 = Interpretation Layer
+- Floor 5 = Decision Layer
+
+This must remain unbroken.
+
+
+================================================================================
+SECTION 17 - ALIGNMENT WITH LOCKED FLOORS
+================================================================================
+
+Alignment with Floor 2
+-------------------------------------------------------------------------------
+Floor 1 gives Floor 2 exactly what Floor 2 expects:
+- raw truth
+- minimal governance envelope
+- routing identity
+- source health facts
+- manual ingress governance
+
+It does NOT give:
+- validation
+- cleaning
+- structured intelligence
+
+Alignment with Floor 3
+-------------------------------------------------------------------------------
+Floor 1 supports Floor 3 indirectly by ensuring Floor 2 can build trustworthy
+truth and metadata.
+Floor 1 does not send intelligence to Floor 3 directly.
+
+Alignment with Floor 4
+-------------------------------------------------------------------------------
+Floor 1 supports Heads indirectly through reliable feed identity, source status,
+and stable upstream contract behavior.
+It does not supply expert interpretation.
+
+Alignment with Captain
+-------------------------------------------------------------------------------
+Floor 1 does not speak directly to Captain in decision language.
+At most, its operational facts may later surface upward through Floor 2 / summary
+paths.
+Captain must not become a direct consumer of Floor 1 connection chatter.
+
+
+================================================================================
+SECTION 18 - FINAL STATUS OF FLOOR 1
+================================================================================
+
+Floor 1 is now planned with the following locked features:
+- connection-layer identity only
+- strong guardrails against intelligence drift
+- source architecture with current primary + future backup hooks
+- source adapter layer + feed adapter layer hybrid separation
+- separate auth module with Floor 1 lifecycle ownership
+- explicit detailed connection lifecycle
+- hybrid monitoring model
+- lean packet envelope contract
+- independent source health contract
+- explicit manual ingress lane
+- detailed Floor 1 -> Floor 2 handoff contracts
+- traceability chain for major feeds
+- graded failover philosophy
+- future backup hooks
+- why-oriented simplicity principle
+- alignment with all locked upper floors
+
+This floor is now complete at architecture/planning level.
+
+================================================================================
+NEXT STEP (IF NEEDED LATER):
+ Cross-floor audit or final implementation roadmap preparation
+================================================================================
+
+================================================================================
+SECTION 19 - V1.1 FINALIZATION INTENT
+================================================================================
+
+This V1.1 file is not a redesign.
+This V1.1 file does not add new architecture.
+This V1.1 file does not add floors or sides.
+This V1.1 file does not change ownership.
+This V1.1 file only tightens weak or implicit contracts so that Floor 1 becomes:
+- Architecture Safe
+- Ownership Safe
+- Integration Safe
+- Replay Safe
+- Side A aligned
+- Side B aligned
+- Side C aligned
+- Audit Ready
+- Implementation Ready
+
+Minimal change rule:
+The existing Floor 1 draft remains the base.
+Only weak or ambiguous contract areas are clarified.
+
+
+================================================================================
+SECTION 20 - SOURCE AUTHORITY AND CONNECTIVITY OWNERSHIP CLARIFICATION
+================================================================================
+
+Floor 1 already defines Source Adapter Layer and Feed Adapter Layer.
+V1.1 clarifies source authority boundaries.
+
+Source truth ownership remains at the source/connection level until handed to
+Floor 2 for truth preservation.
+
+Clarified ownership split:
+- Source Adapter Layer owns source-specific connectivity behavior
+- Feed Adapter Layer owns feed identity and routing behavior
+- Floor 1 owns connection-lifecycle truth and source-health truth
+- Floor 1 does NOT own validated truth, cleaned truth, or structured truth
+
+Why this tightening is needed:
+It prevents future implementation from allowing adapters to silently become truth
+or interpretation owners.
+
+This also means:
+- broker connectivity ownership stays in Floor 1
+- auth/session operational handling stays in Floor 1 lifecycle governance
+- Floor 1 remains the external source gateway, not the truth layer
+
+
+================================================================================
+SECTION 21 - HEALTH-STATE EMISSION CONTRACT TIGHTENING
+================================================================================
+
+Floor 1 already emits lifecycle_state and source health facts.
+V1.1 clarifies the emitted health-state vocabulary and its downstream purpose.
+
+Lifecycle/source-health state family may include:
+- HEALTHY
+- DEGRADED
+- STALE
+- AUTH_FAILED
+- DISCONNECTED
+
+Emission contract:
+Floor 1 may emit the following factual health bundle upward:
+- lifecycle_state
+- latency
+- heartbeat_age
+- reconnect_count
+
+Important rule:
+These are operational facts only.
+They are not trading judgments.
+
+Downstream alignment:
+- Floor 2 may preserve and route these facts
+- higher layers may eventually surface them through summaries or health panels
+- dashboard visibility can later reflect them
+- Side C can later preserve them as health events
+
+Why this tightening is needed:
+The state model existed, but the explicit downstream emission role was useful to
+state for integration safety.
+
+
+================================================================================
+SECTION 22 - SIDE C OBSERVABILITY EMISSION CLARIFICATION
+================================================================================
+
+Floor 1 is not a memory layer.
+But it is a source of important observability events.
+
+Therefore the following event families may be emitted from Floor 1 into later
+memory/observability paths (through the approved cross-system contracts):
+- connection lifecycle events
+- auth failure events
+- reconnect events
+- degraded/stale/disconnected transitions
+- source health events
+
+Important rule:
+Floor 1 does not store Side C memory.
+It only emits its own connection truth and observability events.
+
+Why this tightening is needed:
+It makes Floor 1 -> Side C relationship explicit without changing ownership.
+
+
+================================================================================
+SECTION 23 - DUPLICATE SOURCE HANDLING BOUNDARY
+================================================================================
+
+Duplicate source handling must remain boundary-safe.
+
+Clarification:
+- Floor 1 may preserve identifiers useful for duplicate detection
+  (connection_id, packet_id, routing_id, timestamps, source tags)
+- Floor 1 does NOT perform duplicate validation or deduplication
+- duplicate detection and truth validation remain Floor 2 responsibilities
+
+Why this matters:
+It keeps Floor 1 lean and keeps validation ownership in Floor 2 where it belongs.
+
+This also improves auditability:
+Floor 1 preserves enough ingress identity so downstream duplicate validation has
+strong evidence to work with.
+
+
+================================================================================
+SECTION 24 - REPLAY / TRACEABILITY COMPATIBILITY CLARIFICATION
+================================================================================
+
+Floor 1 is not the replay owner.
+Replay capability belongs downstream.
+But Floor 1 must remain replay-compatible by preserving ingress traceability.
+
+Replay / traceability compatibility means:
+- connection_id
+- packet_id
+- routing_id
+- source
+- source_timestamp where available
+- received_at
+remain strong enough to help later replay/reference systems reconstruct origin
+context.
+
+Important rule:
+Floor 1 provides ingress lineage.
+It does not provide replay interpretation.
+
+Why this tightening is needed:
+Replay readiness in later layers is much stronger when ingress lineage is stable.
+
+
+================================================================================
+SECTION 25 - FLOOR 1 -> FLOOR 2 HANDOFF REINFORCEMENT
+================================================================================
+
+The Floor 1 -> Floor 2 handoff is already explicit.
+V1.1 reinforces its integration meaning.
+
+The handoff must remain operational and factual for all feed classes, including:
+- major live market feeds
+- support feeds
+- manual ingress feeds
+- macro/support feed routing identities
+
+Reinforced payload families:
+1. Original Raw Packet
+2. Minimal Source Envelope
+3. Feed Routing Identity
+4. Source Health Facts
+5. Manual Source Tags where relevant
+
+Why this reinforcement is needed:
+It protects Floor 2 from having to guess what kind of packet it is receiving.
+It also ensures that no hidden interpretation is done in Floor 1.
+
+This is not a new contract.
+It is a final clarification of the existing contract.
+
+
+================================================================================
+SECTION 26 - DASHBOARD VISIBILITY COMPATIBILITY NOTE
+================================================================================
+
+Floor 1 does not talk to the dashboard directly as a decision source.
+But its emitted operational facts should remain compatible with later dashboard
+visibility needs.
+
+Examples of dashboard-relevant compatibility:
+- connection lifecycle state
+- auth failure visibility
+- reconnect attempts
+- degraded/stale/disconnected visibility
+- source health facts
+
+Why this note is useful:
+It clarifies that Floor 1 remains purely operational,
+but its facts are still first-class ingredients for operator visibility through
+higher-level surfaces.
+
+
+================================================================================
+SECTION 27 - FLOOR 1 V1.1 FINAL STATUS
+================================================================================
+
+Floor 1 V1.1 Final preserves:
+- existing Floor 1 architecture
+- existing Connection Layer identity
+- existing source adapter / feed adapter split
+- existing auth lifecycle design
+- existing connection lifecycle design
+- existing monitoring model
+- existing packet envelope contract
+- existing source health contract
+- existing manual ingress lane
+- existing Floor 1 -> Floor 2 handoff
+- existing traceability chain
+- existing failover philosophy
+- existing future backup hooks
+- existing simplicity discipline
+
+And explicitly tightens:
+- source authority boundary
+- health-state emission contract
+- Floor 1 -> Side C observability emission compatibility
+- duplicate handling boundary
+- replay/traceability compatibility
+- handoff reinforcement
+- dashboard compatibility note
+
+This file is therefore:
+- not a redesign
+- not a new connection architecture
+- not a truth-layer rewrite
+- not an ownership change
+
+It is the finalized contract-tightened Floor 1 planning file.
+
+================================================================================
+END OF FLOOR 1 V1.1 FINALIZATION ADDITIONS
+================================================================================
