@@ -41,6 +41,9 @@ from junior_aladdin.floor_3_calculations.f3_contracts import OutputContract
 from junior_aladdin.floor_3_calculations.ict.ict_engine import run as ict_run
 from junior_aladdin.floor_3_calculations.options.options_engine import run as options_run
 from junior_aladdin.floor_3_calculations.smc.smc_engine import run as smc_run
+from junior_aladdin.floor_3_calculations.support_metrics.support_metrics_engine import (
+    run as support_metrics_run,
+)
 from junior_aladdin.floor_3_calculations.technical.technical_engine import (
     run as technical_run,
 )
@@ -61,24 +64,30 @@ _PHASE_DOMAIN_MAP: dict[MarketPhase, list[CalculationDomain]] = {
     MarketPhase.PRE_OPEN: [
         CalculationDomain.SMC,
         CalculationDomain.ICT,
+        CalculationDomain.PSYCHOLOGY,  # Gate head — always active
     ],
     MarketPhase.OPEN: [
         CalculationDomain.SMC,
         CalculationDomain.ICT,
         CalculationDomain.TECHNICAL,
         CalculationDomain.OPTIONS,
+        CalculationDomain.PSYCHOLOGY,  # Gate head — always active
     ],
     MarketPhase.LUNCH: [
         CalculationDomain.SMC,
         CalculationDomain.ICT,
         CalculationDomain.TECHNICAL,
         CalculationDomain.OPTIONS,
+        CalculationDomain.PSYCHOLOGY,  # Gate head — always active
     ],
     MarketPhase.CLOSING: [
         CalculationDomain.SMC,
         CalculationDomain.TECHNICAL,
+        CalculationDomain.PSYCHOLOGY,  # Gate head — always active
     ],
-    MarketPhase.POST_CLOSE: [],  # No calculations
+    MarketPhase.POST_CLOSE: [
+        CalculationDomain.PSYCHOLOGY,  # Gate head — still active for state tracking
+    ],
 }
 
 
@@ -88,6 +97,7 @@ _DOMAIN_RUNNER_MAP: dict[CalculationDomain, Any] = {
     CalculationDomain.ICT: ict_run,
     CalculationDomain.TECHNICAL: technical_run,
     CalculationDomain.OPTIONS: options_run,
+    CalculationDomain.PSYCHOLOGY: support_metrics_run,
 }
 
 

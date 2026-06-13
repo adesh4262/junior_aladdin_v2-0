@@ -95,10 +95,22 @@ class ExecutionMode(Enum):
 
 
 class DataHealth(Enum):
-    """Data quality / system health level."""
+    """Data quality / system health level.
+
+    Used by Floor 2 review signals and consumed by Floor 5 (Captain)
+    and Side A (Risk Gate / Data Health Policy).
+
+    Values:
+        GOOD: All data sources healthy.
+        CAUTION: Minor degradation detected.
+        DEGRADED: Significant degradation — stricter checks.
+        STALE: Data not updating — block new entries.
+        CRITICAL: Critical failure — escalation required.
+    """
     GOOD = "GOOD"
     CAUTION = "CAUTION"
     DEGRADED = "DEGRADED"
+    STALE = "STALE"
     CRITICAL = "CRITICAL"
 
 
@@ -323,7 +335,27 @@ class CaptainDecision:
 
 @dataclass
 class ExecutionIntent:
-    """Captain's trade intent sent to Side A for execution."""
+    """Captain's trade intent sent to Side A for execution.
+
+    This is the primary contract between Floor 5 (Captain) and Side A (Execution).
+    All mandatory fields must be populated before forwarding to the execution path.
+
+    Fields:
+        trade_id: Unique trade identifier.
+        action: BUY or SELL.
+        option_side: CE or PE.
+        selected_strike: The chosen strike price as string.
+        trade_class: Classification of the trade (SCALP, CONTINUATION, etc.).
+        entry_plan: Dict with trigger, zone, and confirmation details.
+        invalidation_level: Price level at which the trade thesis is invalid.
+        stop_loss_plan: Dict with price and type for stop loss.
+        target_plan: Dict with targets list and trailing config.
+        capital_context: Dict with available_capital, max_risk_per_trade.
+        mode: Execution mode (ALERT / PAPER / REAL).
+        intervention_allowed: Whether Captain allows override during execution.
+        intent_fingerprint: Unique execution identity for duplicate detection.
+        timestamp: When this intent was created.
+    """
     trade_id: str
     action: str  # BUY / SELL
     option_side: str  # CE / PE
@@ -336,6 +368,8 @@ class ExecutionIntent:
     capital_context: dict[str, Any] = field(default_factory=dict)
     mode: ExecutionMode = ExecutionMode.ALERT
     intervention_allowed: bool = False
+    intent_fingerprint: str = ""
+    timestamp: datetime = field(default_factory=datetime.utcnow)
 
 
 # =============================================================================

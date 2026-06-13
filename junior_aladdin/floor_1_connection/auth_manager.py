@@ -173,6 +173,17 @@ class AuthManager:
         """Return the expected session expiry time, or None."""
         return self._session_expiry
 
+    def get_smart_connect(self) -> Any:
+        """Return the SmartConnect instance for downstream consumers.
+
+        Used by RealBroker (Side A) to share the authenticated SDK instance
+        for order placement, avoiding a second unauthenticated instance.
+
+        Returns:
+            The SmartConnect instance, or None if not authenticated.
+        """
+        return self._smart_connect
+
     def get_feed_token(self) -> str | None:
         """Return the feed token for WebSocket connections."""
         return self._feed_token

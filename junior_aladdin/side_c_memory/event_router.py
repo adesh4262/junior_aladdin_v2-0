@@ -100,10 +100,11 @@ def get_routing_rule(family: EventFamily) -> str:
     """
     store = _ROUTING_TABLE.get(family)
     if store is None:
+        family_str = family.value if hasattr(family, 'value') else str(family)
         raise ContractViolationError(
-            f"Unknown family: {family.value!r}. "
+            f"Unknown family: {family_str!r}. "
             f"No routing rule defined.",
-            details={"family": family.value},
+            details={"family": family_str},
         )
     return store
 

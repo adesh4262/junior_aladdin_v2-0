@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Junior Aladdin — Operator Terminal" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>Junior Aladdin — Operator Terminal</title>
+    <link rel="icon" type="image/svg+xml" href="assets/img/logo.svg" />
+    <link rel="stylesheet" href="assets/css/main.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+    <!-- ═══ Loading Overlay ═══ -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Junior Aladdin</div>
+            <div class="loading-subtext">Operator Terminal — Initializing...</div>
+            <div class="loading-progress">
+                <div class="loading-progress-bar" id="loading-progress-bar"></div>
+            </div>
+            <div class="loading-status" id="loading-status">Connecting to API...</div>
+        </div>
+    </div>
+
+    <!-- ═══ Error Overlay ═══ -->
+    <div id="error-overlay" class="error-overlay hidden">
+        <div class="error-content">
+            <div class="error-icon">⚠</div>
+            <div class="error-title">Connection Error</div>
+            <div class="error-message" id="error-message">Unable to connect to the API server.</div>
+            <button class="error-retry-btn" onclick="location.reload()">Retry Connection</button>
+        </div>
+    </div>
+
+    <!-- ═══ App Shell ═══ -->
+    <div id="app" class="app-shell hidden">
+        <!-- Top Bar -->
+        <header id="top-bar" class="top-bar">
+            <div class="top-bar-left">
+                <button id="sidebar-toggle" class="icon-btn sidebar-toggle" title="Toggle Sidebar">
+                    <span class="hamburger"></span>
+                </button>
+                <div class="app-logo">
+                    <span class="logo-icon">◈</span>
+                    <span class="logo-text">Junior Aladdin</span>
+                </div>
+                <div class="top-bar-separator"></div>
+                <div class="mode-badge" id="mode-badge">
+                    <span class="mode-dot"></span>
+                    <span class="mode-label">ALERT</span>
+                </div>
+                <div class="health-strip" id="health-strip">
+                    <span class="health-dot health-unknown" title="System Health"></span>
+                </div>
+            </div>
+            <div class="top-bar-center">
+                <div class="connection-status" id="connection-status">
+                    <span class="conn-dot conn-disconnected"></span>
+                    <span class="conn-label">Disconnected</span>
+                </div>
+            </div>
+            <div class="top-bar-right">
+                <div class="clock" id="clock">--:--:--</div>
+                <div class="alert-badge" id="alert-badge" title="Active Alerts">
+                    <span class="alert-icon">🔔</span>
+                    <span class="alert-count" id="alert-count">0</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Layout -->
+        <div class="main-layout">
+            <!-- Left Sidebar -->
+            <nav id="sidebar" class="sidebar">
+                <div class="sidebar-section">
+                    <div class="sidebar-label">Workspaces</div>
+                    <button class="sidebar-item active" data-workspace="cockpit" title="Primary Cockpit">
+                        <span class="sidebar-icon">◉</span>
+                        <span class="sidebar-text">Cockpit</span>
+                    </button>
+                    <button class="sidebar-item" data-workspace="replay" title="Replay Workspace">
+                        <span class="sidebar-icon">↺</span>
+                        <span class="sidebar-text">Replay</span>
+                    </button>
+                    <button class="sidebar-item" data-workspace="review" title="Review Workspace">
+                        <span class="sidebar-icon">☰</span>
+                        <span class="sidebar-text">Review</span>
+                    </button>
+                    <button class="sidebar-item" data-workspace="diagnostics" title="Diagnostics">
+                        <span class="sidebar-icon">◇</span>
+                        <span class="sidebar-text">Diagnostics</span>
+                    </button>
+                </div>
+                <div class="sidebar-section">
+                    <div class="sidebar-label">Panels</div>
+                    <button class="sidebar-item" data-panel="execution" title="Execution Panel">
+                        <span class="sidebar-icon">▣</span>
+                        <span class="sidebar-text">Execution</span>
+                    </button>
+                    <button class="sidebar-item" data-panel="captain" title="Captain Panel">
+                        <span class="sidebar-icon">◈</span>
+                        <span class="sidebar-text">Captain</span>
+                    </button>
+                    <button class="sidebar-item" data-panel="heads" title="Head Reports">
+                        <span class="sidebar-icon">◆</span>
+                        <span class="sidebar-text">Heads</span>
+                    </button>
+                    <button class="sidebar-item" data-panel="market" title="Market Data">
+                        <span class="sidebar-icon">◉</span>
+                        <span class="sidebar-text">Market</span>
+                    </button>
+                    <button class="sidebar-item" data-panel="health" title="System Health">
+                        <span class="sidebar-icon">●</span>
+                        <span class="sidebar-text">Health</span>
+                    </button>
+                    <button class="sidebar-item" data-panel="alerts" title="Alerts">
+                        <span class="sidebar-icon">⚠</span>
+                        <span class="sidebar-text">Alerts</span>
+                    </button>
+                </div>
+                <div class="sidebar-section">
+                    <div class="sidebar-label">Controls</div>
+                    <button class="sidebar-item" data-panel="controls" title="Operator Controls">
+                        <span class="sidebar-icon">⚙</span>
+                        <span class="sidebar-text">Controls</span>
+                    </button>
+                </div>
+                <div class="sidebar-footer">
+                    <div class="sidebar-version">v0.1.0</div>
+                </div>
+            </nav>
+
+            <!-- Center Content -->
+            <main id="content" class="content-area">
+                <div id="workspace-container" class="workspace-container">
+                    <div class="placeholder-message">
+                        <div class="placeholder-icon">◈</div>
+                        <div class="placeholder-title">Junior Aladdin</div>
+                        <div class="placeholder-text">Operator Terminal Loading...</div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Right Panel -->
+            <aside id="right-panel" class="right-panel">
+                <div class="right-panel-header">
+                    <span class="right-panel-title" id="right-panel-title">Details</span>
+                    <button id="right-panel-close" class="icon-btn" title="Close Panel">✕</button>
+                </div>
+                <div id="right-panel-content" class="right-panel-content">
+                    <div class="placeholder-message small">
+                        <div class="placeholder-text">Select a component to inspect</div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+
+        <!-- Bottom Bar -->
+        <footer id="bottom-bar" class="bottom-bar">
+            <div class="bottom-bar-left">
+                <span class="bottom-item" id="session-info">Session: ---</span>
+                <span class="bottom-separator">|</span>
+                <span class="bottom-item" id="refresh-info">HOT: --- | WARM: --- | COLD: ---</span>
+            </div>
+            <div class="bottom-bar-center">
+                <span class="bottom-item" id="bottom-mode">Mode: --</span>
+                <span class="bottom-separator">|</span>
+                <span class="bottom-item" id="bottom-capital">Capital: --</span>
+                <span class="bottom-separator">|</span>
+                <span class="bottom-item" id="market-status">Market: CLOSED</span>
+            </div>
+            <div class="bottom-bar-right">
+                <span class="bottom-item" id="cache-info">Cache: -- entries</span>
+                <span class="bottom-separator">|</span>
+                <span class="bottom-item" id="api-status">API: --</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- ═══ Scripts ═══ -->
+    <script src="assets/js/api_client.js?v=2"></script>
+    <script src="assets/js/state_manager.js?v=2"></script>
+    <script src="assets/js/component_manager.js?v=2"></script>
+    <script src="assets/js/refresh_scheduler.js?v=2"></script>
+    <script src="assets/js/health_panel.js?v=2"></script>
+    <script src="assets/js/alert_panel.js?v=2"></script>
+    <script src="assets/js/market_panel.js?v=2"></script>
+    <script src="assets/js/execution_panel.js?v=2"></script>
+    <script src="assets/js/captain_panel.js?v=2"></script>
+    <script src="assets/js/heads_panel.js?v=2"></script>
+    <script src="assets/js/controls_panel.js?v=2"></script>
+    <script src="assets/js/app.js?v=2"></script>
+</body>
+</html>

@@ -339,6 +339,72 @@ class OptionsParameters:
 
 
 # =============================================================================
+# SUPPORT METRICS PARAMETERS
+# =============================================================================
+
+
+@dataclass
+class SupportMetricsParameters:
+    """Support Metrics (Psychology support) domain parameters."""
+
+    trap_density_threshold: float = 0.5
+    """Trap density above this triggers trap_pressure=True."""
+    loss_streak_threshold: int = 3
+    """Consecutive losses above this = dangerous streak."""
+    cooldown_after_1_loss: float = 120.0
+    """Cooldown seconds after 1 loss."""
+    cooldown_after_2_losses: float = 300.0
+    """Cooldown seconds after 2 consecutive losses."""
+    cooldown_after_3plus_losses: float = 600.0
+    """Cooldown seconds after 3+ consecutive losses."""
+    max_trades_per_window: int = 3
+    """Max trades allowed per time window."""
+    overtrade_window_minutes: int = 30
+    """Time window for overtrade detection (minutes)."""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "trap_density_threshold": self.trap_density_threshold,
+            "loss_streak_threshold": self.loss_streak_threshold,
+            "cooldown_after_1_loss": self.cooldown_after_1_loss,
+            "cooldown_after_2_losses": self.cooldown_after_2_losses,
+            "cooldown_after_3plus_losses": self.cooldown_after_3plus_losses,
+            "max_trades_per_window": self.max_trades_per_window,
+            "overtrade_window_minutes": self.overtrade_window_minutes,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> SupportMetricsParameters:
+        return cls(
+            trap_density_threshold=float(data.get("trap_density_threshold", cls.trap_density_threshold)),
+            loss_streak_threshold=int(data.get("loss_streak_threshold", cls.loss_streak_threshold)),
+            cooldown_after_1_loss=float(data.get("cooldown_after_1_loss", cls.cooldown_after_1_loss)),
+            cooldown_after_2_losses=float(data.get("cooldown_after_2_losses", cls.cooldown_after_2_losses)),
+            cooldown_after_3plus_losses=float(data.get("cooldown_after_3plus_losses", cls.cooldown_after_3plus_losses)),
+            max_trades_per_window=int(data.get("max_trades_per_window", cls.max_trades_per_window)),
+            overtrade_window_minutes=int(data.get("overtrade_window_minutes", cls.overtrade_window_minutes)),
+        )
+
+    def validate(self) -> list[str]:
+        issues: list[str] = []
+        if self.trap_density_threshold <= 0:
+            issues.append("trap_density_threshold must be > 0")
+        if self.loss_streak_threshold < 1:
+            issues.append("loss_streak_threshold must be >= 1")
+        if self.cooldown_after_1_loss < 0:
+            issues.append("cooldown_after_1_loss must be >= 0")
+        if self.cooldown_after_2_losses < self.cooldown_after_1_loss:
+            issues.append("cooldown_after_2_losses should be >= cooldown_after_1_loss")
+        if self.cooldown_after_3plus_losses < self.cooldown_after_2_losses:
+            issues.append("cooldown_after_3plus_losses should be >= cooldown_after_2_losses")
+        if self.max_trades_per_window < 1:
+            issues.append("max_trades_per_window must be >= 1")
+        if self.overtrade_window_minutes < 1:
+            issues.append("overtrade_window_minutes must be >= 1")
+        return issues
+
+
+# =============================================================================
 # GENERAL PARAMETERS
 # =============================================================================
 
@@ -423,6 +489,8 @@ class F3Config:
     """Technical domain calculation parameters."""
     options: OptionsParameters = field(default_factory=OptionsParameters)
     """Options domain calculation parameters."""
+    support_metrics: SupportMetricsParameters = field(default_factory=SupportMetricsParameters)
+    """Support Metrics (Psychology) domain parameters."""
     general: GeneralParameters = field(default_factory=GeneralParameters)
     """General calculation parameters."""
 
@@ -502,13 +570,14 @@ class F3Config:
 
         Returns:
             Dict with keys ``smc``, ``ict``, ``technical``,
-            ``options``, ``general``.
+            ``options``, ``support_metrics``, ``general``.
         """
         return {
             "smc": self.smc.to_dict(),
             "ict": self.ict.to_dict(),
             "technical": self.technical.to_dict(),
             "options": self.options.to_dict(),
+            "support_metrics": self.support_metrics.to_dict(),
             "general": self.general.to_dict(),
         }
 
@@ -520,6 +589,7 @@ class F3Config:
             ict=IctParameters.from_dict(data.get("ict", {})),
             technical=TechnicalParameters.from_dict(data.get("technical", {})),
             options=OptionsParameters.from_dict(data.get("options", {})),
+            support_metrics=SupportMetricsParameters.from_dict(data.get("support_metrics", {})),
             general=GeneralParameters.from_dict(data.get("general", {})),
         )
 
@@ -537,6 +607,7 @@ class F3Config:
             "ict": self.ict.validate(),
             "technical": self.technical.validate(),
             "options": self.options.validate(),
+            "support_metrics": self.support_metrics.validate(),
             "general": self.general.validate(),
         }
 
@@ -568,6 +639,8 @@ class F3Config:
             return self.technical.to_dict()
         elif domain == CalculationDomain.OPTIONS:
             return self.options.to_dict()
+        elif domain == CalculationDomain.PSYCHOLOGY:
+            return self.support_metrics.to_dict()
         return {}
 
 

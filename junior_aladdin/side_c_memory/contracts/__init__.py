@@ -14,6 +14,12 @@ from junior_aladdin.side_c_memory.contracts.emitter_registry import (
     list_approved_emitters,
     register_emitter,
 )
+from junior_aladdin.side_c_memory.contracts.read_contracts import (
+    ReadContract,
+    get_read_contract,
+    list_query_types,
+    validate_query,
+)
 from junior_aladdin.side_c_memory.contracts.write_contracts import (
     WriteContract,
     FieldSpec,
@@ -30,6 +36,11 @@ __all__ = [
     "is_emitter_approved",
     "list_approved_emitters",
     "register_emitter",
+    # read_contracts
+    "ReadContract",
+    "get_read_contract",
+    "list_query_types",
+    "validate_query",
     # write_contracts
     "FieldSpec",
     "WriteContract",

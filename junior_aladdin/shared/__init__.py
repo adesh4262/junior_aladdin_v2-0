@@ -1,4 +1,4 @@
-"""Junior Aladdin — shared types, config, logging, testing utilities."""
+"""Junior Aladdin — shared types, config, logging, testing, contracts utilities."""
 
 from junior_aladdin.shared.errors import (
     JuniorAladdinError,
@@ -8,6 +8,14 @@ from junior_aladdin.shared.errors import (
     ExecutionError,
     MemoryError,
     ContractViolationError,
+)
+
+from junior_aladdin.shared.contracts import (
+    BaseModuleContract,
+    MODULE_CONTRACTS,
+    get_contract,
+    get_contracts_by_owner,
+    get_consumer_chain,
 )
 
 from junior_aladdin.shared.types import (
@@ -48,6 +56,12 @@ __all__ = [
     "ExecutionError",
     "MemoryError",
     "ContractViolationError",
+    # Contracts
+    "BaseModuleContract",
+    "MODULE_CONTRACTS",
+    "get_contract",
+    "get_contracts_by_owner",
+    "get_consumer_chain",
     # Enums
     "MarketPhase",
     "SessionType",

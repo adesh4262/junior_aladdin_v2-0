@@ -63,6 +63,35 @@ def build_candles(count=50):
     return c
 
 
+def build_options_snapshots():
+    """Build mock options snapshot data for testing."""
+    strikes = [19400, 19450, 19500, 19550, 19600, 19650, 19700]
+    snapshots = []
+    for s in strikes:
+        snapshots.append({
+            "strike": float(s),
+            "option_type": "CE",
+            "oi": 100000 + (s % 5000) * 10,
+            "premium": max(5.0, 200.0 - abs(19500 - s) * 2),
+            "iv": 18.5 + (s % 1000) * 0.1,
+            "change_in_oi": 2000 + (s % 3) * 500,
+            "expiry": "2026-06-25",
+        })
+        snapshots.append({
+            "strike": float(s),
+            "option_type": "PE",
+            "oi": 120000 + (s % 3000) * 15,
+            "premium": max(5.0, 180.0 - abs(19500 - s) * 1.5),
+            "iv": 19.2 + (s % 800) * 0.2,
+            "change_in_oi": -1000 + (s % 4) * 300,
+            "expiry": "2026-06-25",
+        })
+    return {
+        "snapshots": snapshots,
+        "reference_price": 19520.0,
+    }
+
+
 def make_packet(packet_id, freshness=None, health=None, ts=None, data=None,
                 feed="candle_stream", source="floor_2"):
     """Helper to create a PacketEnvelope for testing."""
@@ -160,34 +189,39 @@ def main():
             market_phase=phase,
             symbol="NIFTY",
             timestamp=now,
-            data={"candles": candles},
+            data={"candles": candles, "options_snapshots": build_options_snapshots()},
         )
         oc = handle_calculation_cycle(inp)
         phase_results[phase.value] = oc
 
     # Check expected domain counts per phase
+    # SMC + ICT + PSYCHOLOGY = 3 (PRE_OPEN)
+    # SMC + ICT + TECHNICAL + OPTIONS + PSYCHOLOGY = 5 (OPEN, LUNCH)
+    # SMC + TECHNICAL + PSYCHOLOGY = 3 (CLOSING)
+    # PSYCHOLOGY = 1 (POST_CLOSE — always active for state tracking)
+
     poc = phase_results["PRE_OPEN"]
-    check("PRE_OPEN: 2 engines", len(poc.engine_reports) == 2, str(len(poc.engine_reports)))
+    check("PRE_OPEN: 3 engines", len(poc.engine_reports) == 3, str(len(poc.engine_reports)))
     check("PRE_OPEN: signals > 0", len(poc.signals) > 0, str(len(poc.signals)))
 
     open_ = phase_results["OPEN"]
-    check("OPEN: 3 engines", len(open_.engine_reports) == 3, str(len(open_.engine_reports)))
+    check("OPEN: 5 engines", len(open_.engine_reports) == 5, str(len(open_.engine_reports)))
     check("OPEN: signals > 0", len(open_.signals) > 0, str(len(open_.signals)))
 
     lunch = phase_results["LUNCH"]
-    check("LUNCH: 3 engines", len(lunch.engine_reports) == 3)
+    check("LUNCH: 5 engines", len(lunch.engine_reports) == 5)
     check("LUNCH: signals > 0", len(lunch.signals) > 0)
 
     closing = phase_results["CLOSING"]
-    check("CLOSING: 2 engines", len(closing.engine_reports) == 2, str(len(closing.engine_reports)))
+    check("CLOSING: 3 engines", len(closing.engine_reports) == 3, str(len(closing.engine_reports)))
     check("CLOSING: signals > 0", len(closing.signals) > 0)
 
     pc = phase_results["POST_CLOSE"]
-    check("POST_CLOSE: 0 engines", len(pc.engine_reports) == 0)
-    check("POST_CLOSE: 0 signals", len(pc.signals) == 0)
+    check("POST_CLOSE: 1 engine (PSYCHOLOGY always active)", len(pc.engine_reports) == 1)
+    check("POST_CLOSE: signals > 0 (PSYCHOLOGY produces 4 support signals)", len(pc.signals) > 0)
     check("POST_CLOSE: summary present", pc.floor_summary is not None)
 
-    # Verify OPEN has more signals than PRE_OPEN (Technical adds more)
+    # Verify OPEN has more signals than PRE_OPEN (Technical + Options add more)
     check("OPEN signals > PRE_OPEN signals",
           len(open_.signals) > len(poc.signals),
           f"OPEN={len(open_.signals)} PRE_OPEN={len(poc.signals)}")
@@ -217,7 +251,7 @@ def main():
 
     # Check summary details
     fs = ob.floor_summary
-    check("Summary has domain_summaries", len(fs.domain_summaries) >= 3)
+    check("Summary has domain_summaries", len(fs.domain_summaries) >= 5)
     check("Summary has engine_statuses", bool(fs.engine_statuses))
     check("Summary data_health = GOOD", fs.data_health == DataHealth.GOOD)
 
@@ -227,7 +261,8 @@ def main():
         check("Signal has signal_id", len(sig.signal_id) == 32)
         check("Signal has indicator_type", bool(sig.indicator_type))
         check("Signal has domain", sig.domain in (
-            CalculationDomain.SMC, CalculationDomain.ICT, CalculationDomain.TECHNICAL))
+            CalculationDomain.SMC, CalculationDomain.ICT,
+            CalculationDomain.TECHNICAL, CalculationDomain.OPTIONS))
         check("Signal has calculation_log", sig.calculation_log is not None)
         if sig.calculation_log:
             check("Signal log has input_hash", bool(sig.calculation_log.input_hash))
