@@ -13,6 +13,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <!-- Lightweight-Charts (TradingView) v4.1.3 -->
+    <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
     <!-- ═══ Loading Overlay ═══ -->
@@ -95,6 +97,10 @@
                     <button class="sidebar-item" data-workspace="diagnostics" title="Diagnostics">
                         <span class="sidebar-icon">◇</span>
                         <span class="sidebar-text">Diagnostics</span>
+                    </button>
+                    <button class="sidebar-item" data-workspace="cache" title="Session Cache">
+                        <span class="sidebar-icon">💾</span>
+                        <span class="sidebar-text">Cache</span>
                     </button>
                 </div>
                 <div class="sidebar-section">
@@ -184,9 +190,12 @@
     </div>
 
     <!-- ═══ Scripts ═══ -->
+    <script src="assets/js/utils/colors.js?v=2"></script>
+    <script src="assets/js/utils/formatters.js?v=2"></script>
     <script src="assets/js/api_client.js?v=2"></script>
     <script src="assets/js/state_manager.js?v=2"></script>
     <script src="assets/js/component_manager.js?v=2"></script>
+    <script src="assets/js/websocket_client.js?v=2"></script>
     <script src="assets/js/refresh_scheduler.js?v=2"></script>
     <script src="assets/js/health_panel.js?v=2"></script>
     <script src="assets/js/alert_panel.js?v=2"></script>
@@ -195,6 +204,13 @@
     <script src="assets/js/captain_panel.js?v=2"></script>
     <script src="assets/js/heads_panel.js?v=2"></script>
     <script src="assets/js/controls_panel.js?v=2"></script>
-    <script src="assets/js/app.js?v=2"></script>
+    <script src="assets/js/chart_surface.js?v=3"></script>
+    <script src="assets/js/explainability_panel.js?v=2"></script>
+    <script src="assets/js/workspace_replay.js?v=2"></script>
+    <script src="assets/js/workspace_review.js?v=2"></script>
+    <script src="assets/js/workspace_diagnostics.js?v=2"></script>
+    <script src="assets/js/session_cache_display.js?v=2"></script>
+    <script src="assets/js/floor_drilldown.js?v=2"></script>
+    <script src="assets/js/app.js?v=3"></script>
 </body>
 </html>

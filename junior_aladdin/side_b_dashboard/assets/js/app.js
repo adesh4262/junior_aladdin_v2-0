@@ -77,6 +77,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     Router.on('replay', () => switchWorkspace('replay'));
     Router.on('review', () => switchWorkspace('review'));
     Router.on('diagnostics', () => switchWorkspace('diagnostics'));
+    Router.on('cache', () => switchWorkspace('cache'));
 
     // ── Sidebar navigation ──
     document.querySelectorAll('.sidebar-item[data-workspace]').forEach(el => {
@@ -128,7 +129,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             const cap = execution.capital_limit;
             setText('bottom-capital', cap != null ? `Capital: ₹${Number(cap).toLocaleString('en-IN')}` : 'Capital: --');
         }
-        if (market) StateManager.set('market', market);
+        if (market) {
+            StateManager.set('market', market);
+            // Feed live price into chart
+            const chart = ComponentManager.get('chart');
+            if (chart && market.ltp) {
+                const now = Math.floor(Date.now() / 1000);
+                chart.updateTick(now, market.ltp);
+            }
+        }
         if (alerts) updateAlertBadge(alerts);
     });
 
@@ -168,11 +177,33 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     RefreshScheduler.start();
 
-    // ── Connect WebSocket ──
-    api.on('connect', () => updateConnectionStatus(true));
-    api.on('disconnect', () => updateConnectionStatus(false));
-    api.on('ws_message', (msg) => RefreshScheduler.handleWsMessage(msg));
-    api.connectWebSocket();
+    // ── Connect WebSocket via dedicated WebSocketClient ──
+    window.wsClient = new WebSocketClient(api.wsUrl, { autoConnect: false });
+
+    // Register event handlers BEFORE connecting to avoid race conditions
+    wsClient.on('connect', () => updateConnectionStatus(true));
+    wsClient.on('disconnect', () => updateConnectionStatus(false));
+
+    // Subscribe to HOT-tier WS channels only (server pushes these)
+    // WARM/COLD channels (captain, heads, etc.) are polled via RefreshScheduler
+    const wsChannels = ['execution', 'market', 'health', 'alerts'];
+    wsChannels.forEach(channel => {
+        wsClient.on('channel:' + channel, (data) => {
+            const msg = { channel, data };
+            RefreshScheduler.handleWsMessage(msg);
+        });
+    });
+
+    // Start fallback polling when WS is down (routes through same channel events)
+    wsClient.startFallbackPolling({
+        execution: () => api.getExecutionState(),
+        market: () => api.getMarketSnapshot(),
+        health: () => api.getHealth(),
+        alerts: () => api.getAlerts(),
+    }, 5000);
+
+    // Now connect after all handlers are registered
+    wsClient.connect();
 });
 
 /* ══════════════════════════════════════════════════════════════
@@ -253,10 +284,20 @@ async function initializeApp() {
    Workspace Switching
    ══════════════════════════════════════════════════════════════ */
 
+// Track the active workspace object so we can unmount it before switching
+let _activeWorkspace = null;
+
 function switchWorkspace(workspace) {
     const container = document.getElementById('workspace-container');
     // Unmount all components before switching workspaces
     ComponentManager.unmountAll();
+
+    // Cleanup previous workspace (e.g. WorkspaceReplay)
+    if (_activeWorkspace && _activeWorkspace.unmount) {
+        _activeWorkspace.unmount();
+        _activeWorkspace = null;
+    }
+
     StateManager.set('workspace', workspace);
 
     switch (workspace) {
@@ -264,13 +305,20 @@ function switchWorkspace(workspace) {
             renderCockpit(container);
             break;
         case 'replay':
-            renderPlaceholder(container, '↺', 'Replay Workspace', 'Replay functionality coming in Step 8.19');
+            WorkspaceReplay.render(container);
+            _activeWorkspace = WorkspaceReplay;
             break;
         case 'review':
-            renderPlaceholder(container, '☰', 'Review Workspace', 'Review functionality coming in Step 8.19');
+            WorkspaceReview.render(container);
+            _activeWorkspace = WorkspaceReview;
             break;
         case 'diagnostics':
-            renderDiagnostics(container);
+            WorkspaceDiagnostics.render(container);
+            _activeWorkspace = WorkspaceDiagnostics;
+            break;
+        case 'cache':
+            SessionCacheDisplay.render(container);
+            _activeWorkspace = SessionCacheDisplay;
             break;
         default:
             renderCockpit(container);
@@ -316,6 +364,9 @@ function renderCockpit(container) {
             </div>
         </div>
 
+        <!-- Chart Surface (full-width) -->
+        <div id="chart-surface-mount" class="chart-container"></div>
+
         <div class="cockpit-row-2">
             <!-- Execution Panel (Component-managed) -->
             <div id="execution-panel-mount"></div>
@@ -338,9 +389,16 @@ function renderCockpit(container) {
             <div id="alert-panel-mount"></div>
         </div>
 
+        <!-- Explainability Panel (WARM) -->
+        <div id="explainability-panel-mount"></div>
+
         <!-- Controls Panel (Component-managed) -->
         <div id="controls-panel-mount"></div>
     `;
+
+    // Mount chart surface (full-width, top of cockpit)
+    const chartMount = document.getElementById('chart-surface-mount');
+    if (chartMount) ComponentManager.mount('chart', chartMount);
 
     // Mount component-based panels
     const healthMount = document.getElementById('health-panel-mount');
@@ -361,62 +419,14 @@ function renderCockpit(container) {
     const headsMount = document.getElementById('heads-panel-mount');
     if (headsMount) ComponentManager.mount('heads', headsMount);
 
+    const explainabilityMount = document.getElementById('explainability-panel-mount');
+    if (explainabilityMount) ComponentManager.mount('explainability', explainabilityMount);
+
     const controlsMount = document.getElementById('controls-panel-mount');
     if (controlsMount) ComponentManager.mount('controls', controlsMount);
 }
 
-/* ══════════════════════════════════════════════════════════════
-   Diagnostics Workspace
-   ══════════════════════════════════════════════════════════════ */
 
-function renderDiagnostics(container) {
-    const state = StateManager.snapshot();
-
-    container.innerHTML = `
-        <div class="panel-card">
-            <div class="panel-card-header">
-                <span class="panel-card-title">◇ Diagnostics</span>
-                <span class="panel-card-badge refresh-cold">COLD</span>
-            </div>
-            <div class="panel-card-body">
-                <div class="panel-row"><span class="panel-label">API Base URL</span><span class="panel-value mono">${api.baseUrl}</span></div>
-                <div class="panel-row"><span class="panel-label">WebSocket</span><span class="panel-value mono">${api.wsUrl}</span></div>
-                <div class="panel-row"><span class="panel-label">Connection</span><span class="panel-value" id="diag-connection">${api.connected ? 'Connected' : 'Disconnected'}</span></div>
-                <div class="panel-row"><span class="panel-label">Scheduler</span><span class="panel-value" id="diag-scheduler">${RefreshScheduler.isPaused() ? 'Paused' : 'Running'}</span></div>
-                <div class="panel-row"><span class="panel-label">Refresh Intervals</span><span class="panel-value mono">HOT:${RefreshScheduler.getIntervals().hot}ms WARM:${RefreshScheduler.getIntervals().warm}ms COLD:${RefreshScheduler.getIntervals().cold}ms</span></div>
-            </div>
-        </div>
-        <div class="panel-card">
-            <div class="panel-card-header"><span class="panel-card-title">Cache Stats</span></div>
-            <div class="panel-card-body" id="diag-cache">
-                <div class="panel-row"><span class="panel-label">Entries</span><span class="panel-value mono" id="cache-entries">${state.cache?.total_entries ?? '-'}</span></div>
-                <div class="panel-row"><span class="panel-label">Hit Ratio</span><span class="panel-value mono" id="cache-hit-ratio">${state.cache?.hit_ratio != null ? (state.cache.hit_ratio * 100).toFixed(1) + '%' : '-'}</span></div>
-                <div class="panel-row"><span class="panel-label">HOT</span><span class="panel-value mono" id="cache-hot">${state.cache?.tier_counts?.HOT ?? '-'}</span></div>
-                <div class="panel-row"><span class="panel-label">WARM</span><span class="panel-value mono" id="cache-warm">${state.cache?.tier_counts?.WARM ?? '-'}</span></div>
-                <div class="panel-row"><span class="panel-label">COLD</span><span class="panel-value mono" id="cache-cold">${state.cache?.tier_counts?.COLD ?? '-'}</span></div>
-            </div>
-        </div>
-        <div class="panel-card">
-            <div class="panel-card-header"><span class="panel-card-title">Debug State</span></div>
-            <div class="panel-card-body">
-                <pre id="debug-state-json" style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-all;"></pre>
-                <button class="control-btn" id="refresh-debug-btn" style="margin-top:8px;">Refresh Debug State</button>
-            </div>
-        </div>
-    `;
-
-    loadDebugState();
-    document.getElementById('refresh-debug-btn')?.addEventListener('click', loadDebugState);
-}
-
-async function loadDebugState() {
-    try {
-        const st = await api.getDebugState();
-        document.getElementById('debug-state-json').textContent = JSON.stringify(st, null, 2);
-    } catch (e) {
-        document.getElementById('debug-state-json').textContent = `Error: ${e.message}`;
-    }
-}
 
 /* ══════════════════════════════════════════════════════════════
    Right Panel (Drill-down)
@@ -438,6 +448,7 @@ function openRightPanel(panelName) {
         health: '● System Health',
         alerts: '⚠ Alerts',
         controls: '⚙ Controls',
+        floor_drilldown: '● Floor Drill-down: ', // component name appended dynamically
     };
 
     title.textContent = panelTitles[panelName] || panelName;
@@ -458,6 +469,11 @@ function openRightPanel(panelName) {
                     renderHeadsDetail(content);
                 }
             });
+            break;
+        case 'floor_drilldown':
+            const fdComponent = StateManager.get('activePanelComponent') || 'unknown';
+            title.textContent = panelTitles.floor_drilldown + fdComponent;
+            renderFloorDrilldown(content, fdComponent);
             break;
         default:
             content.innerHTML = `<div class="placeholder-message small"><div class="placeholder-text">${panelName} detail view coming soon</div></div>`;
@@ -839,6 +855,19 @@ function buildHeadDetailBody(detail) {
 }
 
 /* ══════════════════════════════════════════════════════════════
+   Floor Drill-down Renderer
+   ══════════════════════════════════════════════════════════════ */
+
+/**
+ * Render floor drill-down detail in the right panel.
+ * @param {HTMLElement} container - right panel content
+ * @param {string} componentName - e.g. 'floor_1', 'floor_5', 'side_a'
+ */
+function renderFloorDrilldown(container, componentName) {
+    FloorDrilldown.render(container, componentName);
+}
+
+/* ══════════════════════════════════════════════════════════════
    Shared Helpers
    ══════════════════════════════════════════════════════════════ */
 
@@ -953,7 +982,7 @@ function updateStatusBar() {
     const cap = exec.capital_limit;
     setText('bottom-capital', cap != null ? `Capital: ₹${Number(cap).toLocaleString('en-IN')}` : 'Capital: --');
     setText('cache-info', `Cache: ${(cache && cache.total_entries) ?? 0} entries`);
-    setText('api-status', `API: ${api.connected ? 'Connected' : 'Polling'}`);
+    setText('api-status', `WS: ${window.wsClient && window.wsClient.connected ? 'Connected' : 'Polling'}`);
 }
 
 /* ══════════════════════════════════════════════════════════════

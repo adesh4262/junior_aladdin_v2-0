@@ -12,34 +12,6 @@ class ApiClient {
     constructor(baseUrl = 'http://127.0.0.1:8080') {
         this.baseUrl = baseUrl;
         this.wsUrl = baseUrl.replace(/^http/, 'ws') + '/ws';
-        this.ws = null;
-        this.wsReconnectTimer = null;
-        this.wsReconnectAttempts = 0;
-        this.maxReconnectAttempts = 10;
-        this.wsSubscriptions = new Map(); // channel -> callback
-        this.connected = false;
-        this._listeners = new Map(); // event -> callback[]
-    }
-
-    // ── Events ──
-
-    /**
-     * Subscribe to client events.
-     * @param {'connect'|'disconnect'|'error'|'ws_message'} event
-     * @param {Function} callback
-     */
-    on(event, callback) {
-        if (!this._listeners.has(event)) {
-            this._listeners.set(event, []);
-        }
-        this._listeners.get(event).push(callback);
-        return this;
-    }
-
-    /** @private */
-    _emit(event, data) {
-        const cbs = this._listeners.get(event) || [];
-        cbs.forEach(cb => { try { cb(data); } catch (e) { console.warn('[ApiClient] listener error:', e); } });
     }
 
     // ── HTTP Methods ──
@@ -201,114 +173,10 @@ class ApiClient {
     /** @returns {Promise<object>} */
     async getDebugState() { return this.get('/api/debug/state'); }
 
-    // ── WebSocket ──
-
-    /**
-     * Connect to the WebSocket endpoint.
-     * Auto-reconnects on disconnect with exponential backoff.
-     */
-    connectWebSocket() {
-        if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
-            return;
-        }
-
-        try {
-            this.ws = new WebSocket(this.wsUrl);
-        } catch (e) {
-            console.error('[ApiClient] WebSocket construction failed:', e);
-            this._scheduleReconnect();
-            return;
-        }
-
-        this.ws.onopen = () => {
-            console.log('[ApiClient] WebSocket connected');
-            this.connected = true;
-            this.wsReconnectAttempts = 0;
-            this._emit('connect');
-        };
-
-        this.ws.onmessage = (event) => {
-            try {
-                const msg = JSON.parse(event.data);
-                this._emit('ws_message', msg);
-                // Notify channel subscribers
-                if (msg.channel && this.wsSubscriptions.has(msg.channel)) {
-                    const cbs = this.wsSubscriptions.get(msg.channel);
-                    cbs.forEach(cb => { try { cb(msg.data); } catch (e) { console.warn('[ApiClient] channel handler error:', e); } });
-                }
-            } catch (e) {
-                console.warn('[ApiClient] Failed to parse WS message:', e);
-            }
-        };
-
-        this.ws.onerror = (err) => {
-            console.error('[ApiClient] WebSocket error:', err);
-            this._emit('error', err);
-        };
-
-        this.ws.onclose = () => {
-            console.log('[ApiClient] WebSocket disconnected');
-            this.connected = false;
-            this.ws = null;
-            this._emit('disconnect');
-            this._scheduleReconnect();
-        };
-    }
-
-    /**
-     * Disconnect the WebSocket.
-     */
-    disconnectWebSocket() {
-        if (this.wsReconnectTimer) {
-            clearTimeout(this.wsReconnectTimer);
-            this.wsReconnectTimer = null;
-        }
-        this.wsReconnectAttempts = this.maxReconnectAttempts; // prevent reconnect
-        if (this.ws) {
-            this.ws.close();
-            this.ws = null;
-        }
-        this.connected = false;
-    }
-
-    /**
-     * Subscribe to a WebSocket channel.
-     * @param {string} channel
-     * @param {Function} callback - receives data object
-     */
-    subscribe(channel, callback) {
-        if (!this.wsSubscriptions.has(channel)) {
-            this.wsSubscriptions.set(channel, []);
-        }
-        this.wsSubscriptions.get(channel).push(callback);
-    }
-
-    /**
-     * Unsubscribe from a WebSocket channel.
-     * @param {string} channel
-     * @param {Function} [callback] - omit to remove all
-     */
-    unsubscribe(channel, callback) {
-        if (!this.wsSubscriptions.has(channel)) return;
-        if (!callback) {
-            this.wsSubscriptions.delete(channel);
-            return;
-        }
-        const cbs = this.wsSubscriptions.get(channel);
-        const idx = cbs.indexOf(callback);
-        if (idx !== -1) cbs.splice(idx, 1);
-    }
-
-    /** @private */
-    _scheduleReconnect() {
-        if (this.wsReconnectAttempts >= this.maxReconnectAttempts) return;
-        const delay = Math.min(1000 * Math.pow(2, this.wsReconnectAttempts), 30000);
-        console.log(`[ApiClient] Reconnecting in ${delay}ms (attempt ${this.wsReconnectAttempts + 1})`);
-        this.wsReconnectTimer = setTimeout(() => {
-            this.wsReconnectAttempts++;
-            this.connectWebSocket();
-        }, delay);
-    }
+    // ── WebSocket management delegated to WebSocketClient ──
+    // WebSocket connection, reconnect, subscribe, and channel routing
+    // are handled by the dedicated WebSocketClient class in websocket_client.js.
+    // This class now handles HTTP requests only.
 }
 
 /**

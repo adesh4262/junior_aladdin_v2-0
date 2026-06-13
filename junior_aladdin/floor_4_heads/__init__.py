@@ -33,6 +33,10 @@ from junior_aladdin.floor_4_heads.head_types import (
 )
 from junior_aladdin.floor_4_heads.head_base import BaseHead, HeadMemory
 from junior_aladdin.floor_4_heads.smc_head import SMCHead
+from junior_aladdin.floor_4_heads.technical_head import TechnicalHead
+from junior_aladdin.floor_4_heads.ict_head import ICTHead
+from junior_aladdin.floor_4_heads.options_head import OptionsHead
+from junior_aladdin.floor_4_heads.macro_head import MacroHead
 from junior_aladdin.floor_4_heads.floor_summary_builder import FloorSummaryBuilder
 
 __all__ = [
@@ -52,8 +56,12 @@ __all__ = [
     # Base
     "BaseHead",
     "HeadMemory",
-    # Heads
+    # All 6 Heads
     "SMCHead",
+    "TechnicalHead",
+    "ICTHead",
+    "OptionsHead",
+    "MacroHead",
     # Summary
     "FloorSummaryBuilder",
     # Utilities

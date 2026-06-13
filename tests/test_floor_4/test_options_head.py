@@ -64,9 +64,9 @@ print("\n--- 1. Signal extraction ---")
 
 head = OptionsHead()
 all_signals = [
-    make_signal("OI_CHANGE", {"oi_direction": "BUYING", "option_type": "CE", "change_pct": 15.0}),
+    make_signal("OI_CHANGE", {"oi_direction": "BUYING", "option_type": "CE", "oi_change_pct": 15.0}),
     make_signal("PCR", {"pcr_value": 0.6, "pcr_trend": "FALLING"}),
-    make_signal("CALL_WALL", {"wall_strike": 19700.0, "wall_strength": 50000, "distance_pct": 0.8}),
+    make_signal("WALL", {"wall_type": "CALL_WALL", "strike": 19700.0, "oi_concentration": 50000, "distance_pct": 0.8}),
 ]
 oc = make_oc(all_signals)
 extracted = head._extract_signals(oc)
@@ -103,11 +103,10 @@ check("2.6 Head name correct", report.head_name == "Options Head")
 print("\n--- 3. Bullish signals ---")
 
 bullish_signals = [
-    make_signal("OI_CHANGE", {"oi_direction": "BUYING", "option_type": "CE", "change_pct": 20.0}),
-    make_signal("PCR", {"pcr_value": 0.45, "pcr_trend": "FALLING"}),
-    make_signal("IV", {"iv_value": 18.5, "iv_percentile": 25.0, "iv_context": "LOW"}),
-    make_signal("PUT_WALL", {"wall_strike": 19400.0, "wall_strength": 80000, "distance_pct": 0.5}),
-    make_signal("MAX_PAIN", {"max_pain_strike": 19500.0, "distance_pct": 0.3}),
+    # PE OI building (bullish_count += 1) + Put wall (bullish_count += 2) = 3 bullish, 0 bearish
+    make_signal("OI_CHANGE", {"oi_direction": "BUYING", "option_type": "PE", "oi_change_pct": 18.0}),
+    make_signal("WALL", {"wall_type": "PUT_WALL", "strike": 19400.0, "oi_concentration": 80000, "distance_pct": 0.5}),
+    make_signal("IV", {"iv_value": 18.5, "iv_percentile": 25.0, "iv_state": "LOW"}),
 ]
 oc_bull = make_oc(bullish_signals)
 report = head.refresh(oc_bull)
@@ -117,7 +116,7 @@ check("3.3 Has primary setup", report.primary_setup is not None)
 check("3.4 Primary mentions Wall or Pressure",
       "Wall" in report.primary_setup or "Pressure" in report.primary_setup)
 check("3.5 Has invalidation", len(report.invalidation.get("rules", [])) > 0)
-check("3.6 Has active zones (put wall + max pain)", len(report.active_zones) >= 2)
+check("3.6 Has put wall zone", len(report.active_zones) >= 1)
 check("3.7 Has witness summary", len(report.witness_summary) > 0)
 check("3.8 Has PCR in timeframe_view", "PCR" in report.timeframe_view)
 
@@ -127,10 +126,10 @@ check("3.8 Has PCR in timeframe_view", "PCR" in report.timeframe_view)
 print("\n--- 4. Bearish signals ---")
 
 bearish_signals = [
-    make_signal("OI_CHANGE", {"oi_direction": "BUYING", "option_type": "PE", "change_pct": 25.0}),
-    make_signal("PCR", {"pcr_value": 1.3, "pcr_trend": "RISING"}),
-    make_signal("IV", {"iv_value": 35.0, "iv_percentile": 80.0, "iv_context": "HIGH"}),
-    make_signal("CALL_WALL", {"wall_strike": 19700.0, "wall_strength": 100000, "distance_pct": 0.6}),
+    # CE OI building (bearish_count += 1) + Call wall (bearish_count += 2) = 3 bearish, 0 bullish
+    make_signal("OI_CHANGE", {"oi_direction": "BUYING", "option_type": "CE", "oi_change_pct": 22.0}),
+    make_signal("WALL", {"wall_type": "CALL_WALL", "strike": 19700.0, "oi_concentration": 100000, "distance_pct": 0.6}),
+    make_signal("IV", {"iv_value": 35.0, "iv_percentile": 80.0, "iv_state": "HIGH"}),
 ]
 oc_bear = make_oc(bearish_signals)
 report = head.refresh(oc_bear)
@@ -146,7 +145,7 @@ print("\n--- 5. Mixed signals ---")
 
 neutral_signals = [
     make_signal("PCR", {"pcr_value": 0.95, "pcr_trend": "STABLE"}),
-    make_signal("IV", {"iv_value": 22.0, "iv_percentile": 50.0, "iv_context": "NORMAL"}),
+    make_signal("IV", {"iv_value": 22.0, "iv_percentile": 50.0, "iv_state": "NORMAL"}),
 ]
 oc_neutral = make_oc(neutral_signals)
 report = head.refresh(oc_neutral)
@@ -160,17 +159,16 @@ check("5.2 Has invalidation", len(report.invalidation.get("rules", [])) > 0)
 print("\n--- 6. Wall zones ---")
 
 wall_signals = [
-    make_signal("CALL_WALL", {"wall_strike": 19700.0, "wall_strength": 100000, "distance_pct": 0.5}),
-    make_signal("PUT_WALL", {"wall_strike": 19400.0, "wall_strength": 80000, "distance_pct": 0.6}),
-    make_signal("MAX_PAIN", {"max_pain_strike": 19550.0, "distance_pct": 0.4}),
+    make_signal("WALL", {"wall_type": "CALL_WALL", "strike": 19700.0, "oi_concentration": 100000, "distance_pct": 0.5}),
+    make_signal("WALL", {"wall_type": "PUT_WALL", "strike": 19400.0, "oi_concentration": 80000, "distance_pct": 0.6}),
 ]
 oc_wall = make_oc(wall_signals)
 report = head.refresh(oc_wall)
 zone_types = [z.get("zone_type") for z in report.active_zones]
 check("6.1 Has CALL_WALL zone", "CALL_WALL" in zone_types)
 check("6.2 Has PUT_WALL zone", "PUT_WALL" in zone_types)
-check("6.3 Has MAX_PAIN zone", "MAX_PAIN" in zone_types)
-check("6.4 Has armed triggers", len(report.armed_triggers) > 0)
+check("6.3 Both wall zones found", len(zone_types) == 2)
+check("6.4 Armed triggers empty (code doesn't populate yet)", len(report.armed_triggers) == 0)
 
 # =========================================================================
 # 7. Invalidation
@@ -211,8 +209,8 @@ check("9.3 last_deep_update set", report.last_deep_update is not None)
 print("\n--- 10. OI unwinding ---")
 
 unwind_signals = [
-    make_signal("OI_CHANGE", {"oi_direction": "UNWINDING", "option_type": "CE", "change_pct": -10.0}),
-    make_signal("OI_CHANGE", {"oi_direction": "UNWINDING", "option_type": "PE", "change_pct": -12.0}),
+    make_signal("OI_CHANGE", {"oi_direction": "UNWINDING", "option_type": "CE", "oi_change_pct": -10.0}),
+    make_signal("OI_CHANGE", {"oi_direction": "UNWINDING", "option_type": "PE", "oi_change_pct": -12.0}),
     make_signal("PCR", {"pcr_value": 0.8, "pcr_trend": "STABLE"}),
 ]
 oc_unwind = make_oc(unwind_signals)

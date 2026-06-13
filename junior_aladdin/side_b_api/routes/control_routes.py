@@ -26,26 +26,27 @@ from typing import Any
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 
+from junior_aladdin.side_b_api.command_handlers import (
+    handle_account_reset_request,
+    handle_capital_request,
+    handle_kill_switch_request,
+    handle_mode_request,
+    handle_override_request,
+    handle_reconnect_request,
+)
+
 router = APIRouter(prefix="/api/control", tags=["control"])
 
-_ALLOWED_MODES = {"ALERT", "PAPER", "REAL"}
-_ALLOWED_KILL_SWITCH_STATES = {"SOFT", "CRITICAL", "OFF"}
 
-
-def _build_ack(
-    command_type: str,
-    status: str = "ACK",
-    message: str = "",
-    owner_response: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Build a standard CommandAck response dict."""
+def _ack_to_dict(ack: Any) -> dict[str, Any]:
+    """Convert a CommandAck dataclass to a response dict."""
     return {
-        "status": status,
-        "command_type": command_type,
-        "message": message,
-        "owner_response": owner_response or {},
+        "status": ack.status,
+        "command_type": ack.command_type,
+        "message": ack.message,
+        "owner_response": ack.owner_response,
         "read_only": False,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": ack.timestamp.isoformat() if hasattr(ack.timestamp, 'isoformat') else datetime.utcnow().isoformat(),
     }
 
 
@@ -68,31 +69,14 @@ async def post_control_mode(request: Request, body: dict[str, Any]) -> dict[str,
         This is a **request** — Side A's mode_router validates and
         executes the mode transition. Side B never changes mode directly.
     """
-    new_mode = body.get("mode", "").upper()
-    if new_mode not in _ALLOWED_MODES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid mode '{body.get('mode', '')}'. Allowed: {sorted(_ALLOWED_MODES)}",
-        )
-
+    new_mode = body.get("mode", "")
     reason = body.get("reason", "")
 
-    # Store command in cache for async handler pickup
-    cache = request.app.state.cache
-    cmd = {
-        "command_type": "request_mode",
-        "target": "side_a.mode_router",
-        "params": {"mode": new_mode, "reason": reason},
-        "operator_context": "local",
-        "timestamp": datetime.utcnow().isoformat(),
-    }
-    cache.set("control:mode", cmd)
-
-    return _build_ack(
-        command_type="request_mode",
-        message=f"Mode change to {new_mode} requested.",
-        owner_response={"requested_mode": new_mode},
-    )
+    try:
+        ack = handle_mode_request(request.app.state.cache, new_mode, reason)
+        return _ack_to_dict(ack)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # ──────────────────────────────────────────────
@@ -113,32 +97,19 @@ async def post_control_capital(request: Request, body: dict[str, Any]) -> dict[s
     capital_limit = body.get("capital_limit")
     if capital_limit is None:
         raise HTTPException(status_code=400, detail="Missing 'capital_limit' in request body")
+
     try:
         capital_limit = float(capital_limit)
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="'capital_limit' must be a number")
 
-    if capital_limit <= 0:
-        raise HTTPException(status_code=400, detail="'capital_limit' must be positive")
-
     reason = body.get("reason", "")
 
-    # Store command in cache
-    cache = request.app.state.cache
-    cmd = {
-        "command_type": "request_capital",
-        "target": "side_a.risk_gate",
-        "params": {"capital_limit": capital_limit, "reason": reason},
-        "operator_context": "local",
-        "timestamp": datetime.utcnow().isoformat(),
-    }
-    cache.set("control:capital", cmd)
-
-    return _build_ack(
-        command_type="request_capital",
-        message=f"Capital limit updated to {capital_limit}.",
-        owner_response={"capital_limit": capital_limit},
-    )
+    try:
+        ack = handle_capital_request(request.app.state.cache, capital_limit, reason)
+        return _ack_to_dict(ack)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # ──────────────────────────────────────────────
@@ -160,36 +131,14 @@ async def post_control_kill_switch(request: Request, body: dict[str, Any]) -> di
         CRITICAL kill switch flattens all positions.
         Operator MUST provide a reason for SOFT or CRITICAL activation.
     """
-    new_state = body.get("state", "").upper()
-    if new_state not in _ALLOWED_KILL_SWITCH_STATES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid kill-switch state '{body.get('state', '')}'. Allowed: {sorted(_ALLOWED_KILL_SWITCH_STATES)}",
-        )
-
+    new_state = body.get("state", "")
     reason = body.get("reason", "")
-    if new_state in ("SOFT", "CRITICAL") and not reason.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="Reason required for SOFT or CRITICAL kill switch activation",
-        )
 
-    # Store command in cache
-    cache = request.app.state.cache
-    cmd = {
-        "command_type": "request_kill_switch",
-        "target": "side_a.kill_switch",
-        "params": {"state": new_state, "reason": reason},
-        "operator_context": "local",
-        "timestamp": datetime.utcnow().isoformat(),
-    }
-    cache.set("control:kill_switch", cmd)
-
-    return _build_ack(
-        command_type="request_kill_switch",
-        message=f"Kill switch set to {new_state}.",
-        owner_response={"kill_switch_state": new_state},
-    )
+    try:
+        ack = handle_kill_switch_request(request.app.state.cache, new_state, reason)
+        return _ack_to_dict(ack)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # ──────────────────────────────────────────────
@@ -216,31 +165,13 @@ async def post_control_override(request: Request, body: dict[str, Any]) -> dict[
         )
 
     reason = body.get("reason", "")
-    if not reason.strip():
-        raise HTTPException(status_code=400, detail="Reason required for override")
-
     trade_id = body.get("trade_id")
 
-    # Store command in cache
-    cache = request.app.state.cache
-    cmd = {
-        "command_type": "request_override",
-        "target": "floor_5.override_guard",
-        "params": {
-            "override_confirmation": True,
-            "trade_id": trade_id,
-            "reason": reason,
-        },
-        "operator_context": "local",
-        "timestamp": datetime.utcnow().isoformat(),
-    }
-    cache.set("control:override", cmd)
-
-    return _build_ack(
-        command_type="request_override",
-        message="Override confirmed.",
-        owner_response={"override_confirmed": True, "trade_id": trade_id},
-    )
+    try:
+        ack = handle_override_request(request.app.state.cache, reason, trade_id)
+        return _ack_to_dict(ack)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # ──────────────────────────────────────────────
@@ -261,22 +192,11 @@ async def post_control_reconnect(request: Request, body: dict[str, Any]) -> dict
     target_broker = body.get("target", "primary")
     reason = body.get("reason", "")
 
-    # Store command in cache
-    cache = request.app.state.cache
-    cmd = {
-        "command_type": "request_reconnect",
-        "target": "side_a.execution_core",
-        "params": {"target_broker": target_broker, "reason": reason},
-        "operator_context": "local",
-        "timestamp": datetime.utcnow().isoformat(),
-    }
-    cache.set("control:reconnect", cmd)
-
-    return _build_ack(
-        command_type="request_reconnect",
-        message=f"Reconnect requested for broker: {target_broker}.",
-        owner_response={"target_broker": target_broker},
-    )
+    try:
+        ack = handle_reconnect_request(request.app.state.cache, target_broker, reason)
+        return _ack_to_dict(ack)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # ──────────────────────────────────────────────
@@ -303,34 +223,19 @@ async def post_control_account_reset(request: Request, body: dict[str, Any]) -> 
         )
 
     reason = body.get("reason", "")
-    if not reason.strip():
-        raise HTTPException(status_code=400, detail="Reason required for account reset")
-
     new_balance = body.get("new_balance", 100000)
+    if new_balance is None:
+        raise HTTPException(status_code=400, detail="'new_balance' must not be null")
     try:
         new_balance = float(new_balance)
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="'new_balance' must be a number")
 
-    if new_balance <= 0:
-        raise HTTPException(status_code=400, detail="'new_balance' must be positive")
-
-    # Store command in cache
-    cache = request.app.state.cache
-    cmd = {
-        "command_type": "request_account_reset",
-        "target": "side_a.account_manager",
-        "params": {"new_balance": new_balance, "reason": reason},
-        "operator_context": "local",
-        "timestamp": datetime.utcnow().isoformat(),
-    }
-    cache.set("control:account_reset", cmd)
-
-    return _build_ack(
-        command_type="request_account_reset",
-        message=f"Account reset to {new_balance} requested.",
-        owner_response={"new_balance": new_balance},
-    )
+    try:
+        ack = handle_account_reset_request(request.app.state.cache, reason, new_balance)
+        return _ack_to_dict(ack)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # ──────────────────────────────────────────────

@@ -78,5 +78,23 @@ const ComponentManager = {
         if (component && component.update) {
             component.update(state);
         }
+    },
+
+    /**
+     * Get a registered component by name.
+     * @param {string} name
+     * @returns {object|undefined}
+     */
+    get(name) {
+        return this._components.get(name);
+    },
+
+    /**
+     * Get the container a component is mounted in.
+     * @param {string} name
+     * @returns {HTMLElement|null}
+     */
+    getContainer(name) {
+        return this._mounted.get(name) || null;
     }
 };

@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Review Workspace — Test Runner</title>
+    <style>
+        body {
+            background: #0a0e17;
+            color: #e5e7eb;
+            font-family: 'Inter', sans-serif;
+            padding: 20px;
+        }
+        h1 { color: #60a5fa; font-size: 18px; margin-bottom: 16px; }
+        .test-summary { margin-bottom: 20px; }
+        .test-summary .pass { color: #22c55e; }
+        .test-summary .fail { color: #ef4444; }
+        .test-result {
+            padding: 6px 10px;
+            margin: 3px 0;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+        }
+        .test-result.pass { background: rgba(34, 197, 94, 0.1); border-left: 3px solid #22c55e; }
+        .test-result.fail { background: rgba(239, 68, 68, 0.1); border-left: 3px solid #ef4444; }
+        .test-result .label { font-weight: 600; }
+        .test-result .detail { color: #9ca3af; font-size: 10px; margin-top: 2px; }
+        #test-output { max-height: 80vh; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Review Workspace — Test Runner</h1>
+    <div class="test-summary">
+        <span id="test-count">Running...</span>
+    </div>
+    <div id="test-output"></div>
+
+    <!-- Dependencies (minimal mocks) -->
+    <script>
+    // ── Minimal DOM simulation for test environment ──
+    // If running in a browser, these are already available.
+    // If running via Node + jsdom, these provide the stubs.
+
+    // ── Mock StateManager ──
+    const StateManager = {
+        _state: {},
+        _subs: {},
+        get(key, fallback) {
+            return this._state[key] !== undefined ? this._state[key] : fallback;
+        },
+        set(key, value) {
+            this._state[key] = value;
+            if (this._subs[key]) {
+                this._subs[key].forEach(fn => fn(value));
+            }
+        },
+        subscribe(key, fn) {
+            if (!this._subs[key]) this._subs[key] = [];
+            this._subs[key].push(fn);
+            return () => {
+                this._subs[key] = this._subs[key].filter(f => f !== fn);
+            };
+        },
+        snapshot() { return { ...this._state }; },
+        reset() { this._state = {}; this._subs = {}; },
+    };
+
+    // ── Mock ApiClient ──
+    const api = {
+        _data: {
+            trades: [],
+            decisions: [],
+            blocked: [],
+        },
+        getMemoryTrades() {
+            return Promise.resolve({ trades: this._data.trades });
+        },
+        getMemoryDecisions() {
+            return Promise.resolve({ decisions: this._data.decisions });
+        },
+        getExecutionBlocked() {
+            return Promise.resolve({ blocked_actions: this._data.blocked });
+        },
+        // Test helpers
+        _setTrades(trades) { this._data.trades = trades; },
+        _setDecisions(decisions) { this._data.decisions = decisions; },
+        _setBlocked(blocked) { this._data.blocked = blocked; },
+        _setError(method) {
+            const original = this[method];
+            this[method] = () => Promise.reject(new Error(`Simulated ${method} failure`));
+            return () => { this[method] = original; };
+        },
+        _reset() {
+            this._data = { trades: [], decisions: [], blocked: [] };
+        },
+    };
+
+    // ── Mock Formatters ──
+    const Formatters = {
+        price(p, ph = '--') { return p != null ? Number(p).toFixed(2) : ph; },
+        pnlInr(pnl, ph = '--') {
+            if (pnl == null) return ph;
+            return (pnl >= 0 ? '+' : '') + '₹' + Number(pnl).toFixed(2);
+        },
+        time(ts, opts = {}) {
+            if (!ts) return '--:--:--';
+            try {
+                const d = new Date(ts);
+                return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            } catch (e) { return ts; }
+        },
+        sessionDate() { return new Date().toLocaleDateString('en-IN'); },
+    };
+
+    // ── Mock Colors ──
+    const Colors = {
+        severity(s) {
+            const map = { info: 'var(--blue-500)', caution: 'var(--yellow-500)', severe: 'var(--orange-500)', critical: 'var(--red-500)' };
+            return map[s] || 'var(--text-dim)';
+        },
+    };
+
+    // ── Global escapeHtml helper ──
+    function escapeHtml(str) {
+        if (str == null) return '';
+        const div = document.createElement('div');
+        div.textContent = String(str);
+        return div.innerHTML;
+    }
+
+    // ── Mock RefreshScheduler (minimal stub) ──
+    const RefreshScheduler = {
+        _wsHandlers: {},
+        handleWsMessage() {},
+        onWsMessage() {},
+        init() {},
+        start() {},
+        getIntervals() { return { hot: 1000, warm: 5000, cold: 15000 }; },
+        isPaused() { return false; },
+        onHotPoll() {},
+        onWarmPoll() {},
+        onColdPoll() {},
+    };
+
+    // ── Mock WebSocketClient (minimal stub) ──
+    const WebSocketClient = function(url, opts) {
+        this.url = url;
+        this.connected = false;
+        this._handlers = {};
+        this.on = (ev, fn) => { if (!this._handlers[ev]) this._handlers[ev] = []; this._handlers[ev].push(fn); };
+        this.connect = () => { this.connected = true; };
+        this.startFallbackPolling = () => {};
+    };
+    </script>
+
+    <!-- System under test -->
+    <script src="../../junior_aladdin/side_b_dashboard/assets/js/workspace_review.js?v=2"></script>
+
+    <!-- Test runner -->
+    <script>
+    const TestRunner = {
+        _tests: [],
+        _passed: 0,
+        _failed: 0,
+        _outputEl: document.getElementById('test-output'),
+
+        test(name, fn) {
+            this._tests.push({ name, fn });
+        },
+
+        async runAll() {
+            this._outputEl.innerHTML = '';
+            this._passed = 0;
+            this._failed = 0;
+
+            for (const t of this._tests) {
+                const resultEl = document.createElement('div');
+                resultEl.className = 'test-result';
+                const labelSpan = document.createElement('span');
+                labelSpan.className = 'label';
+                labelSpan.textContent = `⏳ ${t.name}`;
+                resultEl.appendChild(labelSpan);
+                this._outputEl.appendChild(resultEl);
+
+                try {
+                    await t.fn();
+                    resultEl.className += ' pass';
+                    labelSpan.textContent = `✅ ${t.name}`;
+                    this._passed++;
+                } catch (e) {
+                    resultEl.className += ' fail';
+                    labelSpan.textContent = `❌ ${t.name}`;
+                    const detailEl = document.createElement('div');
+                    detailEl.className = 'detail';
+                    detailEl.textContent = e.message || String(e);
+                    resultEl.appendChild(detailEl);
+                    this._failed++;
+                }
+                document.getElementById('test-count').textContent =
+                    `✅ ${this._passed} passed, ❌ ${this._failed} failed (${this._tests.length} total)`;
+            }
+        },
+
+        assert(condition, msg) {
+            if (!condition) throw new Error(msg || 'Assertion failed');
+        },
+
+        assertEqual(actual, expected, msg) {
+            if (actual !== expected) {
+                throw new Error(msg || `Expected "${expected}", got "${actual}"`);
+            }
+        },
+    };
+
+    // ── Tests ──
+
+    // Setup helper
+    function createTestContainer() {
+        const container = document.createElement('div');
+        container.id = 'test-workspace';
+        document.body.appendChild(container);
+        return container;
+    }
+
+    // 1. Render layout
+    TestRunner.test('WorkspaceReview.render creates layout with all sections', async () => {
+        api._reset();
+        const container = createTestContainer();
+        WorkspaceReview.render(container);
+        await new Promise(r => setTimeout(r, 50));
+
+        TestRunner.assert(container.querySelector('.review-layout') !== null, 'Missing .review-layout');
+        TestRunner.assert(container.querySelector('.review-main') !== null, 'Missing .review-main');
+        TestRunner.assert(container.querySelector('.review-sidebar') !== null, 'Missing .review-sidebar');
+        TestRunner.assert(document.getElementById('review-trades-list') !== null, 'Missing trades list');
+        TestRunner.assert(document.getElementById('review-decisions-list') !== null, 'Missing decisions list');
+        TestRunner.assert(document.getElementById('review-blocked-list') !== null, 'Missing blocked list');
+        TestRunner.assert(document.getElementById('review-refresh-btn') !== null, 'Missing refresh button');
+        TestRunner.assert(document.getElementById('review-trade-count') !== null, 'Missing trade count');
+        TestRunner.assert(document.getElementById('review-pnl') !== null, 'Missing PnL display');
+
+        WorkspaceReview.unmount();
+        container.remove();
+    });
+
+    // 2. Loading skeletons
+    TestRunner.test('Initial render shows skeleton loading placeholders', async () => {
+        api._reset();
+        // Make API slow so skeleton stays visible
+        const origTrades = api.getMemoryTrades;
+        const origDecisions = api.getMemoryDecisions;
+        api.getMemoryTrades = () => new Promise(r => setTimeout(() => r({ trades: [] }), 200));
+        api.getMemoryDecisions = () => new Promise(r => setTimeout(() => r({ decisions: [] }), 200));
+
+        const container = createTestContainer();
+        WorkspaceReview.render(container);
+
+        // Check immediately — skeleton should be visible before async data resolves
+        await new Promise(r => setTimeout(r, 20));
+
+        const tradesEl = document.getElementById('review-trades-list');
+        TestRunner.assert(tradesEl.querySelector('.skeleton') !== null, 'Missing skeleton in trades');
+
+        const decisionsEl = document.getElementById('review-decisions-list');
+        TestRunner.assert(decisionsEl.querySelector('.skeleton') !== null, 'Missing skeleton in decisions');
+
+        // Wait for slow API to complete then clean up
+        await new Promise(r => setTimeout(r, 250));
+        WorkspaceReview.unmount();
+        container.remove();
+        api.getMemoryTrades = origTrades;
+        api.getMemoryDecisions = origDecisions;
+    });
+
+    // 3. Trade journal renders entries
+    TestRunner.test('Trade journal renders entries from API data', async () => {
+        api._reset();
+        api._setTrades([
+            { symbol: 'NIFTY', direction: 'BUY', qty: 50, avg_price: 19500.5, exit_price: 19620.75, pnl: 6012.50, timestamp: '2026-06-13T10:15:00Z', trade_class: 'CONTINUATION' },
+            { symbol: 'RELIANCE', direction: 'SELL', qty: 25, entry_price: 2850.0, current_price: 2825.0, pnl: 625.00, timestamp: '2026-06-13T10:30:00Z' },
+        ]);
+        const container = createTestContainer();
+        WorkspaceReview.render(container);
+        await new Promise(r => setTimeout(r, 100));
+
+        const tradesEl = document.getElementById('review-trades-list');
+        const entries = tradesEl.querySelectorAll('.review-entry');
+        TestRunner.assert(entries.length === 2, `Expected 2 trade entries, got ${entries.length}`);
+
+        const firstSymbol = entries[0].querySelector('.review-entry-header span:first-child');
+        TestRunner.assert(firstSymbol.textContent.includes('NIFTY'), 'First entry should be NIFTY');
+
+        const badge = document.getElementById('review-trades-badge');
+        TestRunner.assert(badge.textContent.includes('2 trades'), `Badge should show '2 trades', got '${badge.textContent}'`);
+
+        WorkspaceReview.unmount();
+        container.remove();
+    });
+
+    // 4. Decision history renders
+    TestRunner.test('Decision history renders entries', async () => {
+        api._reset();
+        api._setDecisions([
+            { decision: 'TRADE', reason: 'Strong SMC confluence', conviction_band: 'STRONG', timestamp: '2026-06-13T10:15:00Z', mood: 'PATIENT' },
+            { decision: 'WAIT', reason: 'Insufficient confluence, awaiting FVG retest', conviction_band: 'WEAK', timestamp: '2026-06-13T10:12:00Z' },
+            { decision: 'BLOCKED', reason: 'Psychology head blocked — tilt detected', conviction_band: 'REJECT', timestamp: '2026-06-13T10:10:00Z', mood: 'DEFENSIVE' },
+        ]);
+        const container = createTestContainer();
+        WorkspaceReview.render(container);
+        await new Promise(r => setTimeout(r, 100));
+
+        const decisionsEl = document.getElementById('review-decisions-list');
+        const entries = decisionsEl.querySelectorAll('.review-entry');
+        TestRunner.assert(entries.length === 3, `Expected 3 decision entries, got ${entries.length}`);
+
+        const badge = document.getElementById('review-decisions-badge');
+        TestRunner.assert(badge.textContent.includes('3 entries'), `Badge should show '3 entries', got '${badge.textContent}'`);
+
+        WorkspaceReview.unmount();
+        container.remove();
+    });
+
+    // 5. Blocked actions render
+    TestRunner.test('Blocked actions render from API', async () => {
+        api._reset();
+        api._setBlocked([
+            { block_reason: 'Risk gate blocked — capital limit exceeded', severity: 'SEVERE', timestamp: '2026-06-13T10:15:00Z', trade_id: 'trade_001' },
+            { block_reason: 'Kill switch active — CRITICAL', severity: 'CRITICAL', timestamp: '2026-06-13T10:00:00Z' },
+        ]);
+        const container = createTestContainer();
+        WorkspaceReview.render(container);
+        await new Promise(r => setTimeout(r, 100));
+
+        const blockedEl = document.getElementById('review-blocked-list');
+        const entries = blockedEl.querySelectorAll('.review-entry');
+        TestRunner.assert(entries.length === 2, `Expected 2 blocked entries, got ${entries.length}`);
+
+        const badge = document.getElementById('review-blocked-badge');
+        TestRunner.assert(badge.textContent === '2', `Badge should show '2', got '${badge.textContent}'`);
+
+        WorkspaceReview.unmount();
+        container.remove();
+    });
+
+    // 6. Session summary stats update
+    TestRunner.test('Session summary shows correct counts and PnL', async () => {
+        api._reset();
+        api._setTrades([
+            { pnl: 5000 },
+            { pnl: -2000 },
+            { pnl: 1500 },
+        ]);
+        api._setDecisions([{ decision: 'TRADE' }, { decision: 'WAIT' }]);
+        const container = createTestContainer();
+        WorkspaceReview.render(container);
+        await new Promise(r => setTimeout(r, 100));
+
+        TestRunner.assert(document.getElementById('review-trade-count').textContent === '3', 'Trade count should be 3');
+        TestRunner.assert(document.getElementById('review-decision-count').textContent === '2', 'Decision count should be 2');
+
+        const pnlEl = document.getElementById('review-pnl');
+        TestRunner.assert(pnlEl.textContent.includes('4500'), `PnL should show 4500, got '${pnlEl.textContent}'`);
+
+        WorkspaceReview.unmount();
+        container.remove();
+    });
+
+    // 7. Empty states
+    TestRunner.test('Empty data shows placeholder messages', async () => {
+        api._reset();
+        const container = createTestContainer();
+        WorkspaceReview.render(container);
+        await new Promise(r => setTimeout(r, 100));
+
+        const tradesEl = document.getElementById('review-trades-list');
+        TestRunner.assert(tradesEl.textContent.includes('No trades'), 'Should show no trades message');
+
+        const decisionsEl = document.getElementById('review-decisions-list');
+        TestRunner.assert(decisionsEl.textContent.includes('No decisions'), 'Should show no decisions message');
+
+        WorkspaceReview.unmount();
+        container.remove();
+    });
+
+    // 8. Error states with retry
+    TestRunner.test('API error shows retry button', async () => {
+        api._reset();
+        const restore = api._setError('getMemoryTrades');
+        const container = createTestContainer();
+        WorkspaceReview.render(container);
+        await new Promise(r => setTimeout(r, 100));
+
+        const tradesEl = document.getElementById('review-trades-list');
+        const retryBtn = tradesEl.querySelector('.retry-btn');
+        TestRunner.assert(retryBtn !== null, 'Should show retry button on error');
+        TestRunner.assert(tradesEl.textContent.includes('Failed'), 'Should show error message');
+
+        WorkspaceReview.unmount();
+        container.remove();
+        restore();
+    });
+
+    // 9. Decision error shows retry
+    TestRunner.test('Decision API error shows retry button', async () => {
+        api._reset();
+        const restore = api._setError('getMemoryDecisions');
+        const container = createTestContainer();
+        WorkspaceReview.render(container);
+        await new Promise(r => setTimeout(r, 100));
+
+        const decisionsEl = document.getElementById('review-decisions-list');
+        const retryBtn = decisionsEl.querySelector('.retry-btn');
+        TestRunner.assert(retryBtn !== null, 'Should show retry button on decision error');
+
+        WorkspaceReview.unmount();
+        container.remove();
+        restore();
+    });
+
+    // 10. Entry animations (entry-enter class applied after render)
+    TestRunner.test('Trade entries have entry-enter animation class', async () => {
+        api._reset();
+        api._setTrades([
+            { symbol: 'NIFTY', direction: 'BUY', qty: 50, avg_price: 19500, exit_price: 19600, pnl: 5000, timestamp: '2026-06-13T10:15:00Z' },
+            { symbol: 'TCS', direction: 'SELL', qty: 10, avg_price: 3500, exit_price: 3475, pnl: 250, timestamp: '2026-06-13T10:20:00Z' },
+        ]);
+        const container = createTestContainer();
+        WorkspaceReview.render(container);
+        await new Promise(r => setTimeout(r, 100));
+
+        const entries = document.querySelectorAll('.review-entry');
+        entries.forEach((el, i) => {
+            TestRunner.assert(el.classList.contains('entry-enter'), `Entry ${i} missing entry-enter class`);
+        });
+
+        WorkspaceReview.unmount();
+        container.remove();
+    });
+
+    // 11. Badge flash on update
+    TestRunner.test('Badge gets updated class on data load', async () => {
+        api._reset();
+        api._setTrades([{ symbol: 'NIFTY', direction: 'BUY', qty: 1, pnl: 100 }]);
+        const container = createTestContainer();
+        WorkspaceReview.render(container);
+        await new Promise(r => setTimeout(r, 50));
+
+        const badge = document.getElementById('review-trades-badge');
+        TestRunner.assert(badge.classList.contains('badge-updated'), 'Badge should have updated class');
+
+        WorkspaceReview.unmount();
+        container.remove();
+    });
+
+    // 12. Unmount cleans up
+    TestRunner.test('Unmount clears container and subscriptions', async () => {
+        api._reset();
+        const container = createTestContainer();
+        WorkspaceReview.render(container);
+        await new Promise(r => setTimeout(r, 50));
+        WorkspaceReview.unmount();
+
+        TestRunner.assert(WorkspaceReview._container === null, 'Container should be null after unmount');
+        TestRunner.assert(WorkspaceReview._stateUnsub === null, 'Subscription should be null after unmount');
+        container.remove();
+    });
+
+    // 13. System status updates from health
+    TestRunner.test('System status reflects health data', async () => {
+        api._reset();
+        const container = createTestContainer();
+        WorkspaceReview.render(container);
+        await new Promise(r => setTimeout(r, 50));
+
+        // Simulate health update via StateManager
+        StateManager.set('health', {
+            overall_status: 'GOOD',
+            data_health_signal: 'GOOD',
+            connection_status: 'CONNECTED',
+        });
+        await new Promise(r => setTimeout(r, 50));
+
+        const healthEl = document.getElementById('review-health-status');
+        TestRunner.assert(healthEl.textContent.includes('GOOD'), `Health should show GOOD, got '${healthEl.textContent}'`);
+
+        WorkspaceReview.unmount();
+        container.remove();
+    });
+
+    // 14. Degraded health shows yellow dot
+    TestRunner.test('Degraded health status shows correct dot class', async () => {
+        api._reset();
+        const container = createTestContainer();
+        WorkspaceReview.render(container);
+        await new Promise(r => setTimeout(r, 50));
+
+        StateManager.set('health', {
+            overall_status: 'DEGRADED',
+            data_health_signal: 'DEGRADED',
+            connection_status: 'CONNECTED',
+        });
+        await new Promise(r => setTimeout(r, 50));
+
+        const healthEl = document.getElementById('review-health-status');
+        TestRunner.assert(healthEl.textContent.includes('DEGRADED'), 'Should show DEGRADED');
+        TestRunner.assert(healthEl.innerHTML.includes('health-degraded'), 'Should use health-degraded dot class');
+
+        WorkspaceReview.unmount();
+        container.remove();
+    });
+
+    // 15. Critical health shows red dot
+    TestRunner.test('Critical health status shows correct dot class', async () => {
+        api._reset();
+        const container = createTestContainer();
+        WorkspaceReview.render(container);
+        await new Promise(r => setTimeout(r, 50));
+
+        StateManager.set('health', {
+            overall_status: 'CRITICAL',
+            data_health_signal: 'CRITICAL',
+            connection_status: 'DISCONNECTED',
+        });
+        await new Promise(r => setTimeout(r, 50));
+
+        const healthEl = document.getElementById('review-health-status');
+        TestRunner.assert(healthEl.textContent.includes('CRITICAL'), 'Should show CRITICAL');
+        TestRunner.assert(healthEl.innerHTML.includes('health-critical'), 'Should use health-critical dot class');
+
+        WorkspaceReview.unmount();
+        container.remove();
+    });
+
+    // ── Run all tests ──
+    TestRunner.runAll().then(() => {
+        console.log('All tests completed');
+    });
+    </script>
+</body>
+</html>

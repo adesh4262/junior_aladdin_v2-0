@@ -1,33 +1,28 @@
 """Floor 4 — Macro Department Head.
 
 **LOCKED ROLE**: Light gate / context head.
-Macro Head does NOT generate setups.
-Its role is permission, caution, event risk, and background bias.
+Macro Head is NOT a directional setup machine.
+Its role is permission and caution: assess whether the broader environment
+allows or discourages taking directional risk.
 
-Consumes Floor 3 MACRO signals (via OutputContract):
-- VIX_DATA: vix_value, condition (CALM/HIGH/EXTREME)
-- FII_DII_DATA: fiidii_net, fiidii_sentiment (POSITIVE/NEGATIVE/NEUTRAL)
-- GLOBAL_CUE: global_cue_state (POSITIVE/NEGATIVE/NEUTRAL)
-- EVENT_CALENDAR: events list, next_event, days_until_event, is_event_week
-- MACRO_CONTEXT: context_summary, macro_bias
+Inputs from Floor 3 (via OutputContract):
+- VIX: vix_value, vix_change
+- FII_DII: net_state (BUY/SELL/NEUTRAL), magnitude
+- EVENT_CALENDAR: event_type, risk_level, time_until
+- MACRO_ENVIRONMENT: environment_state (STABLE/CAUTIOUS/STRESSED)
 
 Internal Thinking:
 - Is broader environment calm or risky?
 - Is event risk nearby?
-- Is macro background mildly supportive or cautionary?
 - Should Captain become more conservative?
 
 Primary Setup: **LOCKED — NONE**
 Backup Setup: **LOCKED — NONE**
 
-Invalidation:
+Invalidation (gate sense):
 - Event risk passed
 - Macro caution removed
-- Volatility condition normalized
-
-Output fields unique to Macro:
-- caution_level (0.0–1.0)
-- event_risk_flag (bool)
+- Volatility condition normalised
 
 No context_quality_score (only SMC/ICT require this).
 """
@@ -45,7 +40,6 @@ from junior_aladdin.floor_3_calculations.f3_types import (
 from junior_aladdin.floor_4_heads.head_base import BaseHead
 from junior_aladdin.floor_4_heads.head_types import (
     InvalidationRule,
-    compute_bias_from_signals,
     compute_confidence,
 )
 from junior_aladdin.shared.logging import get_logger
@@ -55,13 +49,13 @@ logger = get_logger("macro_head")
 
 
 class MacroHead(BaseHead):
-    """Macro Head — assesses external environment risk and context.
+    """Macro Head — light gate/context head for macro-environment assessment.
 
-    This is a light gate/context head. It does NOT produce setups
-    (primary_setup and backup_setup are always None).
+    **LOCKED**: This head does NOT produce primary_setup or backup_setup.
+    Its role is permission and caution, not directional trading.
 
     Args:
-        name: Optional name override (default ``\\\"macro\\\"``).
+        name: Optional name override (default ``"macro"``).
         config: Optional dict with tuning parameters.
     """
 
@@ -83,14 +77,6 @@ class MacroHead(BaseHead):
         self,
         output_contract: OutputContract,
     ) -> list[CalculatedSignal]:
-        """Extract MACRO-domain signals from the OutputContract.
-
-        Args:
-            output_contract: The validated Floor 3 output.
-
-        Returns:
-            Only signals where ``domain == CalculationDomain.MACRO``.
-        """
         return [
             s for s in output_contract.signals
             if s.domain == CalculationDomain.MACRO
@@ -104,259 +90,185 @@ class MacroHead(BaseHead):
         output_contract: OutputContract,
         current_time: datetime,
     ) -> dict[str, Any]:
-        """Interpret MACRO signals and produce Head interpretation.
+        """Interpret macro signals — VIX, FII/DII, event risk, environment.
 
-        Macro Head is a light gate — it does NOT produce setups.
-        It reports caution_level, event_risk_flag, and a light bias.
-
-        Args:
-            signals: MACRO-domain CalculatedSignal list.
-            output_contract: Full OutputContract for context.
-            current_time: Current timestamp.
-
-        Returns:
-            Interpretation dict with caution_level and event_risk_flag.
+        Returns a dict with:
+        - bias (light leaning)
+        - confidence
+        - caution_level (0.0-1.0)
+        - event_risk_flag
+        - primary_setup = None (LOCKED)
+        - backup_setup = None (LOCKED)
+        - invalidation rules
         """
         if not signals:
             return self._empty_interpretation()
 
-        # ── Categorise signals ──────────────────────────────────────
-        vix_sigs = [s for s in signals if s.indicator_type == "VIX_DATA"]
-        fiidii_sigs = [s for s in signals if s.indicator_type == "FII_DII_DATA"]
-        global_cue_sigs = [s for s in signals if s.indicator_type == "GLOBAL_CUE"]
+        # Categorise
+        vix_sigs = [s for s in signals if s.indicator_type == "VIX"]
+        fii_sigs = [s for s in signals if s.indicator_type == "FII_DII"]
         event_sigs = [s for s in signals if s.indicator_type == "EVENT_CALENDAR"]
-        macro_ctx_sigs = [s for s in signals if s.indicator_type == "MACRO_CONTEXT"]
+        env_sigs = [s for s in signals if s.indicator_type == "MACRO_ENVIRONMENT"]
 
         # ── VIX Analysis ────────────────────────────────────────────
-        vix_condition = ""
-        vix_value = 0.0
-        if vix_sigs:
-            latest_vix = vix_sigs[-1].value
-            vix_value = latest_vix.get("vix_value", 0.0)
-            vix_condition = latest_vix.get("condition", "")
+        vix_value = 15.0
+        for sig in vix_sigs:
+            vix_value = sig.value.get("vix_value", vix_value)
+
+        vix_calm = vix_value < 14
+        vix_elevated = 14 <= vix_value <= 20
+        vix_stressed = vix_value > 20
 
         # ── FII/DII Analysis ────────────────────────────────────────
-        fiidii_sentiment = ""
-        fiidii_net = 0.0
-        if fiidii_sigs:
-            latest_fiidii = fiidii_sigs[-1].value
-            fiidii_net = latest_fiidii.get("fiidii_net", 0.0)
-            fiidii_sentiment = latest_fiidii.get("fiidii_sentiment", "")
-
-        # ── Global Cue Analysis ─────────────────────────────────────
-        global_cue_state = ""
-        if global_cue_sigs:
-            latest_cue = global_cue_sigs[-1].value
-            global_cue_state = latest_cue.get("global_cue_state", "")
+        fii_net = "NEUTRAL"
+        fii_magnitude = 0.0
+        for sig in fii_sigs:
+            fii_net = sig.value.get("net_state", "NEUTRAL")
+            fii_magnitude = sig.value.get("magnitude", 0.0)
 
         # ── Event Calendar Analysis ─────────────────────────────────
-        is_event_week = False
-        days_until_event = 999
-        next_event = ""
-        if event_sigs:
-            latest_event = event_sigs[-1].value
-            is_event_week = latest_event.get("is_event_week", False)
-            days_until_event = latest_event.get("days_until_event", 999)
-            next_event = latest_event.get("next_event", "")
+        event_risk_flag = False
+        event_types: list[str] = []
+        highest_event_risk = 0.0
+        for sig in event_sigs:
+            risk = sig.value.get("risk_level", 0.0)
+            if risk > highest_event_risk:
+                highest_event_risk = risk
+                event_risk_flag = risk > 0.5
+            event_type = sig.value.get("event_type", "unknown")
+            if risk > 0.3 and event_type not in event_types:
+                event_types.append(event_type)
 
-        # ── Macro Context Analysis ──────────────────────────────────
-        macro_ctx_bias = ""
-        ctx_summary = ""
-        if macro_ctx_sigs:
-            latest_ctx = macro_ctx_sigs[-1].value
-            macro_ctx_bias = latest_ctx.get("macro_bias", "")
-            ctx_summary = latest_ctx.get("context_summary", "")
+        # ── Environment Analysis ────────────────────────────────────
+        env_state = "STABLE"
+        for sig in env_sigs:
+            env_state = sig.value.get("environment_state", "STABLE")
 
-        # ── Compute Caution Level ──────────────────────────────────
-        caution_factors: list[float] = []
+        # ── Determine caution level ─────────────────────────────────
+        caution_level = 0.0
 
-        # VIX contribution
-        if vix_condition == "EXTREME":
-            caution_factors.append(0.30)
-        elif vix_condition == "HIGH":
-            caution_factors.append(0.15)
+        if vix_stressed:
+            caution_level += 0.4
+        elif vix_elevated:
+            caution_level += 0.2
 
-        # FII/DII contribution
-        if fiidii_sentiment == "NEGATIVE":
-            caution_factors.append(0.20)
-        elif fiidii_sentiment == "POSITIVE":
-            caution_factors.append(-0.10)  # Slightly reduces caution
-
-        # Global cue contribution
-        if global_cue_state == "NEGATIVE":
-            caution_factors.append(0.15)
-        elif global_cue_state == "POSITIVE":
-            caution_factors.append(-0.05)
-
-        # Event risk contribution
-        if is_event_week:
-            caution_factors.append(0.20)
-        elif days_until_event < 3:
-            caution_factors.append(0.10)
-
-        # Macro context bias
-        if macro_ctx_bias == "bearish":
-            caution_factors.append(0.15)
-        elif macro_ctx_bias == "bullish":
-            caution_factors.append(-0.05)
-
-        # Aggregate caution level (clamp 0.0–1.0)
-        caution_level = max(0.0, min(1.0, sum(caution_factors)))
-
-        # ── Compute Event Risk Flag ─────────────────────────────────
-        event_risk_flag = is_event_week or (days_until_event < 2 and days_until_event > 0)
-
-        # ── Count directional signals ──────────────────────────────
-        bullish_count = 0
-        bearish_count = 0
-
-        # VIX: high/extreme VIX = bearish (fear)
-        if vix_condition in ("HIGH", "EXTREME"):
-            bearish_count += 1
-        elif vix_condition == "CALM":
-            bullish_count += 1
-
-        # FII/DII: net selling = bearish, net buying = bullish
-        if fiidii_sentiment == "POSITIVE":
-            bullish_count += 1
-        elif fiidii_sentiment == "NEGATIVE":
-            bearish_count += 1
-
-        # Global cue
-        if global_cue_state == "POSITIVE":
-            bullish_count += 1
-        elif global_cue_state == "NEGATIVE":
-            bearish_count += 1
-
-        # Event week is slightly bearish (uncertainty)
-        if is_event_week:
-            bearish_count += 1
-
-        # Macro context
-        if macro_ctx_bias == "bullish":
-            bullish_count += 1
-        elif macro_ctx_bias == "bearish":
-            bearish_count += 1
-
-        # ── Determine Bias ──────────────────────────────────────────
-        # Macro bias is deliberately "light" — use a higher neutral threshold
-        # so macro doesn't overpower core price/structure analysis
-        bias = compute_bias_from_signals(bullish_count, bearish_count, neutral_threshold=0.35)
-
-        # ── Build Triggers (event-related) ──────────────────────────
-        armed_triggers: list[dict[str, Any]] = []
+        if fii_net == "SELL" and fii_magnitude > 500:
+            caution_level += 0.3
+        elif fii_net == "SELL":
+            caution_level += 0.15
 
         if event_risk_flag:
-            armed_triggers.append(self._make_trigger_dict(
-                trigger_type="event_risk",
-                condition=f"Event risk: {next_event or 'upcoming event'} — {days_until_event} day(s) away",
-            ))
+            caution_level += 0.3 * min(1.0, highest_event_risk)
 
-        if caution_level > 0.5:
-            armed_triggers.append(self._make_trigger_dict(
-                trigger_type="caution_active",
-                condition=f"Macro caution level elevated ({caution_level:.2f})",
-            ))
+        if env_state == "STRESSED":
+            caution_level += 0.3
+        elif env_state == "CAUTIOUS":
+            caution_level += 0.15
 
-        # ── NO setups — Macro is a gate/context head ────────────────
-        # LOCKED: primary_setup and backup_setup must be None
+        caution_level = min(1.0, caution_level)
 
-        # ── Build Invalidation ──────────────────────────────────────
+        # ── Determine light bias ────────────────────────────────────
+        # Macro bias is a LIGHT leaning, not a strong directional signal
+        bias = BiasType.NEUTRAL
+        if caution_level < 0.2 and fii_net == "BUY":
+            bias = BiasType.BULLISH  # Mildly supportive
+        elif caution_level > 0.6:
+            bias = BiasType.BEARISH  # Restrictive
+        elif caution_level > 0.3 and fii_net == "SELL":
+            bias = BiasType.BEARISH  # Mildly cautious
+
+        # ── Build Invalidation (gate sense) ─────────────────────────
         invalidation_rules: list[InvalidationRule] = []
 
-        if caution_level > 0.3:
+        if vix_stressed or vix_elevated:
             invalidation_rules.append(InvalidationRule(
-                condition="Macro caution condition resolved — environment normalised",
+                condition="VIX normalised below 14 — volatility risk subsided",
                 price_level=0.0,
-                reason="Macro caution invalidation — risk factors cleared",
+                reason="Macro invalidation — volatility condition normalised",
             ))
+
         if event_risk_flag:
             invalidation_rules.append(InvalidationRule(
-                condition=f"Event risk passed — {next_event or 'event'} concluded without disruption",
+                condition=f"Event risk passed: {', '.join(event_types) if event_types else 'calendar cleared'}",
                 price_level=0.0,
-                reason="Event risk invalidation — window closed",
+                reason="Macro invalidation — event risk no longer active",
             ))
-        if vix_condition in ("HIGH", "EXTREME"):
+
+        if caution_level > 0.4:
             invalidation_rules.append(InvalidationRule(
-                condition=f"VIX normalised from {vix_condition} — volatility contraction",
+                condition="Macro caution removed — environment improved",
                 price_level=0.0,
-                reason="VIX volatility invalidation — fear subsided",
+                reason="Macro invalidation — caution lifted",
             ))
 
         if not invalidation_rules:
             invalidation_rules.append(InvalidationRule(
-                condition="Macro environment state shifts significantly",
+                condition="Macro environment remains benign — no change",
                 price_level=0.0,
-                reason="General macro invalidation",
+                reason="Macro invalidation baseline — monitoring for deterioration",
             ))
 
         # ── Compute Confidence ──────────────────────────────────────
         base_score = self._compute_base_confidence(
             has_vix=len(vix_sigs) > 0,
-            has_fiidii=len(fiidii_sigs) > 0,
-            has_global_cue=len(global_cue_sigs) > 0,
+            has_fii=len(fii_sigs) > 0,
             has_events=len(event_sigs) > 0,
+            signal_count=len(signals),
         )
         confidence = compute_confidence(
             base_score=base_score,
             freshness_score=self._compute_approx_freshness(current_time),
-            context_quality=0.5,  # No context_quality_score for macro
-            signal_strength=min(1.0, len(signals) / 10),
+            context_quality=0.5,
+            signal_strength=min(1.0, len(signals) / 8),
         )
 
-        # ── Build summaries ─────────────────────────────────────────
+        # ── Build Summaries ─────────────────────────────────────────
         witness_lines: list[str] = []
-        if vix_value:
-            witness_lines.append(f"VIX: {vix_value:.1f} ({vix_condition})")
-        if fiidii_sentiment:
-            witness_lines.append(f"FII/DII: {fiidii_sentiment} (net: {fiidii_net:+.1f})")
-        if global_cue_state:
-            witness_lines.append(f"Global: {global_cue_state}")
-        if next_event:
-            witness_lines.append(f"Event: {next_event} in {days_until_event}d")
-        witness_lines.append(f"Caution: {caution_level:.2f}")
+        if vix_value > 0:
+            witness_lines.append(f"VIX: {vix_value:.1f}")
+        if fii_net != "NEUTRAL":
+            witness_lines.append(f"FII/DII: {fii_net}")
+        if event_risk_flag:
+            witness_lines.append(f"Event risk: {', '.join(event_types)}")
+        if env_state != "STABLE":
+            witness_lines.append(f"Environment: {env_state}")
+        if not witness_lines:
+            witness_lines.append("Macro environment calm")
 
         bull_case = ""
         bear_case = ""
-        if bias == BiasType.BULLISH:
-            if caution_level > 0.4:
-                bull_case = "Mildly bullish macro — environment supportive but caution elevated"
-            else:
-                bull_case = "Bullish macro — VIX calm, FII/DII supportive, global cues positive"
-            bear_case = f"Risk: event risk ({next_event}) or VIX spike changes backdrop"
-        elif bias == BiasType.BEARISH:
-            bear_case = f"Bearish macro — VIX {vix_condition}, FII/DII {fiidii_sentiment}"
-            bull_case = "Risk: caution fades, event risk passes without disruption"
+        if caution_level < 0.3:
+            bull_case = "Macro environment permits normal trading"
+            bear_case = "Monitor for VIX spike or event risk"
+        elif caution_level < 0.6:
+            bull_case = "Macro conditions acceptable with caution"
+            bear_case = "Caution advised — elevated risk factors"
         else:
-            if caution_level > 0.5:
-                bull_case = "Neutral macro — caution elevated, awaiting event clarity"
-                bear_case = "Neutral macro — caution elevated, environment uncertain"
-            else:
-                bull_case = "Neutral macro — no strong directional signal"
-                bear_case = "Neutral macro — environment quiet, monitoring for shifts"
+            bull_case = "Macro conditions are restrictive — consider waiting"
+            bear_case = "Strong caution — multiple risk factors active"
 
         return {
             "bias": bias,
             "confidence": confidence,
             "caution_level": caution_level,
             "event_risk_flag": event_risk_flag,
-            "dominant_tf": "1d",  # Macro operates on daily scale
+            "dominant_tf": "1d",
             "timeframe_view": (
-                f"VIX: {vix_condition or 'unknown'}, "
-                f"FII/DII: {fiidii_sentiment or 'unknown'}, "
-                f"Event: {next_event or 'none'}"
+                f"VIX: {vix_value:.1f}, "
+                f"FII: {fii_net}, "
+                f"Env: {env_state}"
             ),
-            "primary_setup": None,      # LOCKED — no setups
-            "backup_setup": None,        # LOCKED — no setups
-            "active_zones": [],           # Macro doesn't maintain price zones
-            "armed_triggers": armed_triggers,
+            "primary_setup": None,    # LOCKED — no setups
+            "backup_setup": None,      # LOCKED — no setups
+            "active_zones": [],
+            "armed_triggers": self._build_event_triggers(event_types, event_risk_flag, highest_event_risk),
             "invalidation": self._make_invalidation_dict(invalidation_rules),
             "bull_case": bull_case,
             "bear_case": bear_case,
             "confluence_note": (
-                f"Caution: {caution_level:.2f}, "
-                f"Event risk: {'YES' if event_risk_flag else 'NO'}, "
-                f"Context: {ctx_summary or 'no macro context'}"
+                f"VIX: {vix_value:.1f}, "
+                f"FII: {fii_net} ({fii_magnitude:.0f}), "
+                f"Events: {'active' if event_risk_flag else 'none'}"
             ),
             "witness_summary": " | ".join(witness_lines),
         }
@@ -364,58 +276,72 @@ class MacroHead(BaseHead):
     # ── Private ─────────────────────────────────────────────────────────
 
     def _empty_interpretation(self) -> dict[str, Any]:
-        """Return a safe empty interpretation when no MACRO signals exist."""
         return {
             "bias": BiasType.NEUTRAL,
             "confidence": 0.0,
             "caution_level": 0.0,
             "event_risk_flag": False,
             "dominant_tf": "1d",
-            "timeframe_view": "No MACRO signals available",
+            "timeframe_view": "No macro signals available",
             "primary_setup": None,
             "backup_setup": None,
             "active_zones": [],
             "armed_triggers": [],
             "invalidation": self._make_invalidation_dict([
                 InvalidationRule(
-                    condition="No macro data — cannot assess external environment risk",
+                    condition="No macro data — environment status unknown",
                     price_level=0.0,
-                    reason="No Floor 3 MACRO signals received",
+                    reason="No Floor 3 macro signals received",
                 ),
             ]),
-            "bull_case": "No macro data to assess",
-            "bear_case": "No macro data to assess",
-            "confluence_note": "Waiting for MACRO signals from Floor 3",
+            "bull_case": "Macro environment status unknown",
+            "bear_case": "Macro environment status unknown",
+            "confluence_note": "Waiting for macro signals from Floor 3",
             "witness_summary": "No macro data",
         }
 
     def _compute_base_confidence(
         self,
         has_vix: bool,
-        has_fiidii: bool,
-        has_global_cue: bool,
+        has_fii: bool,
         has_events: bool,
+        signal_count: int,
     ) -> float:
-        """Compute base confidence from available evidence.
-
-        Args:
-            has_vix: Whether VIX data exists.
-            has_fiidii: Whether FII/DII data exists.
-            has_global_cue: Whether global cue data exists.
-            has_events: Whether event calendar data exists.
-
-        Returns:
-            Base confidence between 0.0 and 1.0.
-        """
         score = 0.0
-
         if has_vix:
             score += 0.3
-        if has_fiidii:
-            score += 0.2
-        if has_global_cue:
-            score += 0.2
-        if has_events:
+        if has_fii:
             score += 0.3
-
+        if has_events:
+            score += 0.2
+        score += min(0.15, signal_count * 0.03)
         return min(1.0, score)
+
+    def _build_event_triggers(
+        self,
+        event_types: list[str],
+        event_risk_flag: bool,
+        highest_risk: float,
+    ) -> list[dict[str, Any]]:
+        """Build armed triggers for macro events when event risk is active.
+
+        Args:
+            event_types: List of upcoming event names.
+            event_risk_flag: Whether any event has risk > 0.5.
+            highest_risk: The highest risk level among active events (0.0-1.0).
+
+        Returns:
+            List of trigger dicts, one per event type with risk-adjusted price level.
+        """
+        if not event_risk_flag or not event_types:
+            return []
+        risk_pct = round(highest_risk * 100, 0)
+        triggers = []
+        for evt in event_types:
+            triggers.append(self._make_trigger_dict(
+                trigger_type="event_risk",
+                condition=f"{evt} resolves (risk: {risk_pct:.0f}%) — macro event risk clears",
+                zone_ref="",
+                status="PENDING",
+            ))
+        return triggers

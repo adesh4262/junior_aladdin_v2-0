@@ -117,8 +117,8 @@ const HealthPanel = {
         this._container.querySelectorAll('[data-component]').forEach(el => {
             el.addEventListener('click', () => {
                 const component = el.dataset.component;
-                openRightPanel('health');
-                // Could add specific component focus here
+                StateManager.set('activePanelComponent', component);
+                openRightPanel('floor_drilldown');
             });
         });
     },

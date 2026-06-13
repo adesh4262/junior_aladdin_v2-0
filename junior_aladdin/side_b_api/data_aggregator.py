@@ -134,7 +134,7 @@ class DataAggregator:
         Called every ~500ms during normal operation.
 
         Returns:
-            Partial dict with 'execution', 'market', and 'alerts' keys.
+            Partial dict with 'execution', 'market', 'chart_data', and 'alerts' keys.
         """
         partial: dict[str, Any] = {}
 

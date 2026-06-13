@@ -1,30 +1,28 @@
 """Floor 4 — Technical Department Head.
 
-Consumes Floor 3 Technical signals and produces a HeadReport for Captain.
+Consumes Floor 3 TECHNICAL signals and produces a HeadReport for Captain.
 
 Inputs from Floor 3 (via OutputContract):
-- RSI: rsi_value, overbought, oversold
-- MA_FAST / MA_SLOW: ma_value, ma_type
-- MA_CROSS: cross_type (GOLDEN/DEATH), confirmed
-- ATR: atr_value, volatility_context
-- VOLUME_PROFILE: poc, vah, val, volume_ratio
+- TREND: trend_state, mtf_alignment, supertrend
+- MOMENTUM: momentum_state, adx_value
+- RSI: rsi_value, oversold, overbought
+- MA_FAST / MA_SLOW: ma_value, ma_type, period
+- VWAP: vwap_value, vwap_distance_pct
+- ATR: atr_value
+- VOLUME_PROFILE: poc, vah, val
 
-Internal Thinking:
-- Is trend aligned or fragmented?
-- Is current move impulsive, healthy, weak, or overextended?
-- Is price above/below key technical references with quality?
-- Is the setup continuation-friendly or fade-prone?
-
-Primary Setup examples: VWAP pullback continuation, trend continuation reclaim
-Backup Setup examples: technical breakout continuation, support/resistance rebound
-
-Invalidation examples: VWAP relation lost decisively, continuation structure broken,
-MTF alignment collapses below threshold
+Output (HeadReport):
+- bias (BULLISH/BEARISH/NEUTRAL)
+- confidence (0.0–1.0)
+- primary_setup + backup_setup
+- active_zones (key technical levels)
+- invalidation rules (mandatory)
+- witness_summary (2-3 points)
 
 Architecture rules (LOCKED):
-- Interprets Floor 3 signals, never recomputes them.
+- Basic candle pattern logic belongs here, not in SMC/ICT.
+- No context_quality_score (only SMC/ICT require this).
 - invalidation is mandatory.
-- No context_quality_score needed (only SMC/ICT require this).
 """
 
 from __future__ import annotations
@@ -48,19 +46,18 @@ from junior_aladdin.shared.types import BiasType
 
 logger = get_logger("technical_head")
 
-# ── Setup templates ─────────────────────────────────────────────────────────
-
+# Setup templates
 _VWAP_PULLBACK = "VWAP Pullback Continuation"
 _TREND_CONTINUATION = "Trend Continuation Reclaim"
-_BREAKOUT_CONTINUATION = "Technical Breakout Continuation"
-_SR_BOUNCE = "Support/Resistance Rebound"
+_MTF_BREAKOUT = "MTF Breakout Continuation"
+_SUPPORT_RESISTANCE = "Support/Resistance Rebound"
 
 
 class TechnicalHead(BaseHead):
-    """Technical Head — interprets technical indicators from Floor 3 signals.
+    """Technical Head — interprets market technical health from Floor 3 signals.
 
     Args:
-        name: Optional name override (default ``\"technical\"``).
+        name: Optional name override (default ``"technical"``).
         config: Optional dict with tuning parameters.
     """
 
@@ -82,14 +79,7 @@ class TechnicalHead(BaseHead):
         self,
         output_contract: OutputContract,
     ) -> list[CalculatedSignal]:
-        """Extract Technical-domain signals from the OutputContract.
-
-        Args:
-            output_contract: The validated Floor 3 output.
-
-        Returns:
-            Only signals where ``domain == CalculationDomain.TECHNICAL``.
-        """
+        """Extract TECHNICAL-domain signals from the OutputContract."""
         return [
             s for s in output_contract.signals
             if s.domain == CalculationDomain.TECHNICAL
@@ -103,277 +93,275 @@ class TechnicalHead(BaseHead):
         output_contract: OutputContract,
         current_time: datetime,
     ) -> dict[str, Any]:
-        """Interpret Technical signals and produce Head interpretation.
-
-        Analyzes RSI, MA cross, ATR, and Volume Profile to determine
-        bias, confidence, setups, zones, and invalidation.
-
-        Args:
-            signals: Technical-domain CalculatedSignal list.
-            output_contract: Full OutputContract for context.
-            current_time: Current timestamp.
-
-        Returns:
-            Interpretation dict with all HeadReport fields.
-        """
+        """Interpret technical signals and produce Head interpretation."""
         if not signals:
             return self._empty_interpretation()
 
         # ── Categorise signals ──────────────────────────────────────
+        trend_sigs = [s for s in signals if s.indicator_type == "TREND"]
+        momentum_sigs = [s for s in signals if s.indicator_type == "MOMENTUM"]
         rsi_sigs = [s for s in signals if s.indicator_type == "RSI"]
-        ma_fast_sigs = [s for s in signals if s.indicator_type == "MA_FAST"]
-        ma_slow_sigs = [s for s in signals if s.indicator_type == "MA_SLOW"]
-        ma_cross_sigs = [s for s in signals if s.indicator_type == "MA_CROSS"]
+        vwap_sigs = [s for s in signals if s.indicator_type == "VWAP"]
+        ma_sigs = [s for s in signals if s.indicator_type.startswith("MA_")]
         atr_sigs = [s for s in signals if s.indicator_type == "ATR"]
-        vol_sigs = [s for s in signals if s.indicator_type == "VOLUME_PROFILE"]
+        profile_sigs = [s for s in signals if s.indicator_type == "VOLUME_PROFILE"]
+
+        # ── Trend Analysis ──────────────────────────────────────────
+        trend_state = ""
+        mtf_alignment = ""
+        trend_aligned = False
+
+        if trend_sigs:
+            ts = trend_sigs[-1].value
+            trend_state = ts.get("trend_state", "")
+            mtf_alignment = ts.get("mtf_alignment", "")
+            trend_aligned = mtf_alignment == "ALIGNED"
+
+        # ── Momentum Analysis ───────────────────────────────────────
+        momentum_state = ""
+        adx_value = 0.0
+        if momentum_sigs:
+            ms = momentum_sigs[-1].value
+            momentum_state = ms.get("momentum_state", "")
+            adx_value = ms.get("adx_value", 0.0)
 
         # ── RSI Analysis ────────────────────────────────────────────
         rsi_value = 50.0
-        rsi_overbought = False
-        rsi_oversold = False
+        oversold = False
+        overbought = False
         if rsi_sigs:
-            latest_rsi = rsi_sigs[-1].value
-            rsi_value = latest_rsi.get("rsi_value", 50.0)
-            rsi_overbought = latest_rsi.get("overbought", False)
-            rsi_oversold = latest_rsi.get("oversold", False)
+            rs = rsi_sigs[-1].value
+            rsi_value = rs.get("rsi_value", 50.0)
+            oversold = rs.get("oversold", False)
+            overbought = rs.get("overbought", False)
 
-        # ── MA Analysis ─────────────────────────────────────────────
-        ma_fast_value = 0.0
-        ma_slow_value = 0.0
-        if ma_fast_sigs:
-            ma_fast_value = ma_fast_sigs[-1].value.get("ma_value", 0.0)
-        if ma_slow_sigs:
-            ma_slow_value = ma_slow_sigs[-1].value.get("ma_value", 0.0)
+        # ── VWAP Analysis ───────────────────────────────────────────
+        vwap_value = 0.0
+        vwap_distance_pct = 0.0
+        above_vwap = False
+        if vwap_sigs:
+            vs = vwap_sigs[-1].value
+            vwap_value = vs.get("vwap_value", 0.0)
+            vwap_distance_pct = vs.get("vwap_distance_pct", 0.0)
+            above_vwap = vwap_distance_pct > 0
 
-        fast_above_slow = (ma_fast_value > ma_slow_value) if (ma_fast_value and ma_slow_value) else None
+        # ── Moving Average Analysis ─────────────────────────────────
+        fast_ma = 0.0
+        slow_ma = 0.0
+        for sig in ma_sigs:
+            if sig.indicator_type == "MA_FAST":
+                fast_ma = sig.value.get("ma_value", 0.0)
+            elif sig.indicator_type == "MA_SLOW":
+                slow_ma = sig.value.get("ma_value", 0.0)
 
-        # ── MA Cross Analysis ───────────────────────────────────────
-        golden_cross = False
-        death_cross = False
-        cross_confirmed = False
-        if ma_cross_sigs:
-            latest_cross = ma_cross_sigs[-1].value
-            cross_type = latest_cross.get("cross_type", "")
-            cross_confirmed = latest_cross.get("confirmed", False)
-            golden_cross = cross_type == "GOLDEN" and cross_confirmed
-            death_cross = cross_type == "DEATH" and cross_confirmed
-
-        # ── ATR Analysis ────────────────────────────────────────────
-        atr_value = 0.0
-        volatility_high = False
-        volatility_low = False
-        if atr_sigs:
-            latest_atr = atr_sigs[-1].value
-            atr_value = latest_atr.get("atr_value", 0.0)
-            vol_context = latest_atr.get("volatility_context", "")
-            volatility_high = vol_context == "HIGH"
-            volatility_low = vol_context == "LOW"
-
-        # ── Volume Profile Analysis ─────────────────────────────────
-        poc = 0.0
-        vah = 0.0
-        val = 0.0
-        volume_ratio = 0.0
-        if vol_sigs:
-            latest_vol = vol_sigs[-1].value
-            poc = latest_vol.get("poc", 0.0)
-            vah = latest_vol.get("vah", 0.0)
-            val = latest_vol.get("val", 0.0)
-            volume_ratio = latest_vol.get("volume_ratio", 0.0)
-
-        # ── Count bullish / bearish signals ─────────────────────────
+        # ── Build directional counts ────────────────────────────────
         bullish_count = 0
         bearish_count = 0
 
-        # RSI signals
-        if rsi_oversold:
+        if trend_state in ("STRONG_UP", "WEAK_UP"):
+            bullish_count += 2 if trend_aligned else 1
+        elif trend_state in ("STRONG_DOWN", "WEAK_DOWN"):
+            bearish_count += 2 if trend_aligned else 1
+
+        if momentum_state == "STRONG":
+            bullish_count += 1 if trend_state in ("STRONG_UP", "WEAK_UP") else 0
+            bearish_count += 1 if trend_state in ("STRONG_DOWN", "WEAK_DOWN") else 0
+
+        if not oversold and not overbought and 40 <= rsi_value <= 60:
+            pass  # Neutral RSI — no directional signal
+        elif oversold:
             bullish_count += 1  # Oversold → potential bounce
-        elif rsi_overbought:
-            bearish_count += 1  # Overbought → potential drop
+        elif overbought:
+            bearish_count += 1  # Overbought → potential pullback
 
-        if rsi_value > 50:
+        if vwap_value > 0:
+            if above_vwap:
+                bullish_count += 1
+            else:
+                bearish_count += 1
+
+        if fast_ma > slow_ma > 0:
             bullish_count += 1
-        elif rsi_value < 50:
+        elif slow_ma > fast_ma > 0:
             bearish_count += 1
-
-        # MA cross signals
-        if golden_cross:
-            bullish_count += 2  # Strong structure signal
-        elif death_cross:
-            bearish_count += 2
-
-        if fast_above_slow is True:
-            bullish_count += 1
-        elif fast_above_slow is False:
-            bearish_count += 1
-
-        # Volume signals
-        if volume_ratio > 1.5:
-            bullish_count += 1  # High volume supports trend
-        elif volume_ratio < 0.5:
-            bearish_count += 1  # Low volume suggests weakness
 
         # ── Determine Bias ──────────────────────────────────────────
         bias = compute_bias_from_signals(bullish_count, bearish_count)
 
-        # ── Build Active Zones ──────────────────────────────────────
+        # ── Build Active Zones (technical levels) ───────────────────
         active_zones: list[dict[str, Any]] = []
 
-        if vah > 0:
+        if vwap_value > 0:
             active_zones.append(self._make_zone_dict(
-                zone_type="VOLUME_PROFILE_VAH",
-                price_level=vah,
-                direction="bearish" if bias == BiasType.BEARISH else "bullish",
-                strength=min(1.0, volume_ratio),
+                zone_type="VWAP",
+                price_level=vwap_value,
+                direction="bullish" if above_vwap else "bearish",
+                strength=0.6,
             ))
-        if val > 0:
+        if fast_ma > 0:
             active_zones.append(self._make_zone_dict(
-                zone_type="VOLUME_PROFILE_VAL",
-                price_level=val,
-                direction="bullish" if bias == BiasType.BULLISH else "bearish",
-                strength=min(1.0, volume_ratio),
+                zone_type="MA_FAST",
+                price_level=fast_ma,
+                direction="bullish" if fast_ma > slow_ma else "bearish",
+                strength=0.5,
             ))
-        if poc > 0:
+        if slow_ma > 0:
             active_zones.append(self._make_zone_dict(
-                zone_type="POC",
-                price_level=poc,
-                direction="",
+                zone_type="MA_SLOW",
+                price_level=slow_ma,
+                direction="bullish" if fast_ma > slow_ma else "bearish",
                 strength=0.7,
             ))
 
-        # ── Build Triggers ──────────────────────────────────────────
-        armed_triggers: list[dict[str, Any]] = []
-
-        if golden_cross:
-            armed_triggers.append(self._make_trigger_dict(
-                trigger_type="trend_aligned",
-                condition="Golden cross confirmed — trend support active",
-            ))
-        if death_cross:
-            armed_triggers.append(self._make_trigger_dict(
-                trigger_type="trend_aligned",
-                condition="Death cross confirmed — trend resistance active",
-            ))
+        # Volume profile levels
+        if profile_sigs:
+            vp = profile_sigs[-1].value
+            poc = vp.get("poc", 0.0)
+            vah = vp.get("vah", 0.0)
+            val = vp.get("val", 0.0)
+            if poc > 0:
+                active_zones.append(self._make_zone_dict(
+                    zone_type="POC",
+                    price_level=poc,
+                    direction="neutral",
+                    strength=0.8,
+                ))
+            if vah > 0:
+                active_zones.append(self._make_zone_dict(
+                    zone_type="VAH",
+                    price_level=vah,
+                    direction="bearish",
+                    strength=0.6,
+                ))
+            if val > 0:
+                active_zones.append(self._make_zone_dict(
+                    zone_type="VAL",
+                    price_level=val,
+                    direction="bullish",
+                    strength=0.6,
+                ))
 
         # ── Determine Setups ────────────────────────────────────────
         primary_setup: str | None = None
         backup_setup: str | None = None
 
         if bias == BiasType.BULLISH:
-            if golden_cross:
-                primary_setup = _TREND_CONTINUATION
-                backup_setup = _VWAP_PULLBACK if vah > 0 else _BREAKOUT_CONTINUATION
-            elif golden_cross or rsi_oversold:
-                primary_setup = _SR_BOUNCE
-                backup_setup = _VWAP_PULLBACK
-            else:
+            if vwap_value > 0:
                 primary_setup = _VWAP_PULLBACK
-        elif bias == BiasType.BEARISH:
-            if death_cross:
+                backup_setup = _TREND_CONTINUATION if trend_aligned else None
+            elif trend_aligned:
                 primary_setup = _TREND_CONTINUATION
-                backup_setup = _BREAKOUT_CONTINUATION
-            elif rsi_overbought:
-                primary_setup = _SR_BOUNCE
-                backup_setup = _BREAKOUT_CONTINUATION
+                backup_setup = _MTF_BREAKOUT
             else:
-                primary_setup = _BREAKOUT_CONTINUATION
+                primary_setup = _SUPPORT_RESISTANCE
+        elif bias == BiasType.BEARISH:
+            if vwap_value > 0:
+                primary_setup = _VWAP_PULLBACK
+                backup_setup = _TREND_CONTINUATION if trend_aligned else None
+            elif trend_aligned:
+                primary_setup = _TREND_CONTINUATION
+                backup_setup = _MTF_BREAKOUT
+            else:
+                primary_setup = _SUPPORT_RESISTANCE
+        else:
+            # NEUTRAL — check for oversold/overbought mean reversion
+            if oversold:
+                primary_setup = _SUPPORT_RESISTANCE
+            elif overbought:
+                backup_setup = _SUPPORT_RESISTANCE
+            elif vwap_value > 0 and abs(vwap_distance_pct) > 0.5:
+                primary_setup = _VWAP_PULLBACK
 
         # ── Build Invalidation ──────────────────────────────────────
         invalidation_rules: list[InvalidationRule] = []
 
-        if bias == BiasType.BULLISH:
+        if trend_aligned:
             invalidation_rules.append(InvalidationRule(
-                condition="VWAP relation lost — price breaks below VWAP decisively",
-                price_level=0.0,
-                reason="Bullish technical structure invalidated — VWAP lost",
-            ))
-        if bias == BiasType.BEARISH:
-            invalidation_rules.append(InvalidationRule(
-                condition="VWAP relation lost — price breaks above VWAP decisively",
-                price_level=0.0,
-                reason="Bearish technical structure invalidated — VWAP reclaimed",
+                condition="MTF alignment collapses — trend structure broken",
+                price_level=self._find_key_level(active_zones, "MA_SLOW"),
+                reason="Technical invalidation — MTF alignment lost",
             ))
 
-        if golden_cross or death_cross:
+        if vwap_value > 0:
             invalidation_rules.append(InvalidationRule(
-                condition=f"MA cross invalidated — {'death' if golden_cross else 'golden'} cross appeared",
-                price_level=0.0,
-                reason="Primary MA signal invalidated by opposing cross",
+                condition=f"VWAP relation lost decisively (distance > 1%)",
+                price_level=vwap_value,
+                reason="Technical invalidation — VWAP deviation too large",
             ))
 
-        if atr_value > 0:
+        if fast_ma > 0 and slow_ma > 0:
             invalidation_rules.append(InvalidationRule(
-                condition="Volatility contraction — ATR drops below significance threshold",
-                price_level=atr_value * 0.5,
-                reason="Setup context weakened by low volatility",
+                condition="MA crossover reverses direction",
+                price_level=(fast_ma + slow_ma) / 2,
+                reason="Technical invalidation — MA structure reversed",
             ))
 
         if not invalidation_rules:
             invalidation_rules.append(InvalidationRule(
-                condition="Technical structure degrades — MTF alignment collapses",
+                condition="Technical structure breaks against current bias",
                 price_level=0.0,
-                reason="General technical invalidation",
+                reason="Technical invalidation — structure no longer supportive",
             ))
 
         # ── Compute Confidence ──────────────────────────────────────
         base_score = self._compute_base_confidence(
-            rsi_value=rsi_value,
-            has_ma_cross=golden_cross or death_cross,
-            volume_ratio=volume_ratio,
-            has_primary_setup=primary_setup is not None,
+            trend_aligned=trend_aligned,
+            has_primary=primary_setup is not None,
+            signal_count=len(signals),
         )
         confidence = compute_confidence(
             base_score=base_score,
             freshness_score=self._compute_approx_freshness(current_time),
-            context_quality=0.5,  # Technical head uses neutral context quality
-            signal_strength=min(1.0, len(signals) / 20),
+            context_quality=0.6 if trend_aligned else 0.3,
+            signal_strength=min(1.0, len(signals) / 15),
         )
 
         # ── Build summaries ─────────────────────────────────────────
         witness_lines: list[str] = []
-        if rsi_value:
-            rsi_label = "overbought" if rsi_overbought else "oversold" if rsi_oversold else f"{rsi_value:.1f}"
-            witness_lines.append(f"RSI: {rsi_label}")
-        if golden_cross:
-            witness_lines.append("Golden cross confirmed")
-        if death_cross:
-            witness_lines.append("Death cross confirmed")
-        if atr_value:
-            witness_lines.append(f"ATR: {atr_value:.2f} ({'high' if volatility_high else 'low' if volatility_low else 'normal'} vol)")
+        if trend_state:
+            witness_lines.append(f"Trend: {trend_state}")
+        if mtf_alignment:
+            witness_lines.append(f"MTF: {mtf_alignment}")
         if primary_setup:
-            witness_lines.append(f"Primary: {primary_setup}")
+            witness_lines.append(f"Setup: {primary_setup}")
+
+        view_parts = []
+        if trend_state:
+            view_parts.append(f"Trend {trend_state}")
+        if mtf_alignment:
+            view_parts.append(f"MTF {mtf_alignment}")
+        if rsi_value:
+            view_parts.append(f"RSI {rsi_value:.0f}")
+        timeframe_view = " | ".join(view_parts) if view_parts else "No technical data"
 
         bull_case = ""
         bear_case = ""
         if bias == BiasType.BULLISH:
-            bull_case = f"Bullish tech bias — RSI {rsi_value:.1f}, MA aligned"
-            bear_case = "Risk: VWAP lost, MA cross invalidated"
+            bull_case = f"Trend {trend_state} aligned ({mtf_alignment}), RSI {rsi_value:.0f}"
+            bear_case = "Risk: VWAP rejection or trend breakdown"
         elif bias == BiasType.BEARISH:
-            bear_case = f"Bearish tech bias — RSI {rsi_value:.1f}, MA aligned"
-            bull_case = "Risk: VWAP reclaimed, structure flips bullish"
+            bear_case = f"Trend {trend_state} aligned ({mtf_alignment}), RSI {rsi_value:.0f}"
+            bull_case = "Risk: VWAP reclaim or trend reversal"
         else:
-            bull_case = "Neutral — mixed technical signals"
-            bear_case = "Neutral — waiting for clearer technical alignment"
+            bull_case = "Technical neutral — range conditions"
+            bear_case = "Waiting for MTF alignment"
 
         return {
             "bias": bias,
             "confidence": confidence,
             "dominant_tf": "1m",
-            "timeframe_view": (
-                f"RSI: {rsi_value:.1f}, "
-                f"MA: {'golden' if golden_cross else 'death' if death_cross else 'mixed'}, "
-                f"ATR: {atr_value:.2f}"
-            ),
+            "timeframe_view": timeframe_view,
             "primary_setup": primary_setup,
             "backup_setup": backup_setup,
             "active_zones": active_zones,
-            "armed_triggers": armed_triggers,
+            "armed_triggers": [],
             "invalidation": self._make_invalidation_dict(invalidation_rules),
             "bull_case": bull_case,
             "bear_case": bear_case,
             "confluence_note": (
-                f"Volume ratio: {volume_ratio:.2f}, "
-                f"{'confirmed cross' if cross_confirmed else 'no cross signal'}"
+                f"RSI {rsi_value:.0f} | "
+                f"ADX {adx_value:.1f} | "
+                f"VWAP dist {vwap_distance_pct:+.2f}%"
             ),
             "witness_summary": " | ".join(witness_lines),
         }
@@ -381,19 +369,18 @@ class TechnicalHead(BaseHead):
     # ── Private ─────────────────────────────────────────────────────────
 
     def _empty_interpretation(self) -> dict[str, Any]:
-        """Return a safe empty interpretation when no Technical signals exist."""
         return {
             "bias": BiasType.NEUTRAL,
             "confidence": 0.0,
             "dominant_tf": "1m",
-            "timeframe_view": "No Technical signals available",
+            "timeframe_view": "No technical signals available",
             "primary_setup": None,
             "backup_setup": None,
             "active_zones": [],
             "armed_triggers": [],
             "invalidation": self._make_invalidation_dict([
                 InvalidationRule(
-                    condition="No technical data — cannot assess",
+                    condition="No technical data — cannot assess structure",
                     price_level=0.0,
                     reason="No Floor 3 technical signals received",
                 ),
@@ -406,33 +393,24 @@ class TechnicalHead(BaseHead):
 
     def _compute_base_confidence(
         self,
-        rsi_value: float,
-        has_ma_cross: bool,
-        volume_ratio: float,
-        has_primary_setup: bool,
+        trend_aligned: bool,
+        has_primary: bool,
+        signal_count: int,
     ) -> float:
-        """Compute base confidence from available evidence.
-
-        Args:
-            rsi_value: Current RSI value.
-            has_ma_cross: Whether a significant MA cross exists.
-            volume_ratio: Current volume ratio.
-            has_primary_setup: Whether a primary setup was identified.
-
-        Returns:
-            Base confidence between 0.0 and 1.0.
-        """
         score = 0.0
-
-        if abs(rsi_value - 50) > 10:  # RSI shows clear direction
-            score += 0.2
-        if has_ma_cross:
+        if trend_aligned:
+            score += 0.4
+        if has_primary:
             score += 0.3
-        if volume_ratio > 1.2:
-            score += 0.2
-        if has_primary_setup:
-            score += 0.3
-
+        score += min(0.2, signal_count * 0.02)
         return min(1.0, score)
 
-
+    def _find_key_level(
+        self,
+        zones: list[dict[str, Any]],
+        zone_type: str,
+    ) -> float:
+        for z in zones:
+            if z.get("zone_type") == zone_type:
+                return z.get("price_level", 0.0)
+        return 0.0

@@ -145,6 +145,102 @@ async def debug_state():
     return state
 
 
+@app.get("/api/debug/cache-keys")
+async def cache_keys():
+    """Debug endpoint — return all cache keys with metadata.
+
+    Returns a list of entries, each with:
+    - key: str
+    - tier: str (HOT/WARM/COLD)
+    - age_s: float (seconds since creation)
+    - hits: int
+    - is_expired: bool
+    """
+    cache = app.state.cache
+    keys = cache.get_all_keys()
+    entries = []
+    for key in keys:
+        entry = cache._store.get(key)
+        if entry:
+            entries.append({
+                "key": key,
+                "tier": entry.tier.value,
+                "age_s": entry.age_s,
+                "hits": entry.hits,
+                "is_expired": entry.is_expired,
+                "value_preview": _truncate_preview(entry.value),
+            })
+    return {"entries": entries, "count": len(entries)}
+
+
+@app.get("/api/debug/cache-entry/{key:path}")
+async def cache_entry(key: str):
+    """Debug endpoint — return a single cache entry with full value."""
+    cache = app.state.cache
+    entry = cache._store.get(key)
+    if entry is None:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=404, content={"error": f"Key '{key}' not found"})
+    return {
+        "key": key,
+        "tier": entry.tier.value,
+        "created_at": entry.created_at.isoformat(),
+        "expires_at": entry.expires_at.isoformat(),
+        "age_s": entry.age_s,
+        "hits": entry.hits,
+        "is_expired": entry.is_expired,
+        "value": entry.value,
+    }
+
+
+@app.post("/api/debug/cache/invalidate")
+async def invalidate_key(body: dict):
+    """Debug endpoint — invalidate a single cache key."""
+    key = body.get("key", "")
+    if not key:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=400, content={"error": "'key' field is required"})
+    cache = app.state.cache
+    removed = cache.invalidate(key)
+    return {"removed": removed, "key": key}
+
+
+@app.post("/api/debug/cache/invalidate-tier")
+async def invalidate_tier(body: dict):
+    """Debug endpoint — invalidate all entries in a tier."""
+    from junior_aladdin.side_b_api.session_cache import CacheTier
+    tier_str = body.get("tier", "").upper()
+    try:
+        tier = CacheTier(tier_str)
+    except ValueError:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=400, content={"error": f"Invalid tier '{tier_str}'. Use HOT, WARM, or COLD"})
+    cache = app.state.cache
+    count = cache.invalidate_tier(tier)
+    return {"removed": count, "tier": tier_str}
+
+
+@app.post("/api/debug/cache/clear")
+async def clear_cache():
+    """Debug endpoint — clear the entire cache."""
+    cache = app.state.cache
+    count = len(cache._store)
+    cache.clear_session()
+    return {"removed": count, "message": "Cache cleared"}
+
+
+def _truncate_preview(value: object, max_len: int = 200) -> str:
+    """Return a truncated string preview of a value."""
+    import json
+    try:
+        text = json.dumps(value, default=str)
+    except (TypeError, ValueError):
+        text = str(value)
+    if len(text) > max_len:
+        text = text[:max_len] + "..."
+    return text
+
+
 # ──────────────────────────────────────────────
 #  WebSocket — real-time push
 # ──────────────────────────────────────────────
