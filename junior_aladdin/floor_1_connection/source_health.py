@@ -62,6 +62,7 @@ class SourceHealthMonitor:
             latency_ms=0.0,
             heartbeat_age_s=0.0,
             reconnect_count=0,
+            ltp=0.0,
         )
         self._last_heartbeat: datetime = datetime.now(timezone.utc)
         self._last_latency_update: datetime = datetime.now(timezone.utc)
@@ -94,6 +95,15 @@ class SourceHealthMonitor:
             )
         self._state.latency_ms = round(latency_ms, 2)
         self._last_latency_update = datetime.now(timezone.utc)
+
+    def update_ltp(self, price: float) -> None:
+        """Update the latest known price from WebSocket ticks.
+
+        Args:
+            price: The latest LTP value. Ignored if <= 0.
+        """
+        if price > 0:
+            self._state.ltp = round(float(price), 2)
 
     def update_heartbeat(self) -> None:
         """Record a heartbeat, resetting the heartbeat age to 0."""
@@ -164,13 +174,14 @@ class SourceHealthMonitor:
 
         Returns:
             Dict with: lifecycle_state, latency_ms, heartbeat_age_s,
-            reconnect_count.
+            reconnect_count, ltp.
         """
         return {
             "lifecycle_state": self._state.lifecycle_state.value,
             "latency_ms": self._state.latency_ms,
             "heartbeat_age_s": self._state.heartbeat_age_s,
             "reconnect_count": self._state.reconnect_count,
+            "ltp": self._state.ltp,
         }
 
     @property

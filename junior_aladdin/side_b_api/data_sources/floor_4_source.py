@@ -4,21 +4,36 @@ Polls Floor 4 (Department Heads) for the aggregated FloorSummary,
 individual HeadReports per head, and per-head operational states and
 freshness.
 
+Reads from the shared CaptainEngine singleton which stores the latest
+head reports and floor summary from each heavy cycle run by SystemRunner.
+
 Reference: ROADMAP_SIDE_B Step 8.2
 """
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Any
+
+from junior_aladdin.shared.component_registry import get_registry
+
+log = logging.getLogger(__name__)
 
 
 def poll_floor_4() -> dict[str, Any]:
     """Poll Floor 4 for floor summary, head reports, and head states.
 
+    Reads from the shared CaptainEngine singleton which stores the latest
+    head reports + floor summary from each heavy cycle.
+
+    Falls back to empty defaults if:
+    - CaptainEngine hasn't run any heavy cycle yet
+    - No head reports available yet
+
     Returns:
         Dict with keys:
-            - floor_summary: dict (floor_bias, confidence, setup counts, head health)
+            - floor_summary: dict (floor_bias_snapshot, confidence, setup counts, head health)
             - head_reports: list[dict] — per-head report summaries
             - head_states: dict[str, str] — per-head: READY / UNCERTAIN / STALE
             - last_poll: str (ISO timestamp)
@@ -31,79 +46,56 @@ def poll_floor_4() -> dict[str, Any]:
     }
 
     try:
-        # ── Floor Summary ──
-        try:
-            from junior_aladdin.floor_4_heads.floor_summary_builder import (
-                FloorSummaryBuilder,
-            )
+        captain = get_registry().get_captain_engine()
+        head_reports = captain.get_latest_head_reports()
+        floor_summary = captain.get_latest_floor_summary()
 
-            builder = FloorSummaryBuilder()
-            summary = builder.get_latest_summary()
-            if summary is not None:
-                result["floor_summary"] = {
-                    "summary_timestamp": (
-                        summary.summary_timestamp.isoformat()
-                        if hasattr(summary, "summary_timestamp")
-                        else ""
-                    ),
-                    "floor_bias_snapshot": summary.floor_bias_snapshot,
-                    "floor_confidence_snapshot": summary.floor_confidence_snapshot,
-                    "active_setup_count": summary.active_setup_count,
-                    "ready_heads_count": summary.ready_heads_count,
-                    "uncertain_heads_count": summary.uncertain_heads_count,
-                    "stale_heads_count": summary.stale_heads_count,
-                    "conflict_present": summary.conflict_present,
-                    "data_health_signal": (
-                        summary.data_health_signal.value
-                        if hasattr(summary.data_health_signal, "value")
-                        else str(summary.data_health_signal)
-                    ),
-                    "head_health_snapshot": dict(summary.head_health_snapshot),
-                    "core_head_health_snapshot": dict(
-                        summary.core_head_health_snapshot
-                    ),
-                    "setup_presence": summary.setup_presence,
-                    "setup_absence_context": summary.setup_absence_context,
-                }
-        except ImportError:
-            pass
+        # ── Convert HeadReport objects to dicts ──
+        if head_reports:
+            head_list: list[dict[str, Any]] = []
+            head_states: dict[str, str] = {}
 
-        # ── Head Reports ──
-        try:
-            from junior_aladdin.floor_4_heads.head_base import get_all_head_reports
+            for head_name, report in head_reports.items():
+                head_list.append({
+                    "head_name": head_name,
+                    "state": report.state.value if hasattr(report.state, "value") else str(report.state),
+                    "bias": report.bias.value if hasattr(report.bias, "value") else str(report.bias),
+                    "confidence": report.confidence,
+                    "freshness_tag": report.freshness_tag.value if hasattr(report.freshness_tag, "value") else str(report.freshness_tag),
+                    "context_quality_score": report.context_quality_score,
+                    "primary_setup": report.primary_setup,
+                    "backup_setup": report.backup_setup,
+                    "no_setup_flag": getattr(report, "no_setup_flag", False),
+                })
+                head_states[head_name] = report.state.value if hasattr(report.state, "value") else str(report.state)
 
-            reports = get_all_head_reports()
-            result["head_reports"] = [
-                {
-                    "head_name": r.head_name,
-                    "state": r.state.value if hasattr(r.state, "value") else str(r.state),
-                    "bias": r.bias.value if hasattr(r.bias, "value") else str(r.bias),
-                    "confidence": r.confidence,
-                    "freshness_tag": (
-                        r.freshness_tag.value
-                        if hasattr(r.freshness_tag, "value")
-                        else str(r.freshness_tag)
-                    ),
-                    "context_quality_score": r.context_quality_score,
-                    "primary_setup": r.primary_setup,
-                    "backup_setup": r.backup_setup,
-                    "invalidation_summary": str(r.invalidation),
-                    "no_setup_flag": r.primary_setup is None and r.backup_setup is None,
-                }
-                for r in reports
-            ]
-            result["head_states"] = {
-                r.head_name: (
-                    r.state.value if hasattr(r.state, "value") else str(r.state)
-                )
-                for r in reports
+            result["head_reports"] = head_list
+            result["head_states"] = head_states
+
+        # ── Convert FloorSummary to dict ──
+        if floor_summary is not None:
+            fs = floor_summary
+            result["floor_summary"] = {
+                "floor_bias_snapshot": fs.floor_bias_snapshot if hasattr(fs, "floor_bias_snapshot") else {},
+                "floor_confidence_snapshot": fs.floor_confidence_snapshot if hasattr(fs, "floor_confidence_snapshot") else {},
+                "active_setup_count": fs.active_setup_count if hasattr(fs, "active_setup_count") else 0,
+                "primary_setups_by_head": fs.primary_setups_by_head if hasattr(fs, "primary_setups_by_head") else {},
+                "backup_setups_by_head": fs.backup_setups_by_head if hasattr(fs, "backup_setups_by_head") else {},
+                "ready_heads_count": fs.ready_heads_count if hasattr(fs, "ready_heads_count") else 0,
+                "uncertain_heads_count": fs.uncertain_heads_count if hasattr(fs, "uncertain_heads_count") else 0,
+                "stale_heads_count": fs.stale_heads_count if hasattr(fs, "stale_heads_count") else 0,
+                "conflict_present": fs.conflict_present if hasattr(fs, "conflict_present") else False,
+                "data_health_signal": fs.data_health_signal.value if hasattr(fs.data_health_signal, "value") else str(fs.data_health_signal),
+                "summary_witness_lines": fs.summary_witness_lines if hasattr(fs, "summary_witness_lines") else [],
             }
-        except ImportError:
-            pass
 
-    except ImportError:
-        pass
+        log.debug(
+            "Floor 4 poll: %d head(s), floor_summary=%s",
+            len(head_reports),
+            "present" if floor_summary else "missing",
+        )
+
     except Exception:
-        pass
+        log.warning("Floor 4 poll failed — returning empty defaults", exc_info=True)
 
     return result

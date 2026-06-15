@@ -187,6 +187,7 @@ class SourceHealth:
     latency_ms: float = 0.0
     heartbeat_age_s: float = 0.0
     reconnect_count: int = 0
+    ltp: float = 0.0  # Latest price from WebSocket tick
 
 
 # =============================================================================

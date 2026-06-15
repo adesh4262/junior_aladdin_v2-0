@@ -10,6 +10,7 @@ Floor 1 rule: ONLY imports from shared/. No floor_2+ imports.
 
 from __future__ import annotations
 
+import threading
 from typing import Any, Callable
 
 from junior_aladdin.floor_1_connection.auth_manager import AuthManager
@@ -26,6 +27,54 @@ logger = get_logger("source_adapters")
 
 # Type alias for data callbacks
 DataCallback = Callable[[str, str, dict[str, Any]], None]  # (source_name, feed_type, raw_data)
+
+# NIFTY 50 index token for Angel One WebSocket subscription
+NIFTY_INDEX_TOKEN = "26000"
+
+# Key NIFTY 50 stocks to subscribe to for live tick data
+# (token, symbol) — most liquid/important ones first
+NIFTY_50_STOCK_TOKENS: list[tuple[str, str]] = [
+    ("1594", "RELIANCE"),   # Reliance Industries
+    ("11536", "TCS"),       # TCS
+    ("3045", "INFY"),       # Infosys
+    ("350", "HDFCBANK"),    # HDFC Bank
+    ("4963", "ICICIBANK"),  # ICICI Bank
+    ("11915", "WIPRO"),     # Wipro
+    ("5715", "ITC"),        # ITC
+    ("1660", "BAJFINANCE"), # Bajaj Finance
+    ("3456", "KOTAKBANK"),  # Kotak Mahindra Bank
+    ("11630", "LT"),        # Larsen & Toubro
+    ("3787", "SBIN"),       # State Bank of India
+    ("8814", "MARUTI"),     # Maruti Suzuki
+    ("4494", "HINDUNILVR"), # Hindustan Unilever
+    ("685", "BHARTIARTL"),  # Bharti Airtel
+    ("8226", "HCLTECH"),    # HCL Technologies
+    ("11287", "SUNPHARMA"), # Sun Pharma
+    ("5108", "TITAN"),      # Titan
+    ("14977", "DMART"),     # Avenue Supermarts (DMart)
+    ("2885", "ASIANPAINT"), # Asian Paints
+    ("17818", "ADANIENT"),  # Adani Enterprises
+    ("17971", "ADANIPORTS"),# Adani Ports
+    ("1356", "BAJAJFINSV"), # Bajaj Finserv
+    ("4671", "DRREDDY"),    # Dr. Reddy's
+    ("1922", "NTPC"),       # NTPC
+    ("14872", "POWERGRID"), # Power Grid Corporation
+    ("980", "M&M"),        # Mahindra & Mahindra
+    ("11667", "ULTRACEMCO"),# UltraTech Cement
+    ("2104", "JSWSTEEL"),   # JSW Steel
+    ("9904", "ONGC"),       # Oil and Natural Gas Corporation
+    ("11491", "TATAMOTORS"),# Tata Motors
+    ("11895", "TATASTEEL"), # Tata Steel
+    ("3432", "JIOFIN"),     # Jio Financial Services
+    ("3433", "SBILIFE"),    # SBI Life Insurance
+    ("11511", "TRENT"),     # Trent
+    ("1330", "BAJAJHLDNG"), # Bajaj Holdings
+    ("14418", "HAL"),       # Hindustan Aeronautics
+    ("10666", "COALINDIA"), # Coal India
+]
+
+# Deduplicated list of NIFTY 50 stock tokens to subscribe to
+NIFTY_50_TOKENS: list[str] = list(dict.fromkeys([tok for tok, sym in NIFTY_50_STOCK_TOKENS]))
 
 
 # ------------------------------------------------------------------
@@ -57,6 +106,14 @@ class AngelOneAdapter:
         self._subscribed_feeds: list[str] = []
         self._connected: bool = False
 
+        # WebSocket instance (SmartWebSocketV2)
+        self._ws: Any = None
+        self._ws_thread: threading.Thread | None = None
+
+        # Config values needed for WebSocket
+        self._api_key: str | None = None
+        self._client_code: str | None = None
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -64,14 +121,14 @@ class AngelOneAdapter:
     def connect(self) -> bool:
         """Establish connection to Angel One.
 
-        Performs authentication first, then marks the connection as active.
-        Uses retry_with_backoff for resilience.
+        Performs REST authentication first, then establishes the SmartAPI
+        WebSocket for live market data streaming.
 
         Returns:
             True if connection succeeds.
 
         Raises:
-            ConnectionError: If authentication or connection fails.
+            ConnectionError: If authentication or Websocket connection fails.
         """
         if self._connected:
             logger.info(
@@ -81,20 +138,28 @@ class AngelOneAdapter:
             return True
 
         try:
-            # Step 1: Authenticate
+            # Step 1: REST Authentication
             self._auth.login()
+
+            # Extract config values for WebSocket
+            self._api_key = self._auth._config.get("angel_one.api_key")
+            self._client_code = self._auth._config.get("angel_one.client_id")
+
             logger.info(
-                "Authentication successful",
+                "REST authentication successful — establishing WebSocket",
                 extra={"connection_id": self._connection_id},
             )
 
-            # Step 2: Mark as connected
+            # Step 2: Establish SmartAPI WebSocket for live ticks
+            self._connect_websocket()
+
+            # Step 3: Mark as connected
             self._connected = True
             self._health.transition_to(LifecycleState.HEALTHY)
             self._health.update_heartbeat()
 
             logger.info(
-                "Connection established",
+                "Angel One connected — WebSocket streaming live data",
                 extra={"connection_id": self._connection_id},
             )
             return True
@@ -115,13 +180,22 @@ class AngelOneAdapter:
     def disconnect(self) -> None:
         """Disconnect from Angel One gracefully.
 
-        Marks the connection as disconnected and updates health state.
+        Closes the WebSocket connection, marks as disconnected,
+        and updates health state.
         Does NOT clear authentication token (can be reused on reconnect).
         """
+        # Close WebSocket if active
+        if self._ws is not None:
+            try:
+                self._ws.close_connection()
+            except Exception:
+                logger.debug("WebSocket close error (non-fatal)")
+            self._ws = None
+
         self._connected = False
         self._health.transition_to(LifecycleState.DISCONNECTED)
         logger.info(
-            "Disconnected",
+            "Disconnected — WebSocket closed",
             extra={"connection_id": self._connection_id},
         )
 
@@ -186,12 +260,17 @@ class AngelOneAdapter:
     def subscribe_feeds(self, feed_types: list[str]) -> None:
         """Register feed types this adapter should receive.
 
+        Feeds are just registered in the list — actual WebSocket token
+        subscription happens automatically in ``_on_open`` when the
+        WebSocket connects (via ``_ws_subscribe_nifty_tokens``).
+
         Args:
             feed_types: List of feed types (e.g., ``["spot_tick", "options_snapshot"]``).
         """
         for ft in feed_types:
             if ft not in self._subscribed_feeds:
                 self._subscribed_feeds.append(ft)
+
         logger.info(
             "Feeds subscribed",
             extra={"connection_id": self._connection_id, "feeds": self._subscribed_feeds},
@@ -244,20 +323,256 @@ class AngelOneAdapter:
                     extra={"feed_type": feed_type, "connection_id": self._connection_id},
                 )
 
+    def _connect_websocket(self) -> None:
+        """Establish the SmartAPI WebSocket for live market data.
+
+        Creates a SmartWebSocketV2 instance with the authenticated tokens,
+        sets up data/error callbacks, connects, and subscribes to NIFTY 50
+        tokens for live LTP data.
+
+        If tokens are missing (e.g. test environment or no feed token),
+        logs a warning and returns gracefully — REST auth still succeeded.
+        """
+        token = self._auth.get_token()
+        feed_token = self._auth.get_feed_token()
+
+        if not token or not feed_token:
+            logger.warning(
+                "WebSocket not connected — tokens not available "
+                "(has_token=%s, has_feed_token=%s). "
+                "Live ticks will not be available.",
+                token is not None,
+                feed_token is not None,
+            )
+            return
+
+        if not self._api_key or not self._client_code:
+            logger.warning(
+                "WebSocket not connected — API key or client code not available"
+            )
+            return
+
+        try:
+            from SmartApi.smartWebSocketV2 import SmartWebSocketV2
+
+            # Create WebSocket instance
+            sws = SmartWebSocketV2(
+                auth_token=token,
+                api_key=self._api_key,
+                client_code=self._client_code,
+                feed_token=feed_token,
+                max_retry_attempt=3,  # Auto-reconnect up to 3 times
+            )
+
+            # ── Callbacks ─────────────────────────────────────
+
+            def _on_open(wsapp) -> None:
+                """WebSocket opened — subscribe to tokens.
+
+                SmartWebSocketV2 calls ``on_open`` with a single argument
+                (the WebSocket app instance).
+                """
+                logger.info(
+                    "SmartAPI WebSocket connected",
+                    extra={"connection_id": self._connection_id},
+                )
+                # Register spot_tick feed so incoming data flows to callbacks
+                if "spot_tick" not in self._subscribed_feeds:
+                    self._subscribed_feeds.append("spot_tick")
+                self._ws_subscribe_nifty_tokens()
+
+            def _on_data(wsapp, parsed_message) -> None:
+                """Received parsed tick data from WebSocket."""
+                try:
+                    # Log raw message format for first few ticks
+                    msg_type = type(parsed_message).__name__
+                    if isinstance(parsed_message, dict):
+                        logger.info(
+                            "RAW TICK: type=%s, keys=%s, sample=%s",
+                            msg_type,
+                            list(parsed_message.keys())[:10],
+                            str(parsed_message)[:200],
+                        )
+                    else:
+                        logger.info("RAW TICK: type=%s, len=%s, sample=%s",
+                                     msg_type,
+                                     len(str(parsed_message)) if hasattr(parsed_message, '__len__') else '?',
+                                     str(parsed_message)[:200])
+                    
+                    tick_data = self._normalize_tick(parsed_message)
+                    if tick_data:
+                        self._receive_data("spot_tick", tick_data)
+                except Exception:
+                    logger.debug("Tick data parse error (non-fatal)", exc_info=True)
+
+            def _on_error(wsapp, error) -> None:
+                """WebSocket error occurred."""
+                logger.warning(
+                    "SmartAPI WebSocket error: %s",
+                    error,
+                    extra={"connection_id": self._connection_id},
+                )
+                self._health.transition_to(LifecycleState.DEGRADED)
+
+            def _on_close(wsapp, code, reason) -> None:
+                """WebSocket closed."""
+                logger.info(
+                    "SmartAPI WebSocket closed (code=%s, reason=%s)",
+                    code, reason,
+                    extra={"connection_id": self._connection_id},
+                )
+                self._health.transition_to(LifecycleState.DISCONNECTED)
+
+            # Attach callbacks
+            sws.on_open = _on_open
+            sws.on_data = _on_data
+            sws.on_error = _on_error
+            sws.on_close = _on_close
+
+            # Store reference before starting thread
+            self._ws = sws
+
+            # Connect in a daemon thread — SmartWebSocketV2.connect() is blocking
+            # (runs the WebSocket event loop forever)
+            ws_thread = threading.Thread(
+                target=sws.connect,
+                daemon=True,
+                name="angel-one-ws",
+            )
+            ws_thread.start()
+            self._ws_thread = ws_thread
+
+            logger.info(
+                "SmartAPI WebSocket connecting to %s (daemon thread)",
+                SmartWebSocketV2.ROOT_URI,
+            )
+
+        except ImportError:
+            raise ConnectionError(
+                "smartapi-python SDK not installed — cannot establish WebSocket",
+            )
+        except Exception as e:
+            self._ws = None
+            raise ConnectionError(
+                "Failed to establish SmartAPI WebSocket",
+                original_exception=e,
+            )
+
+    def _ws_subscribe_nifty_tokens(self) -> None:
+        """Subscribe to NIFTY 50 tokens on the active WebSocket.
+
+        Subscribes to:
+        - NIFTY 50 index (token 26000) for overall market view
+        - Key NIFTY 50 stocks for individual tick data
+
+        Subscribes in LTP mode (mode=1) for minimum bandwidth usage.
+        """
+        if self._ws is None:
+            logger.warning("Cannot subscribe — WebSocket not connected")
+            return
+
+        try:
+            from SmartApi.smartWebSocketV2 import SmartWebSocketV2
+
+            # Build token list: NIFTY index + stocks, all on NSE_CM (exchange 1)
+            all_tokens = [NIFTY_INDEX_TOKEN] + NIFTY_50_TOKENS
+
+            token_list = [
+                {"exchangeType": SmartWebSocketV2.NSE_CM, "tokens": all_tokens}
+            ]
+
+            # Subscribe in LTP mode (1) for lightweight updates
+            self._ws.subscribe(
+                correlation_id="NIFTYSUB01",
+                mode=SmartWebSocketV2.LTP_MODE,
+                token_list=token_list,
+            )
+
+            logger.info(
+                "Subscribed to %d tokens on SmartAPI WebSocket (LTP mode)",
+                len(all_tokens),
+                extra={
+                    "connection_id": self._connection_id,
+                    "tokens": f"NIFTY index + {len(NIFTY_50_TOKENS)} stocks",
+                },
+            )
+
+        except Exception as e:
+            logger.error(
+                "Failed to subscribe to NIFTY tokens",
+                extra={"error": str(e), "connection_id": self._connection_id},
+            )
+
     def _resubscribe_feeds(self) -> None:
         """Re-subscribe previously registered feeds after reconnect.
 
-        In a live WebSocket scenario, dropping the connection loses all
-        subscriptions. This placeholder logs the re-subscription step;
-        the real implementation will send subscription commands to the
-        Angel One WebSocket after reconnect.
+        After reconnection, re-establishes the WebSocket connection and
+        re-subscribes to all previously registered feed tokens.
         """
         if self._subscribed_feeds:
             logger.info(
-                "Re-subscribing %d feed(s)",
+                "Re-subscribing %d feed(s) after reconnect",
                 len(self._subscribed_feeds),
                 extra={"feeds": self._subscribed_feeds, "connection_id": self._connection_id},
             )
+            # Re-establish WebSocket if needed
+            if self._connected and self._ws is None:
+                try:
+                    self._connect_websocket()
+                except Exception as e:
+                    logger.error("WebSocket reconnection failed: %s", e)
+
+    @staticmethod
+    def _normalize_tick(parsed_message: dict[str, Any]) -> dict[str, Any] | None:
+        """Normalize a raw WebSocket tick into a consistent format.
+
+        The SmartAPI WebSocket returns various formats depending on mode.
+        This method normalises them into a standard dict with fields:
+            - token: str
+            - symbol: str (if available)
+            - last_price: float
+            - volume: int
+            - timestamp: str (ISO format)
+            - exchange_type: int
+
+        Args:
+            parsed_message: The raw parsed message from SmartWebSocketV2.
+
+        Returns:
+            Normalized tick dict, or None if unparseable.
+        """
+        if not parsed_message or not isinstance(parsed_message, dict):
+            return None
+
+        # SmartAPI typically returns keys like:
+        # 'tk' (token), 'ltp' (last_traded_price), 'lp' (last_price),
+        # 'v' (volume), 'e' (exchange_type)
+        token = parsed_message.get("tk") or parsed_message.get("token") or ""
+
+        # LTP could be in 'ltp', 'lp', or 'last_traded_price'
+        last_price = (
+            parsed_message.get("ltp")
+            or parsed_message.get("lp")
+            or parsed_message.get("last_price")
+            or parsed_message.get("last_traded_price")
+            or 0.0
+        )
+
+        volume = parsed_message.get("v") or parsed_message.get("volume") or 0
+        exchange_type = parsed_message.get("e") or parsed_message.get("exchange") or 1
+        symbol = parsed_message.get("symbol") or parsed_message.get("sym") or ""
+
+        # Ensure token is a string for consistent matching
+        token_str = str(token)
+
+        return {
+            "token": token_str,
+            "symbol": symbol,
+            "last_price": float(last_price),
+            "volume": int(volume),
+            "exchange_type": int(exchange_type),
+            "feed_type": "spot_tick",
+        }
 
     @property
     def connection_id(self) -> str:

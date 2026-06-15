@@ -8,12 +8,20 @@ Reference: ROADMAP_SIDE_B Step 8.2
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Any
+
+from junior_aladdin.shared.component_registry import get_registry
+
+log = logging.getLogger(__name__)
 
 
 def poll_floor_5() -> dict[str, Any]:
     """Poll Floor 5 for captain state, decision snapshots, and armed plans.
+
+    Uses ComponentRegistry.get_captain_engine() to get the SHARED singleton
+    (fixes BRUTAL_DEEP_SCAN FINDING #2).
 
     Returns:
         Dict with keys:
@@ -29,98 +37,86 @@ def poll_floor_5() -> dict[str, Any]:
         "last_poll": datetime.utcnow().isoformat(),
     }
 
+    # ── Captain Engine state (via ComponentRegistry) ──
     try:
-        # ── Captain Engine state ──
-        try:
-            from junior_aladdin.floor_5_captain.captain_engine import CaptainEngine
+        registry = get_registry()
+        engine = registry.get_captain_engine()
+        cs = engine.get_current_state()
 
-            engine = CaptainEngine()
-            state = engine.get_state()
+        # Pull real data from snapshot_writer for dashboard display
+        latest_snap = registry.get_snapshot_writer().get_latest_snapshot()
+        fetch_mood = "OBSERVER"
+        fetch_decision_state = "WAIT"
+        fetch_conviction_band = "REJECT"
+        fetch_market_story = ""
+        fetch_silence_reason = ""
+        fetch_session_phase = ""
+        fetch_real_mode_locked = False
+        fetch_active_trade = cs.get("has_active_trade", False)
 
-            result["captain_state"] = {
+        if latest_snap is not None:
+            if hasattr(latest_snap, "mood") and hasattr(latest_snap.mood, "value"):
+                fetch_mood = latest_snap.mood.value
+            if hasattr(latest_snap, "conviction_score"):
+                from junior_aladdin.floor_5_captain.captain_types import (
+                    conviction_score_to_band,
+                )
+                fetch_conviction_band = conviction_score_to_band(
+                    latest_snap.conviction_score,
+                ).value
+            if hasattr(latest_snap, "market_story_summary"):
+                fetch_market_story = latest_snap.market_story_summary
+            if hasattr(latest_snap, "decision_reason"):
+                fetch_decision_state = "TRADE" if fetch_active_trade else "WAIT"
+
+        result["captain_state"] = {
+            "mood": fetch_mood,
+            "decision_state": fetch_decision_state,
+            "conviction_band": fetch_conviction_band,
+            "market_story_summary": fetch_market_story,
+            "silence_reason": fetch_silence_reason,
+            "session_phase": fetch_session_phase,
+            "real_mode_locked": fetch_real_mode_locked,
+            "active_trade": fetch_active_trade,
+        }
+
+        # Decision snapshots — use get_session_snapshots() for latest N
+        all_snaps = registry.get_snapshot_writer().get_session_snapshots()
+        snapshots = all_snaps[-5:] if len(all_snaps) > 5 else all_snaps
+        result["decision_snapshots"] = [
+            {
+                "snapshot_id": s.snapshot_id,
+                "timestamp": (
+                    s.timestamp.isoformat()
+                    if hasattr(s, "timestamp")
+                    else ""
+                ),
+                "market_story_summary": getattr(s, "market_story_summary", ""),
+                "conviction_score": getattr(s, "conviction_score", 0.0),
+                "decision_reason": getattr(s, "decision_reason", ""),
                 "mood": (
-                    state.mood.value
-                    if hasattr(state, "mood") and hasattr(state.mood, "value")
-                    else str(getattr(state, "mood", "OBSERVER"))
+                    s.mood.value
+                    if hasattr(s, "mood") and hasattr(s.mood, "value")
+                    else ""
                 ),
-                "decision_state": (
-                    state.decision_state.value
-                    if hasattr(state, "decision_state") and hasattr(state.decision_state, "value")
-                    else str(getattr(state, "decision_state", "WAIT"))
-                ),
-                "conviction_band": (
-                    state.conviction_band.value
-                    if hasattr(state, "conviction_band") and hasattr(state.conviction_band, "value")
-                    else str(getattr(state, "conviction_band", "REJECT"))
-                ),
-                "market_story_summary": getattr(state, "market_story_summary", ""),
-                "silence_reason": getattr(state, "silence_reason", ""),
-                "session_phase": (
-                    state.session_phase.value
-                    if hasattr(state, "session_phase") and hasattr(state.session_phase, "value")
-                    else str(getattr(state, "session_phase", ""))
-                ),
-                "real_mode_locked": getattr(state, "real_mode_locked", False),
-                "active_trade": getattr(state, "active_trade", False),
             }
-        except ImportError:
-            pass
+            for s in snapshots
+        ]
 
-        # ── Decision snapshots ──
-        try:
-            from junior_aladdin.floor_5_captain.decision_snapshot_writer import (
-                DecisionSnapshotWriter,
-            )
-
-            writer = DecisionSnapshotWriter()
-            snapshots = writer.get_recent(count=5)
-            result["decision_snapshots"] = [
-                {
-                    "snapshot_id": s.snapshot_id,
-                    "timestamp": (
-                        s.timestamp.isoformat()
-                        if hasattr(s, "timestamp")
-                        else ""
-                    ),
-                    "market_story_summary": getattr(s, "market_story_summary", ""),
-                    "conviction_score": getattr(s, "conviction_score", 0.0),
-                    "decision_reason": getattr(s, "decision_reason", ""),
-                    "mood": (
-                        s.mood.value
-                        if hasattr(s, "mood") and hasattr(s.mood, "value")
-                        else ""
-                    ),
-                }
-                for s in snapshots
-            ]
-        except ImportError:
-            pass
-
-        # ── Armed plans ──
-        try:
-            from junior_aladdin.floor_5_captain.armed_plan_engine import (
-                ArmedPlanEngine,
-            )
-
-            plan_engine = ArmedPlanEngine()
-            plans = plan_engine.get_active_plans()
-            result["armed_plans"] = [
-                {
-                    "plan_id": p.plan_id,
-                    "direction": getattr(p, "direction", ""),
-                    "setup_class": getattr(p, "setup_class", ""),
-                    "readiness": getattr(p, "readiness", "WATCHING"),
-                    "expiry_condition": getattr(p, "expiry_condition", {}),
-                    "originating_heads": list(getattr(p, "originating_heads", [])),
-                }
-                for p in plans
-            ]
-        except ImportError:
-            pass
-
-    except ImportError:
-        pass
+        # Armed plans
+        plans = registry.get_armed_plan_engine().get_active_plans()
+        result["armed_plans"] = [
+            {
+                "plan_id": p.plan_id,
+                "direction": getattr(p, "direction", ""),
+                "setup_class": getattr(p, "setup_class", ""),
+                "readiness": getattr(p, "readiness", "WATCHING"),
+                "expiry_condition": getattr(p, "expiry_condition", {}),
+                "originating_heads": list(getattr(p, "originating_heads", [])),
+            }
+            for p in plans
+        ]
     except Exception:
-        pass
+        log.warning("Floor 5 poll failed — using defaults", exc_info=True)
 
     return result

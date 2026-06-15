@@ -30,6 +30,7 @@ class Config:
             "client_id": "",
             "api_key": "",
             "pin": "",
+            "totp_secret": "",
         },
         "capital": {
             "paper_limit": 100000,
@@ -57,6 +58,7 @@ class Config:
         "angel_one.client_id": "ANGEL_ONE_CLIENT_ID",
         "angel_one.api_key": "ANGEL_ONE_API_KEY",
         "angel_one.pin": "ANGEL_ONE_PIN",
+        "angel_one.totp_secret": "ANGEL_ONE_TOTP_SECRET",
         "env": "ENV",
         "capital.paper_limit": "CAPITAL_PAPER_LIMIT",
         "capital.real_limit": "CAPITAL_REAL_LIMIT",

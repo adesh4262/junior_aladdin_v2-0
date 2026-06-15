@@ -151,7 +151,7 @@ class DataAggregator:
             partial["market"] = self._build_market_snapshot(f1)
             self._cache.set("market_data", partial["market"], CacheTier.HOT)
         except Exception:
-            pass
+            log.warning("Market data HOT poll failed", exc_info=True)
 
         return partial
 
@@ -304,9 +304,39 @@ class DataAggregator:
         return state.health
 
     def _build_market_snapshot(self, f1_data: dict[str, Any]) -> MarketDataSnapshot:
+        """Build market snapshot with live session data from trading_calendar.
+
+        Uses trading_calendar.get_market_session() for accurate session state
+        (OPEN / LUNCH / CLOSING / CLOSED) including NSE holidays and weekends.
+        Falls back gracefully if trading_calendar is unavailable.
+        """
+        # Determine session & holiday state from trading calendar
+        session_str = ""
+        is_holiday = False
+        try:
+            from junior_aladdin.shared.trading_calendar import (
+                get_market_session,
+                get_session_state,
+            )
+            session = get_market_session()
+            session_str = session.session_state.value
+            is_holiday = session.is_holiday_today
+        except Exception:
+            log.warning("Trading calendar unavailable for market snapshot", exc_info=True)
+
+        source_health = f1_data.get("source_health", {})
         return MarketDataSnapshot(
             symbol="NIFTY 50",
-            ltp=f1_data.get("source_health", {}).get("ltp", 0.0),
+            ltp=source_health.get("ltp", 0.0),
+            change=source_health.get("change", 0.0),
+            change_percent=source_health.get("change_percent", 0.0),
+            open=source_health.get("open", 0.0),
+            high=source_health.get("high", 0.0),
+            low=source_health.get("low", 0.0),
+            prev_close=source_health.get("prev_close", 0.0),
+            volume=source_health.get("volume", 0),
+            vwap=source_health.get("vwap", 0.0),
+            session=session_str,
         )
 
     def _build_captain_state(self, f5_data: dict[str, Any]) -> CaptainDisplayState:
@@ -326,8 +356,8 @@ class DataAggregator:
         fs = f4_data.get("floor_summary", {})
         heads = f4_data.get("head_reports", [])
         return FloorSummaryDisplay(
-            floor_bias=fs.get("floor_bias_snapshot", {}).get("bias", "NEUTRAL"),
-            floor_confidence=fs.get("floor_confidence_snapshot", {}).get("confidence", 0.0),
+            floor_bias=fs.get("floor_bias_snapshot", {}).get("dominant_floor_bias", "NEUTRAL"),
+            floor_confidence=fs.get("floor_confidence_snapshot", {}).get("average_confidence", 0.0),
             active_setup_count=fs.get("active_setup_count", 0),
             ready_heads=fs.get("ready_heads_count", 0),
             uncertain_heads=fs.get("uncertain_heads_count", 0),

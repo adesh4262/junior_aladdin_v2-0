@@ -87,8 +87,8 @@ def mock_source_data() -> dict:
         },
         "floor_4": {
             "floor_summary": {
-                "floor_bias_snapshot": {"bias": "BULLISH"},
-                "floor_confidence_snapshot": {"confidence": 0.75},
+                "floor_bias_snapshot": {"dominant_floor_bias": "BULLISH"},
+                "floor_confidence_snapshot": {"average_confidence": 0.75},
                 "active_setup_count": 3,
                 "ready_heads_count": 4,
                 "uncertain_heads_count": 1,
@@ -462,7 +462,7 @@ class TestPollWarm:
     ) -> None:
         """Floor summary from poll_warm() is a FloorSummaryDisplay."""
         mock_f4.return_value = {
-            "floor_summary": {"floor_bias_snapshot": {"bias": "BULLISH"}, "floor_confidence_snapshot": {"confidence": 0.8}},
+            "floor_summary": {"floor_bias_snapshot": {"dominant_floor_bias": "BULLISH"}, "floor_confidence_snapshot": {"average_confidence": 0.8}},
             "head_reports": [],
         }
         mock_f5.return_value = {"captain_state": {"mood": "OBSERVER"}, "armed_plans": []}
@@ -731,8 +731,8 @@ class TestBuilderMethods:
         """_build_floor_summary creates FloorSummaryDisplay with head reports."""
         f4_data = {
             "floor_summary": {
-                "floor_bias_snapshot": {"bias": "BULLISH"},
-                "floor_confidence_snapshot": {"confidence": 0.8},
+                "floor_bias_snapshot": {"dominant_floor_bias": "BULLISH"},
+                "floor_confidence_snapshot": {"average_confidence": 0.8},
                 "active_setup_count": 3,
                 "ready_heads_count": 4,
                 "uncertain_heads_count": 1,

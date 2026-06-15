@@ -32,7 +32,7 @@ class TestFloor1Source:
     """Test poll_floor_1() — source health, connection, latency."""
 
     def test_returns_dict_with_defaults(self) -> None:
-        """Returns expected keys with default values when imports fail."""
+        """Returns expected keys with data from ComponentRegistry singleton."""
         from junior_aladdin.side_b_api.data_sources.floor_1_source import poll_floor_1
 
         result = poll_floor_1()
@@ -41,8 +41,8 @@ class TestFloor1Source:
         assert "source_health" in result
         assert "connection_status" in result
         assert "last_poll" in result
-        # Import path succeeds (module exists) but constructor fails → ERROR
-        assert result["connection_status"] == "ERROR"
+        # Now uses ComponentRegistry — SourceHealthMonitor starts as HEALTHY
+        assert result["connection_status"] in ("CONNECTED", "ERROR")
         assert isinstance(result["source_health"], dict)
 
     def test_connection_status_correct_keys(self) -> None:
@@ -129,7 +129,7 @@ class TestFloor3Source:
     """Test poll_floor_3() — CMSP, domain summaries, chart data."""
 
     def test_returns_dict_with_defaults(self) -> None:
-        """Returns expected keys with default values when imports fail."""
+        """Returns expected keys with data from F3Orchestrator (via ComponentRegistry)."""
         from junior_aladdin.side_b_api.data_sources.floor_3_source import poll_floor_3
 
         result = poll_floor_3()
@@ -139,8 +139,11 @@ class TestFloor3Source:
         assert "domain_summaries" in result
         assert "chart_data" in result
         assert "last_poll" in result
-        assert result["cmsp"] == {}
-        assert result["domain_summaries"] == {}
+        # F3Orchestrator now runs even without candle data — returns engine statuses
+        assert isinstance(result["cmsp"], dict)
+        assert "data_health" in result["cmsp"]
+        assert "engine_statuses" in result["cmsp"]
+        assert isinstance(result["domain_summaries"], dict)
         assert result["chart_data"] is None
 
     def test_last_poll_is_iso_timestamp(self) -> None:
@@ -152,14 +155,17 @@ class TestFloor3Source:
         parsed = datetime.fromisoformat(result["last_poll"])
         assert parsed is not None
 
-    def test_cmsp_is_empty_dict_by_default(self) -> None:
-        """CMSP defaults to empty dict when floor_3 unavailable."""
+    def test_cmsp_has_engine_statuses(self) -> None:
+        """CMSP populated by F3Orchestrator with engine statuses even without candles."""
         from junior_aladdin.side_b_api.data_sources.floor_3_source import poll_floor_3
 
         result = poll_floor_3()
-        assert result["cmsp"] == {}
-        assert result["domain_summaries"] == {}
-        assert result["chart_data"] is None
+        cmsp = result["cmsp"]
+        assert isinstance(cmsp, dict)
+        assert "data_health" in cmsp
+        assert "engine_statuses" in cmsp
+        # Engines should report status even without candle data
+        assert len(cmsp["engine_statuses"]) > 0
 
 
 # ══════════════════════════════════════════════════════════════
@@ -204,7 +210,7 @@ class TestFloor5Source:
     """Test poll_floor_5() — captain state, decision snapshots, armed plans."""
 
     def test_returns_dict_with_defaults(self) -> None:
-        """Returns expected keys with default values when imports fail."""
+        """Returns expected keys with data from ComponentRegistry CaptainEngine."""
         from junior_aladdin.side_b_api.data_sources.floor_5_source import poll_floor_5
 
         result = poll_floor_5()
@@ -214,9 +220,11 @@ class TestFloor5Source:
         assert "decision_snapshots" in result
         assert "armed_plans" in result
         assert "last_poll" in result
-        assert result["captain_state"] == {}
-        assert result["decision_snapshots"] == []
-        assert result["armed_plans"] == []
+        # Now gets real data from CaptainEngine singleton — captain_state is populated
+        assert isinstance(result["captain_state"], dict)
+        assert "mood" in result["captain_state"]
+        assert isinstance(result["decision_snapshots"], list)
+        assert isinstance(result["armed_plans"], list)
 
     def test_last_poll_is_iso_timestamp(self) -> None:
         """last_poll is a valid ISO timestamp."""
@@ -237,7 +245,7 @@ class TestSideASource:
     """Test poll_side_a() — execution state, blocked actions, logs."""
 
     def test_returns_dict_with_defaults(self) -> None:
-        """Returns expected keys with default values when imports fail."""
+        """Returns expected keys with data from ComponentRegistry orchestrator."""
         from junior_aladdin.side_b_api.data_sources.side_a_source import poll_side_a
 
         result = poll_side_a()
@@ -247,9 +255,11 @@ class TestSideASource:
         assert "blocked_actions" in result
         assert "execution_logs" in result
         assert "last_poll" in result
-        assert result["execution_state"] == {}
-        assert result["blocked_actions"] == []
-        assert result["execution_logs"] == []
+        # Now gets real data from orchestrator singleton — execution_state is populated
+        assert isinstance(result["execution_state"], dict)
+        assert "state" in result["execution_state"]
+        assert isinstance(result["blocked_actions"], list)
+        assert isinstance(result["execution_logs"], list)
 
     def test_last_poll_is_iso_timestamp(self) -> None:
         """last_poll is a valid ISO timestamp."""

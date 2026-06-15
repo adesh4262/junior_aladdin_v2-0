@@ -9,8 +9,11 @@ Reference: ROADMAP_SIDE_B Step 8.2
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 
 def poll_floor_3() -> dict[str, Any]:
@@ -30,56 +33,43 @@ def poll_floor_3() -> dict[str, Any]:
         "last_poll": datetime.utcnow().isoformat(),
     }
 
+    # ── CMSP via F3Orchestrator ──
+    # Run a lightweight calculation cycle to get current market state.
+    # Floor 3 engines need candle data to produce signals.
+    # Without WebSocket (no tick data), engines return empty signal sets.
     try:
-        # ── CMSP ──
-        try:
-            from junior_aladdin.shared.types import CMSP
-            from junior_aladdin.floor_3_calculations.f3_orchestrator import (
-                get_cmsp,
-            )
+        from junior_aladdin.floor_3_calculations.f3_types import (
+            CalculationInput,
+            MarketPhase,
+        )
+        from junior_aladdin.floor_3_calculations.f3_config import F3Config
+        from junior_aladdin.shared.component_registry import get_registry
 
-            cmsp: CMSP = get_cmsp()
+        calc_input = CalculationInput(
+            packet_envelope_id="dashboard_poll",
+            market_phase=MarketPhase.OPEN,
+            symbol="NIFTY",
+            timestamp=datetime.utcnow(),
+            data={
+                "current_price": 0.0,  # No live tick data yet
+                "candles": [],  # No WebSocket — no candles
+                "options_snapshots": {},
+            },
+        )
+
+        f3 = get_registry().get_f3_orchestrator()
+        oc = f3(calc_input, F3Config())
+
+        if oc.floor_summary:
             result["cmsp"] = {
-                "price_state": cmsp.price_state,
-                "volatility_state": cmsp.volatility_state,
-                "session_state": cmsp.session_state,
-                "regime_state": cmsp.regime_state,
-                "key_levels": list(cmsp.key_levels),
+                "price_state": oc.floor_summary.domain_summaries.get("SMC", {}),
+                "signals_count": oc.floor_summary.signals_count,
+                "engine_statuses": oc.floor_summary.engine_statuses,
+                "data_health": oc.floor_summary.data_health.value,
             }
-        except ImportError:
-            pass
+            result["domain_summaries"] = oc.floor_summary.domain_summaries
 
-        # ── Domain summaries ──
-        try:
-            from junior_aladdin.floor_3_calculations.f3_orchestrator import (
-                get_domain_states,
-            )
-
-            states = get_domain_states()
-            result["domain_summaries"] = {
-                k: (
-                    v if isinstance(v, dict) else {"status": str(v)}
-                )
-                for k, v in states.items()
-            }
-        except ImportError:
-            pass
-
-        # ── Chart data (OHLCV) ──
-        try:
-            from junior_aladdin.floor_3_calculations.f3_orchestrator import (
-                get_chart_data,
-            )
-
-            chart = get_chart_data()
-            if chart is not None:
-                result["chart_data"] = chart
-        except ImportError:
-            pass
-
-    except ImportError:
-        pass
     except Exception:
-        pass
+        log.debug("Floor 3 orchestrator poll failed", exc_info=True)
 
     return result

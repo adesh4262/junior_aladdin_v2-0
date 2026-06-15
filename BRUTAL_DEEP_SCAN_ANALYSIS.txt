@@ -1,0 +1,210 @@
+================================================================================
+  JUNIOR ALADDIN V2.0 — BRUTAL DEEP-SCAN ANALYSIS
+  "Does it actually WORK, or does it just LOOK like it works?"
+  Date: 2026-06-15 | Read-only analysis — NO changes made
+================================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  THE ONE-LINE VERDICT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  हा system एक कार सारखा आहे ज्याचे सर्व पार्ट्स वैयक्तिकरित्या
+  (individually) उत्तम बनलेले आहेत आणि test झालेले आहेत —
+  पण ते कधीच एकत्र जोडले गेले नाहीत.
+
+  Engine bench वर चालतो (mock data ने). Dashboard चे lights चालू होतात.
+  पण दोघांना जोडणारा driveshaft नाही. म्हणून गाडी चालत नाही.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  FINDING #1 — THERE IS NO MAIN RUNNER  (CRITICAL 🔴)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  संपूर्ण project मध्ये (419 files, 1,09,614 lines) एकही file नाही जो
+  संपूर्ण trading pipeline चालवतो:
+
+      Floor 1 (Angel One data) → Floor 2 (clean) → Floor 3 (calculate)
+      → Floor 4 (interpret) → Floor 5 (Captain decide) → Side A (execute)
+
+  एकमेव "runner" म्हणजे:
+  1. scripts/smoke_test_captain.py → Captain ला MOCK data खाऊ घालतो
+  2. start_system.bat → फक्त Side B dashboard server सुरू करतो
+
+  परिणाम: Market on असताना कोणताही real data flow होत नाही.
+  कोणतेही trades होत नाहीत. Captain कधीच खर्या data ने decide करत नाही.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  FINDING #2 — DASHBOARD IS DISCONNECTED  (CRITICAL 🔴)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Side B's data_aggregator, dashboard ला खरे data द्यायचा प्रयत्न करतो,
+  पण प्रत्येक data source adapter मध्ये हा pattern आहे:
+
+      try:
+          orchestrator = ExecutionOrchestrator()   ← NO ARGS = TypeError!
+      except ImportError:
+          pass                                       ← स्वाभाविकपणे ignore केले
+      except Exception:
+          pass                                       ← TypeError देखील गिळले!
+
+  म्हणजे:
+  - poll_side_a() → ExecutionOrchestrator() ला 11 dependencies लागतात
+  - 0 arguments ने call केल्यामुळे TypeError
+  - except Exception: pass स्वाभाविकपणे गिळून टाकतो
+  - निकाल: empty defaults परत येतात
+  - Dashboard ला कधीच खरे execution state दिसत नाही
+
+  मी सर्वर खरे चालवून बघितला. हे data मिळाले:
+  ┌─────────────────────────────────────────────────────────────┐
+  │ Market:   ltp=0.0, session="" (→ frontend "CLOSED" दाखवतो) │
+  │ Execution: mode=ALERT, state=IDLE, capital=null             │
+  │ Captain:  mood=OBSERVER, decision=WAIT, conviction=REJECT   │
+  │ Health:   Floor 1=ERROR, Floor 2=UNKNOWN, Floor 3=DEGRADED  │
+  └─────────────────────────────────────────────────────────────┘
+
+  हे सर्व DEFAULTS आहेत — खरे data नाही. काहीही चालू नसल्यासारखे दिसते.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  FINDING #3 — MARKET DATA IS A STUB  (CRITICAL 🔴)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  _build_market_snapshot() पूर्ण method (संपूर्ण method):
+
+      def _build_market_snapshot(self, f1_data):
+          return MarketDataSnapshot(
+              symbol="NIFTY 50",
+              ltp=f1_data.get("source_health", {}).get("ltp", 0.0),  # नेहमी 0.0!
+          )
+
+  समस्या:
+  - session field set होत नाही → frontend ला "" मिळतो → "CLOSED" दाखवतो
+  - trading_calendar.get_market_session() चा वापर कुठेच केला जात नाही!
+  - ltp कधीच real price नाही (source_health मध्ये ltp field नाहीच)
+  - open, high, low, volume, vwap — सर्व 0.0 (dataclass defaults)
+
+  trading_calendar.py मध्ये उत्तम logic आहे (IST 9:15-3:30, holidays,
+  expiry, session states) — पण कोणी तो वापरतच नाही.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  FINDING #4 — MODE/CAPITAL ARE EPHEMERAL (CRITICAL 🔴)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  तुम्ही dashboard वर PAPER mode select करता:
+    1. control_routes.py → handler → cache.set("control:mode", cmd)
+    2. cache default tier = COLD = 30 second TTL
+    3. 30 सेकंद mode PAPER दिसतो ✅
+    4. 30 सेकंदांनी cache entry EXPIRE होतो
+    5. data_aggregator falls back to → es.get("mode", "ALERT")
+    6. Mode परत ALERT वर जातो ❌
+
+  हेच capital साठी देखील होते — 30 सेकंदांनी गहाळ.
+
+  Root cause: Mode/capital हे कुठेच persist होत नाहीत. फक्त
+  ephemeral cache मध्ये आहेत जे expire होतात. खरे Side A
+  orchestrator ला हे कधीच पोहोचत नाहीत (कारण orchestrator run
+  होतच नाही).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  FINDING #5 — TESTS TEST ISOLATED UNITS, NOT THE LIVE SYSTEM  (HIGH 🟠)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  3014 tests pass. हे छान आहे. पण हे सर्व isolated unit tests आहेत:
+
+  - Captain tests → mock head reports feed करतात, real Floors नाही
+  - Execution tests → mock broker, mock intent feed करतात
+  - Side B tests → mock API responses check करतात
+  - Floor tests → synthetic packets feed करतात
+
+  एकही test "संपूर्ण system खरे Angel One ने चालवून बघत नाही."
+  कारण असा कोणताही integrated runner अस्तित्वातच नाही.
+
+  म्हणून 3014 green tests असूनही system live मध्ये काम करत नाही.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  WHAT IS ACTUALLY GOOD (BE HONEST ABOUT THE GOOD TOO) ✅
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Individual components are GENUINELY well-built:
+
+  ✅ Captain Engine (1454 lines) — smoke test PASSED. Full 24-step
+     heavy pipeline, conviction bands, loss lock, personality engine,
+     armed plans. This is REAL and WORKS (with mock data).
+
+  ✅ ExecutionOrchestrator (1551 lines) — Full pipeline: mode routing,
+     12-check risk gate, state machine, order lifecycle, protection
+     staging, reconciliation, EOD close, kill switch, overrides.
+     This is genuinely sophisticated code.
+
+  ✅ Angel One Auth (auth_manager.py) — Real SmartConnect login,
+     token management, session lifecycle. Real SDK integration.
+
+  ✅ Paper Broker — Realistic simulator with spread, delay, rejection.
+  ✅ Real Broker — Real SmartConnect order placement.
+
+  ✅ Trading Calendar — IST timezone, NSE holidays 2026, expiry,
+     session states. Excellent logic (just never connected to UI).
+
+  ✅ Floor 3 Calculations — SMC, ICT, Technical, Options engines.
+  ✅ Floor 4 Heads — 6 interpreter heads with memory/refresh.
+  ✅ Side C Memory — Event store, journal, read models.
+
+  The QUALITY of individual components is high. The PROBLEM is they
+  were never assembled into a running system.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  THE MISSING PIECE — WHAT NEEDS TO BE BUILT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  To make this system ACTUALLY WORK, one thing is needed above all:
+
+  ╔══════════════════════════════════════════════════════════════╗
+  ║  A SYSTEM RUNNER / MAIN LOOP that:                           ║
+  ║                                                              ║
+  ║  1. Logs into Angel One (Floor 1)                            ║
+  ║  2. Subscribes to live NIFTY 50 feeds                        ║
+  ║  3. Feeds ticks → Floor 2 (clean) → Floor 3 (calculate)     ║
+  ║  4. On each candle close → Floor 4 (heads) → Floor 5 (capt) ║
+  ║  5. Captain decision → Side A (execution orchestrator)      ║
+  ║  6. Side A → broker (paper or real)                         ║
+  ║  7. Shares ONE orchestrator instance with Side B dashboard  ║
+  ║  8. Runs in a while-True loop during market hours           ║
+  ║                                                              ║
+  ║  PLUS: Wire market snapshot to trading_calendar             ║
+  ║  PLUS: Make mode/capital persist (not cache TTL)            ║
+  ║  PLUS: Make data_aggregator share live instances            ║
+  ╚══════════════════════════════════════════════════════════════╝
+
+  This is the "driveshaft" that connects all the parts.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PRIORITY FIX ORDER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  P0 (System won't run at all without this):
+    1. Build the System Runner / Main Loop (the missing piece)
+    2. Wire market snapshot to trading_calendar (fix "CLOSED" bug)
+    3. Make mode/capital persistent (fix revert bug)
+
+  P1 (System runs but broken pieces):
+    4. Make data_aggregator share live orchestrator instances
+       (not create fresh empty ones)
+    5. Wire Floor 1 live data → Floor 2 → 3 → 4 → 5 pipeline
+    6. Wire Side A command pickup (control cache → orchestrator)
+
+  P2 (Polish & safety):
+    7. Remove silent except: pass in data sources (surface real errors)
+    8. Add integration test that runs the FULL live pipeline
+    9. Fix datetime.utcnow() deprecation warnings
+
+
+================================================================================
+  END OF BRUTAL ANALYSIS — NO CHANGES WERE MADE
+================================================================================

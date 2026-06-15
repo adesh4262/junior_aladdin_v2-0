@@ -4,6 +4,7 @@ angel_one:
   client_id: ""
   api_key: ""
   pin: ""
+  totp_secret: ""
 
 capital:
   paper_limit: 100000

@@ -288,6 +288,11 @@ class CaptainEngine:
         self._recent_loss_cycles: int = 0
         self._cooldown_remaining: int = 0
 
+        # Latest head reports + floor summary from last heavy cycle
+        # Stored here so Side B (API) can poll them via poll_floor_4()
+        self._latest_head_reports: dict[str, HeadReport] = {}
+        self._latest_floor_summary: FloorSummary | None = None
+
     # ══════════════════════════════════════════════════════════════════
     # HEAVY CYCLE (24 steps, called on 1m candle close)
     # ══════════════════════════════════════════════════════════════════
@@ -334,6 +339,10 @@ class CaptainEngine:
 
         # ── Step 0a: Daily loss counter reset ─────────────────────────
         self.loss_lock_manager.check_and_reset_if_new_day(dt.date())
+
+        # ── Store latest head reports + floor summary for Side B API ──
+        self._latest_head_reports = head_reports or {}
+        self._latest_floor_summary = floor_summary
 
         # ── Step 1: Permission Gate ──────────────────────────────────
         psychology_report = head_reports.get("Psychology Head") if head_reports else None
@@ -1278,6 +1287,26 @@ class CaptainEngine:
         """
         return self._active_trade
 
+    def get_latest_head_reports(self) -> dict[str, HeadReport]:
+        """Get the head reports from the most recent heavy cycle.
+
+        Used by Side B API (poll_floor_4) to display head data on dashboard.
+
+        Returns:
+            Dict mapping head_name → HeadReport. Empty dict if no cycle run yet.
+        """
+        return dict(self._latest_head_reports)
+
+    def get_latest_floor_summary(self) -> FloorSummary | None:
+        """Get the floor summary from the most recent heavy cycle.
+
+        Used by Side B API (poll_floor_4) to display floor summary on dashboard.
+
+        Returns:
+            FloorSummary or None if no cycle run yet.
+        """
+        return self._latest_floor_summary
+
     def get_current_state(self) -> dict[str, Any]:
         """Get a summary of the engine's current runtime state.
 
@@ -1292,6 +1321,8 @@ class CaptainEngine:
             "silence_count": self.silence_logger.get_reason_count(),
             "candle_index": self._candle_index,
             "latest_snapshot_id": latest_snap.snapshot_id if latest_snap else "",
+            "latest_heads": len(self._latest_head_reports),
+            "has_floor_summary": self._latest_floor_summary is not None,
         }
 
     def get_engine_summary(self) -> dict[str, Any]:
@@ -1338,6 +1369,8 @@ class CaptainEngine:
         self._current_opposite = None
         self._current_trade_idea = None
         self._current_trade_class_assignment = None
+        self._latest_head_reports = {}
+        self._latest_floor_summary = None
 
         self.session_policy = SessionPolicy()
         self.loss_lock_manager = LossLockManager()

@@ -71,14 +71,19 @@ class AuthManager:
 
             smart_connect = SmartConnect(api_key=api_key)
 
-            # Generate TOTP from config or use current time-based
+            # Generate TOTP from config secret
             # PyOTP is optional — falls back to blank string if unavailable.
-            totp = self._generate_totp()
+            totp_secret = self._config.get("angel_one.totp_secret") or ""
+            totp = self._generate_totp(secret=totp_secret)
+            logger.debug(
+                "TOTP generated%s",
+                " (from secret)" if totp_secret else " (empty — setup required)",
+            )
 
             data = smart_connect.generateSession(
-                client_id=client_id,
+                clientCode=client_id,
                 password=pin,
-                token=totp,
+                totp=totp,
             )
 
             if not data or not isinstance(data, dict):
@@ -88,10 +93,10 @@ class AuthManager:
                 )
 
             session_data = data.get("data") or data
-            self._token = session_data.get("accessToken")
+            self._token = session_data.get("jwtToken") or session_data.get("accessToken")
             self._refresh_token = session_data.get("refreshToken")
             self._feed_token = session_data.get("feedToken")
-            self._user_profile = session_data.get("userProfile", session_data)
+            self._user_profile = session_data
             self._authenticated = True
             self._smart_connect = smart_connect
 
